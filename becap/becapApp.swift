@@ -8,10 +8,17 @@
 import SwiftUI
 
 @main
-struct becapApp: App {
+struct becap: App {
+    @StateObject private var defiManager = DefiManager()
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            MainTabView()
+                .environmentObject(defiManager)
+                .onAppear {
+                    defiManager.chargerDefis()
+                    defiManager.chargerPhotos()
+                }
         }
     }
 }
