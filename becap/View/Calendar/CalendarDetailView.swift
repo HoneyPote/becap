@@ -10,26 +10,37 @@
 import SwiftUI
 
 struct CalendarDetailView: View {
-    var defi: Defi
+    @EnvironmentObject var defiManager: DefiManager
+    let defi: Defi
     @State private var selectedParticipant: String? = nil
     @State private var selectedDate: Date? = nil
     @State private var showModal = false
+    @State private var isEditNotifActive = false
 
-    var jours: [Date] {
-        (0..<defi.duree).compactMap { offset in
-            Calendar.current.date(byAdding: .day, value: offset, to: defi.dateDebut)
+    // Helper for days in challenge
+    var days: [Date] {
+        (0..<defi.duration).compactMap { offset in
+            Calendar.current.date(byAdding: .day, value: offset, to: defi.startDate)
         }
+    }
+
+    // Helper to get a binding to the current defi in the manager
+    private func bindingForDefi() -> Binding<Defi> {
+        guard let index = defiManager.defis.firstIndex(where: { $0.id == defi.id }) else {
+            fatalError("Defi not found in manager")
+        }
+        return $defiManager.defis[index]
     }
 
     var body: some View {
         VStack {
-            Text(defi.nom)
+            Text(defi.name)
                 .font(.title2)
                 .padding(.top)
 
             if !defi.participants.isEmpty {
                 Picker("Participant", selection: $selectedParticipant) {
-                    Text("Tous").tag(String?.none)
+                    Text("All").tag(String?.none)
                     ForEach(defi.participants, id: \.self) { name in
                         Text(name).tag(Optional(name))
                     }
@@ -40,7 +51,7 @@ struct CalendarDetailView: View {
 
             ScrollView {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
-                    ForEach(jours, id: \.self) { date in
+                    ForEach(Array(days.enumerated()), id: \.element) { (idx, date) in
                         VStack {
                             Text(formatted(date))
                                 .font(.caption)

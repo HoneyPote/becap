@@ -11,11 +11,16 @@ import Foundation
 
 struct Defi: Identifiable, Codable, Hashable {
     var id = UUID()
-    var nom: String
-    var dateDebut: Date
-    var duree: Int
+    var name: String
+    var startDate: Date
+    var duration: Int
     var participants: [String]
-    var heureNotification: Date
+    var notificationConfig: [DefiNotificationDayConfig]
+}
+
+struct DefiNotificationDayConfig: Codable, Hashable {
+    var dayIndex: Int        // 0 = first day, 1 = second, ...
+    var times: [Date]        // Notification times for that day
 }
 
 struct PhotoDefi: Identifiable, Codable {

@@ -29,7 +29,7 @@ struct PhotoListModalView: View {
                     Text("Tous les participants")
                 }
 
-                let photos = defiManager.photosPour(defiId: defiManager.defis.first?.id ?? UUID(), date: date, participant: participant)
+                let photos = defiManager.photosFor(defiId: defiManager.defis.first?.id ?? UUID(), date: date, participant: participant)
 
                 if photos.isEmpty {
                     Spacer()

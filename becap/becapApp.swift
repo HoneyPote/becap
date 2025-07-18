@@ -29,8 +29,9 @@ struct becap: App {
             MainTabView()
                 .environmentObject(defiManager)
                 .onAppear {
-                    defiManager.chargerDefis()
-                    defiManager.chargerPhotos()
+                    defiManager.loadDefis()
+                    defiManager.loadPhotos()
+                    NotificationManager.shared.requestAuthorization()
                 }
         }
     }

@@ -6,8 +6,8 @@
 //
 
 // ChallengeApp/Views/NewDefiView.swift
-
 import SwiftUI
+
 
 struct NewDefiView: View {
     @EnvironmentObject var defiManager: DefiManager
@@ -20,7 +20,7 @@ struct NewDefiView: View {
     @State private var participants: [String] = []
 
     var body: some View {
-        Form {
+          Form {
             Section(header: Text("Nom du défi")) {
                 TextField("Nom", text: $nom)
             }
@@ -48,26 +48,29 @@ struct NewDefiView: View {
                         participantInput = ""
                     }
                 }
-
                 ForEach(participants, id: \.self) { name in
                     Text(name)
                 }
             }
 
-            Section {
-                Button("Créer le défi") {
-                    let newDefi = Defi(
-                        nom: nom,
-                        dateDebut: Date(),
-                        duree: duree,
-                        participants: participants,
-                        heureNotification: heureNotification
-                    )
-                    defiManager.ajouterDefi(newDefi)
-                    dismiss()
-                }
-                .disabled(nom.isEmpty || participants.isEmpty)
-            }
+              Section {
+                  Button("Créer le défi") {
+                      // Création de la configuration des notifications : par défaut une heure unique chaque jour (par exemple celle choisie par l'utilisateur)
+                      let config: [DefiNotificationDayConfig] = (0..<duree).map { i in
+                          DefiNotificationDayConfig(dayIndex: i, times: [heureNotification])
+                      }
+                      let newDefi = Defi(
+                          name: nom,
+                          startDate: Date(),
+                          duration: duree,
+                          participants: participants,
+                          notificationConfig: config
+                      )
+                      defiManager.addDefi(newDefi)
+                      dismiss()
+                  }
+                  .disabled(nom.isEmpty || participants.isEmpty)
+              }
         }
         .navigationTitle("Nouveau défi")
     }

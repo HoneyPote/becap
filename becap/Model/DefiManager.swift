@@ -5,35 +5,29 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-// ChallengeApp/Managers/DefiManager.swift
-
 import Foundation
 import SwiftUI
 
 class DefiManager: ObservableObject {
     @Published var defis: [Defi] = [] {
         didSet {
-            sauvegarderDefis()
+            saveDefis()
         }
     }
     @Published var photos: [PhotoDefi] = [] {
         didSet {
-            sauvegarderPhotos()
+            savePhotos()
         }
     }
 
-    private let storageKey = "defis_stockes"
-    private let photoKey = "photos_stockees"
+    private let storageKey = "stored_defis"
+    private let photoKey = "stored_photos"
 
-    func ajouterDefi(_ defi: Defi) {
-        defis.append(defi)
-    }
-
-    func ajouterPhoto(_ photo: PhotoDefi) {
+    func addPhoto(_ photo: PhotoDefi) {
         photos.append(photo)
     }
 
-    func photosPour(defiId: UUID, date: Date, participant: String?) -> [PhotoDefi] {
+    func photosFor(defiId: UUID, date: Date, participant: String?) -> [PhotoDefi] {
         photos.filter { p in
             Calendar.current.isDate(p.date, inSameDayAs: date)
             && p.defiId == defiId
@@ -41,39 +35,49 @@ class DefiManager: ObservableObject {
         }
     }
 
-    func sauvegarderDefis() {
+    func saveDefis() {
         do {
             let data = try JSONEncoder().encode(defis)
             UserDefaults.standard.set(data, forKey: storageKey)
         } catch {
-            print("Erreur lors de la sauvegarde des défis: \(error)")
+            print("Error saving challenges: \(error)")
         }
     }
 
-    func chargerDefis() {
+    func loadDefis() {
         guard let data = UserDefaults.standard.data(forKey: storageKey) else { return }
         do {
             defis = try JSONDecoder().decode([Defi].self, from: data)
         } catch {
-            print("Erreur lors du chargement des défis: \(error)")
+            print("Error loading challenges: \(error)")
         }
     }
 
-    func sauvegarderPhotos() {
+    func savePhotos() {
         do {
             let data = try JSONEncoder().encode(photos)
             UserDefaults.standard.set(data, forKey: photoKey)
         } catch {
-            print("Erreur lors de la sauvegarde des photos: \(error)")
+            print("Error saving photos: \(error)")
         }
     }
 
-    func chargerPhotos() {
+    func loadPhotos() {
         guard let data = UserDefaults.standard.data(forKey: photoKey) else { return }
         do {
             photos = try JSONDecoder().decode([PhotoDefi].self, from: data)
         } catch {
-            print("Erreur lors du chargement des photos: \(error)")
+            print("Error loading photos: \(error)")
         }
+    }
+
+    func addDefi(_ defi: Defi) {
+        defis.append(defi)
+        NotificationManager.shared.scheduleAllNotifications(for: defi)
+    }
+
+    func removeDefi(_ defi: Defi) {
+        defis.removeAll { $0.id == defi.id }
+        NotificationManager.shared.removeNotifications(for: defi)
     }
 }

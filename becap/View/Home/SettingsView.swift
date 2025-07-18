@@ -15,7 +15,7 @@ struct SettingsView: View {
             List {
                 NavigationLink("Créer un nouveau défi", destination: NewDefiView())
                 NavigationLink("Rejoindre un défi", destination: JoinDefiView())
-                NavigationLink("Notifications", destination: Text("Paramètres de notifications"))
+                NavigationLink("Notifications", destination: NotificationSettingsView())
             }
             .navigationTitle("Menu")
         }

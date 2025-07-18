@@ -12,9 +12,9 @@ import PhotosUI
 
 struct CameraView: View {
     @EnvironmentObject var defiManager: DefiManager
-    @State private var selectedDefi: Defi?
+    @State private var selectedDefi: Defi? = nil
     @State private var participant = ""
-    @State private var selectedImage: UIImage?
+    @State private var selectedImage: UIImage? = nil
     @State private var showCamera = false
     @State private var showAlert = false
     @State private var alertMessage = ""
@@ -23,14 +23,17 @@ struct CameraView: View {
         NavigationView {
             VStack(spacing: 20) {
                 Picker("Défi", selection: $selectedDefi) {
-                    Text("Choisir un défi").tag(Defi?.none)
+                    Text("Choisir un défi").tag(nil as Defi?)
                     ForEach(defiManager.defis) { defi in
-                        Text(defi.nom).tag(Optional(defi))
+                        Text(defi.name) // use .nom if your Defi still uses French
+                            .tag(Optional(defi))
                     }
                 }
                 .pickerStyle(.menu)
 
                 TextField("Votre prénom", text: $participant)
+                    .autocapitalization(.words)
+                    .disableAutocorrection(true)
                     .textFieldStyle(.roundedBorder)
                     .padding(.horizontal)
 
@@ -48,7 +51,7 @@ struct CameraView: View {
                 .buttonStyle(.borderedProminent)
 
                 Button("Enregistrer la photo") {
-                    enregistrerPhoto()
+                    savePhoto()
                 }
                 .disabled(selectedImage == nil || selectedDefi == nil || participant.trimmingCharacters(in: .whitespaces).isEmpty)
             }
@@ -65,7 +68,7 @@ struct CameraView: View {
         }
     }
 
-    func enregistrerPhoto() {
+    func savePhoto() {
         guard let image = selectedImage, let defi = selectedDefi else { return }
         guard let data = image.jpegData(compressionQuality: 0.8) else { return }
 
@@ -75,7 +78,7 @@ struct CameraView: View {
         do {
             try data.write(to: url)
             let photo = PhotoDefi(defiId: defi.id, date: Date(), prenomAuteur: participant, imagePath: url.path)
-            defiManager.ajouterPhoto(photo)
+            defiManager.addPhoto(photo)
             alertMessage = "Photo enregistrée avec succès"
             selectedImage = nil
         } catch {
