@@ -5,84 +5,109 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-// ChallengeApp/Views/CalendarDetailView.swift
-
 import SwiftUI
+
+struct PagerInfo: Identifiable {
+    let id = UUID()
+    let photos: [PhotoDefi]
+    let index: Int
+    let date: Date
+}
 
 struct CalendarDetailView: View {
     @EnvironmentObject var defiManager: DefiManager
-    let defi: Defi
-    @State private var selectedParticipant: String? = nil
-    @State private var selectedDate: Date? = nil
-    @State private var showModal = false
-    @State private var isEditNotifActive = false
+    @StateObject private var vm: CalendarDetailViewModel
+    @State private var selectedPagerInfo: PagerInfo?
 
-    // Helper for days in challenge
-    var days: [Date] {
-        (0..<defi.duration).compactMap { offset in
-            Calendar.current.date(byAdding: .day, value: offset, to: defi.startDate)
-        }
-    }
-
-    // Helper to get a binding to the current defi in the manager
-    private func bindingForDefi() -> Binding<Defi> {
-        guard let index = defiManager.defis.firstIndex(where: { $0.id == defi.id }) else {
-            fatalError("Defi not found in manager")
-        }
-        return $defiManager.defis[index]
+    init(defi: Defi, photos: [PhotoDefi]) {
+        _vm = StateObject(wrappedValue: CalendarDetailViewModel(defi: defi, photos: photos))
     }
 
     var body: some View {
-        VStack {
-            Text(defi.name)
-                .font(.title2)
-                .padding(.top)
+        VStack(spacing: 0) {
+            Text(vm.defi.name)
+                .font(.largeTitle.bold())
+                .foregroundColor(.white)
+                .padding(.top, 42)
+                .padding(.bottom, 12)
+                .padding(.horizontal, 24)
 
-            if !defi.participants.isEmpty {
-                Picker("Participant", selection: $selectedParticipant) {
-                    Text("All").tag(String?.none)
-                    ForEach(defi.participants, id: \.self) { name in
-                        Text(name).tag(Optional(name))
-                    }
+            // Picker de filtre par participant
+            Picker("Filtrer par", selection: $vm.selectedParticipant) {
+                Text("Tous").tag(String?.none)
+                ForEach(vm.uniqueParticipants, id: \.self) { p in
+                    Text(p).tag(Optional(p))
                 }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
             }
+            .pickerStyle(.segmented)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 4)
 
             ScrollView {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))]) {
-                    ForEach(Array(days.enumerated()), id: \.element) { (idx, date) in
-                        VStack {
-                            Text(formatted(date))
-                                .font(.caption)
-
-                            ZStack {
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.gray.opacity(0.2))
-                                    .frame(height: 80)
-                                Text("📸")
-                            }
+                VStack(spacing: 12) {
+                    ForEach(0..<vm.defi.duration, id: \.self) { i in
+                        let date = Calendar.current.date(byAdding: .day, value: i, to: vm.defi.startDate)!
+                        let photosOfDay = vm.allPhotos.filter {
+                            $0.defiId == vm.defi.id &&
+                            Calendar.current.isDate($0.date, inSameDayAs: date) &&
+                            (vm.selectedParticipant == nil || $0.prenomAuteur == vm.selectedParticipant)
                         }
-                        .onTapGesture {
-                            selectedDate = date
-                            showModal = true
+                        Button {
+                            // Ouvre le carrousel si au moins une photo ce jour-là
+                            if !photosOfDay.isEmpty {
+                                selectedPagerInfo = PagerInfo(photos: photosOfDay, index: 0, date: date)
+                            }
+                        } label: {
+                            HStack {
+                                Text(date, style: .date)
+                                    .foregroundColor(.white)
+                                    .fontWeight(.medium)
+                                Spacer()
+                                Text("\(photosOfDay.count) photo(s)")
+                                    .foregroundColor(.white.opacity(0.6))
+                                Image(systemName: "chevron.right")
+                                    .foregroundColor(.white.opacity(0.4))
+                            }
+                            .padding()
+                            .background(.thinMaterial)
+                            .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                     }
                 }
                 .padding()
             }
         }
-        .navigationTitle("Calendrier")
-        .sheet(isPresented: $showModal) {
-            if let date = selectedDate {
-                PhotoListModalView(date: date, participant: selectedParticipant)
-            }
+        .background(LinearGradient.petrolToSky.ignoresSafeArea())
+        // Carrousel
+        .sheet(item: $selectedPagerInfo) { info in
+            CalendarPhotoPagerView(
+                photos: info.photos,
+                startIndex: info.index,
+                onDelete: { photo in
+                    // Suppression réelle dans le manager + refresh VM
+                    if let idx = defiManager.photos.firstIndex(where: { $0.id == photo.id }) {
+                        // Efface le fichier image du disque (optionnel)
+                        try? FileManager.default.removeItem(atPath: photo.imagePath)
+                        // Retire la photo du manager
+                        defiManager.photos.remove(at: idx)
+                        // Refresh VM avec les photos à jour
+                        vm.updatePhotos(defiManager.photos)
+                        // Met à jour la modale si besoin (plus de photos, ou index change)
+                        if let pager = selectedPagerInfo {
+                            let newPhotos = pager.photos.filter { $0.id != photo.id }
+                            if newPhotos.isEmpty {
+                                selectedPagerInfo = nil
+                            } else {
+                                let newIndex = min(pager.index, newPhotos.count-1)
+                                selectedPagerInfo = PagerInfo(photos: newPhotos, index: newIndex, date: pager.date)
+                            }
+                        }
+                    }
+                },
+                onClose: {
+                    selectedPagerInfo = nil
+                }
+            )
         }
-    }
-
-    func formatted(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        return formatter.string(from: date)
     }
 }

@@ -23,10 +23,11 @@ struct DefiNotificationDayConfig: Codable, Hashable {
     var times: [Date]        // Notification times for that day
 }
 
-struct PhotoDefi: Identifiable, Codable {
+struct PhotoDefi: Identifiable, Codable, Hashable {
     var id = UUID()
     var defiId: UUID
     var date: Date
     var prenomAuteur: String
     var imagePath: String
+    var description: String? // <- Optionnel
 }
