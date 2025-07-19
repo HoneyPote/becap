@@ -7,6 +7,8 @@
 
 import SwiftUI
 
+import SwiftUI
+
 struct PagerInfo: Identifiable {
     let id = UUID()
     let photos: [PhotoDefi]
@@ -32,7 +34,7 @@ struct CalendarDetailView: View {
                 .padding(.bottom, 12)
                 .padding(.horizontal, 24)
 
-            // Picker de filtre par participant
+            // Filtre participant
             Picker("Filtrer par", selection: $vm.selectedParticipant) {
                 Text("Tous").tag(String?.none)
                 ForEach(vm.uniqueParticipants, id: \.self) { p in
@@ -47,13 +49,29 @@ struct CalendarDetailView: View {
                 VStack(spacing: 12) {
                     ForEach(0..<vm.defi.duration, id: \.self) { i in
                         let date = Calendar.current.date(byAdding: .day, value: i, to: vm.defi.startDate)!
+                        let isToday = Calendar.current.isDateInToday(date)
                         let photosOfDay = vm.allPhotos.filter {
                             $0.defiId == vm.defi.id &&
                             Calendar.current.isDate($0.date, inSameDayAs: date) &&
                             (vm.selectedParticipant == nil || $0.prenomAuteur == vm.selectedParticipant)
                         }
+
+                        // === Corrige le background ici avec AnyView ===
+                        let todayBackground: AnyView = isToday
+                            ? AnyView(
+                                LinearGradient(
+                                    gradient: Gradient(colors: [
+                                        Color.green.opacity(0.82),
+                                        Color.green.opacity(0.45)
+                                    ]),
+                                    startPoint: .topLeading, endPoint: .bottomTrailing
+                                )
+                            )
+                            : AnyView(
+                                Color.white.opacity(0.13)
+                            )
+
                         Button {
-                            // Ouvre le carrousel si au moins une photo ce jour-là
                             if !photosOfDay.isEmpty {
                                 selectedPagerInfo = PagerInfo(photos: photosOfDay, index: 0, date: date)
                             }
@@ -62,6 +80,17 @@ struct CalendarDetailView: View {
                                 Text(date, style: .date)
                                     .foregroundColor(.white)
                                     .fontWeight(.medium)
+                                if isToday {
+                                    Text("Aujourd’hui")
+                                        .font(.caption)
+                                        .foregroundColor(.white)
+                                        .padding(.horizontal, 9)
+                                        .padding(.vertical, 4)
+                                        .background(
+                                            Capsule().fill(Color.green.opacity(0.95))
+                                        )
+                                        .padding(.leading, 4)
+                                }
                                 Spacer()
                                 Text("\(photosOfDay.count) photo(s)")
                                     .foregroundColor(.white.opacity(0.6))
@@ -69,7 +98,7 @@ struct CalendarDetailView: View {
                                     .foregroundColor(.white.opacity(0.4))
                             }
                             .padding()
-                            .background(.thinMaterial)
+                            .background(todayBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
                     }
@@ -78,21 +107,15 @@ struct CalendarDetailView: View {
             }
         }
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
-        // Carrousel
         .sheet(item: $selectedPagerInfo) { info in
             CalendarPhotoPagerView(
                 photos: info.photos,
                 startIndex: info.index,
                 onDelete: { photo in
-                    // Suppression réelle dans le manager + refresh VM
                     if let idx = defiManager.photos.firstIndex(where: { $0.id == photo.id }) {
-                        // Efface le fichier image du disque (optionnel)
                         try? FileManager.default.removeItem(atPath: photo.imagePath)
-                        // Retire la photo du manager
                         defiManager.photos.remove(at: idx)
-                        // Refresh VM avec les photos à jour
                         vm.updatePhotos(defiManager.photos)
-                        // Met à jour la modale si besoin (plus de photos, ou index change)
                         if let pager = selectedPagerInfo {
                             let newPhotos = pager.photos.filter { $0.id != photo.id }
                             if newPhotos.isEmpty {
