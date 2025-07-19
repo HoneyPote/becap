@@ -9,7 +9,7 @@
 
 import SwiftUI
 
-struct HomeView: View {
+struct ChallengeView: View {
     @EnvironmentObject var defiManager: DefiManager
     @StateObject private var vm = HomeViewModel()
 

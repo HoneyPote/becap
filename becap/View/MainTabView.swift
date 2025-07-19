@@ -12,9 +12,9 @@ struct MainTabView: View {
 
     var body: some View {
         TabView {
-            HomeView()
+            ChallengeView()
                 .tabItem {
-                    Label("Défis", systemImage: "house.fill")
+                    Label("Challenge", systemImage: "house.fill")
                 }
 
             CameraView(defiManager: defiManager)   // <-- Correction ici
