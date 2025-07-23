@@ -5,12 +5,17 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-// ChallengeApp/Views/NewDefiView.swift
+//
+//  NewDefiView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 15/07/2025.
+//
+
 import SwiftUI
 
-
 struct NewDefiView: View {
-    @EnvironmentObject var defiManager: DefiManager
+    @EnvironmentObject var challengeManager: ChallengeManager
     @Environment(\.dismiss) var dismiss
 
     @State private var nom = ""
@@ -20,7 +25,7 @@ struct NewDefiView: View {
     @State private var participants: [String] = []
 
     var body: some View {
-          Form {
+        Form {
             Section(header: Text("Nom du défi")) {
                 TextField("Nom", text: $nom)
             }
@@ -53,24 +58,32 @@ struct NewDefiView: View {
                 }
             }
 
-              Section {
-                  Button("Créer le défi") {
-                      // Création de la configuration des notifications : par défaut une heure unique chaque jour (par exemple celle choisie par l'utilisateur)
-                      let config: [DefiNotificationDayConfig] = (0..<duree).map { i in
-                          DefiNotificationDayConfig(dayIndex: i, times: [heureNotification])
-                      }
-                      let newDefi = Defi(
-                          name: nom,
-                          startDate: Date(),
-                          duration: duree,
-                          participants: participants,
-                          notificationConfig: config
-                      )
-                      defiManager.addDefi(newDefi)
-                      dismiss()
-                  }
-                  .disabled(nom.isEmpty || participants.isEmpty)
-              }
+            Section {
+                Button("Créer le défi") {
+                    // Configuration des notifications par défaut : une notif par jour à la même heure
+                    let config: [ChallengeNotification] = (0..<duree).map { i in
+                        ChallengeNotification(dayIndex: i, times: [heureNotification])
+                    }
+                    let newChallenge = Challenge(
+                        id: nil,
+                        title: nom,
+                        duration: duree,
+                        startDate: Date(),
+                        creatorUID: challengeManager.currentUser?.id ?? "unknown",
+                        participantUids: participants, // Si tu as des UID, sinon prénom temporaire
+                        status: "active",
+                        notificationsConfig: config
+                    )
+                    ChallengeService.shared.addChallenge(newChallenge) { error in
+                        if error == nil {
+                            challengeManager.loadChallenges() // Recharge la liste après ajout
+                            dismiss()
+                        }
+                        // Tu peux ajouter une gestion d'erreur ici (toast, alert...)
+                    }
+                }
+                .disabled(nom.isEmpty || participants.isEmpty)
+            }
         }
         .navigationTitle("Nouveau défi")
     }

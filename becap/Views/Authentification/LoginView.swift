@@ -40,7 +40,7 @@ struct LoginView: View {
             }
             .padding()
             .navigationDestination(isPresented: $viewModel.isAuthenticated) {
-                MainTabView(defiManager: DefiManager())
+                MainTabView(challengeManager: ChallengeManager.shared)
             }
             .navigationBarBackButtonHidden(true)
         }

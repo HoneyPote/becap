@@ -8,10 +8,10 @@
 import SwiftUI
 
 class NotificationSettingsViewModel: ObservableObject {
-    @Published var notificationConfig: [DefiNotificationDayConfig]
+    @Published var notificationConfig: [ChallengeNotification]
     let duration: Int
 
-    init(config: [DefiNotificationDayConfig], duration: Int) {
+    init(config: [ChallengeNotification], duration: Int) {
         self.notificationConfig = config
         self.duration = duration
     }
@@ -40,8 +40,8 @@ class NotificationSettingsViewModel: ObservableObject {
         }
     }
 
-    // Appelle ce getter pour renvoyer la config éditée à DefiManager
-    var updatedConfig: [DefiNotificationDayConfig] {
+    // Getter pour renvoyer la config éditée à ChallengeManager ou ChallengeService
+    var updatedConfig: [ChallengeNotification] {
         notificationConfig
     }
 }

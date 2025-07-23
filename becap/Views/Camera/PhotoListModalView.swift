@@ -9,13 +9,24 @@
 
 import SwiftUI
 
+import SwiftUI
+
 struct PhotoListModalView: View {
+    var challenge: Challenge
     var date: Date
     var participant: String?
-    @EnvironmentObject var defiManager: DefiManager
+    @EnvironmentObject var challengeManager: ChallengeManager
     @Environment(\.dismiss) var dismiss
-    @State private var toDelete: PhotoDefi?
+    @State private var toDelete: ChallengePhoto?
     @State private var showDeleteAlert = false
+
+    var photos: [ChallengePhoto] {
+        (challengeManager.photos[challenge.id ?? ""] ?? [])
+            .filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
+                && (participant == nil || $0.authorName == participant)
+            }
+    }
 
     var body: some View {
         NavigationView {
@@ -24,12 +35,10 @@ struct PhotoListModalView: View {
                     .font(.headline)
 
                 if let participant = participant {
-                    Text("Filtré: \(participant)")
+                    Text("Filtré : \(participant)")
                 } else {
                     Text("Tous les participants")
                 }
-
-                let photos = defiManager.photosFor(defiId: defiManager.defis.first?.id ?? UUID(), date: date, participant: participant)
 
                 if photos.isEmpty {
                     Spacer()
@@ -40,7 +49,7 @@ struct PhotoListModalView: View {
                         ForEach(photos) { photo in
                             VStack(alignment: .leading) {
                                 HStack {
-                                    Text(photo.prenomAuteur)
+                                    Text(photo.authorName)
                                         .font(.subheadline)
                                     Spacer()
                                     Button(role: .destructive) {
@@ -52,14 +61,26 @@ struct PhotoListModalView: View {
                                     }
                                 }
                                 .padding(.bottom, 2)
-                                if let uiImage = UIImage(contentsOfFile: photo.imagePath) {
-                                    Image(uiImage: uiImage)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(maxHeight: 200)
-                                        .cornerRadius(10)
+                                if let url = URL(string: photo.imageUrl) {
+                                    AsyncImage(url: url) { phase in
+                                        switch phase {
+                                        case .success(let image):
+                                            image
+                                                .resizable()
+                                                .scaledToFit()
+                                                .frame(maxHeight: 200)
+                                                .cornerRadius(10)
+                                        case .failure:
+                                            Text("Image introuvable")
+                                                .foregroundColor(.gray)
+                                        case .empty:
+                                            ProgressView()
+                                        @unknown default:
+                                            EmptyView()
+                                        }
+                                    }
                                 } else {
-                                    Text("Image introuvable")
+                                    Text("URL invalide")
                                         .foregroundColor(.gray)
                                 }
                             }
@@ -73,14 +94,12 @@ struct PhotoListModalView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fermer") {
-                        dismiss()
-                    }
+                    Button("Fermer") { dismiss() }
                 }
             }
             .alert("Supprimer la photo ?", isPresented: $showDeleteAlert, presenting: toDelete) { photo in
                 Button("Supprimer", role: .destructive) {
-                    supprimer(photo)
+                  //  supprimer(photo)
                 }
                 Button("Annuler", role: .cancel) {}
             } message: { _ in
@@ -89,12 +108,9 @@ struct PhotoListModalView: View {
         }
     }
 
-    func supprimer(_ photo: PhotoDefi) {
-        try? FileManager.default.removeItem(atPath: photo.imagePath)
-        if let index = defiManager.photos.firstIndex(where: { $0.id == photo.id }) {
-            defiManager.photos.remove(at: index)
-        }
-    }
+//    func supprimer(_ photo: ChallengePhoto) {
+//        challengeManager.deletePhoto(photo) { _ in }
+//    }
 
     func formatted(_ date: Date) -> String {
         let formatter = DateFormatter()

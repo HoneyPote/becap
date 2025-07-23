@@ -8,30 +8,28 @@
 import SwiftUI
 
 struct MainTabView: View {
-    // @ObservedObject plutôt que @StateObject puisque defiManager est injecté depuis le login ou le register
-    @ObservedObject var defiManager: DefiManager
+    // ChallengeManager partagé (injecté depuis login/register)
+    @ObservedObject var challengeManager: ChallengeManager
 
     var body: some View {
         TabView {
-            ChallengeView()
+            ChallengeView(challengeManager: challengeManager)
                 .tabItem {
                     Label("Challenge", systemImage: "house.fill")
                 }
 
-            CameraView(defiManager: defiManager)   // <-- Correction ici
+            CameraView(challengeManager: challengeManager)
                 .tabItem {
                     Label("Photo", systemImage: "camera.fill")
                 }
-
-            SettingsView(defiManager: defiManager)
+            SettingsView()
                 .tabItem {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
         }
-        .environmentObject(defiManager)
+        .environmentObject(ChallengeManager.shared)
         .onAppear {
-            defiManager.loadDefis()
-            defiManager.loadPhotos()
+            challengeManager.loadChallenges()
             NotificationManager.shared.requestAuthorization()
         }
         .navigationBarBackButtonHidden(true)

@@ -39,7 +39,10 @@ class SplashScreenViewModel: ObservableObject {
                 }
             } catch let error {
                 print("Erreur lors de la récupération de l'utilisateur : \(error.localizedDescription)")
-                self.isAuthenticated = false
+                await MainActor.run {
+                    self.isAuthenticated = false
+                    self.fetchingAlreadyConnectedUserIsDone = true
+                }
             }
         }
     }

@@ -17,12 +17,12 @@ struct ShakeEffect: GeometryEffect {
 }
 
 struct CameraView: View {
-    @EnvironmentObject var defiManager: DefiManager
+    @EnvironmentObject var challengeManager: ChallengeManager
     @StateObject private var vm: CameraViewModel
 
     // Injection du ViewModel
-    init(defiManager: DefiManager) {
-        _vm = StateObject(wrappedValue: CameraViewModel(defiManager: defiManager))
+    init(challengeManager: ChallengeManager) {
+        _vm = StateObject(wrappedValue: CameraViewModel(challengeManager: challengeManager))
     }
     init(viewModel: CameraViewModel) {
         _vm = StateObject(wrappedValue: viewModel)
@@ -41,18 +41,16 @@ struct CameraView: View {
         }
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
         .navigationTitle("Prendre une photo")
-        .sheet(isPresented: $vm.showCamera, onDismiss: {}) {
+        .sheet(isPresented: $vm.showCamera) {
             CameraCaptureView(image: $vm.selectedImage)
         }
         .overlay(toastView)
         .onAppear {
-            if vm.selectedDefi == nil, let first = defiManager.defis.first {
-                vm.selectedDefi = first
+            if vm.selectedChallenge == nil, let first = challengeManager.challenges.first {
+                vm.selectedChallenge = first
             }
         }
     }
-
-    // MARK: - Sous-vues privées
 
     private var header: some View {
         Text("Nouvelle photo")
@@ -67,21 +65,13 @@ struct CameraView: View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Défi").font(.subheadline.bold())
-                    Picker("Défi", selection: $vm.selectedDefi) {
-                        ForEach(defiManager.defis) { defi in
-                            Text(defi.name).tag(Optional(defi))
+                    Picker("Défi", selection: $vm.selectedChallenge) {
+                        ForEach(challengeManager.challenges) { challenge in
+                            Text(challenge.title).tag(Optional(challenge))
                         }
                     }
                     .pickerStyle(.menu)
-                    .modifier(ShakeEffect(animatableData: vm.shakeDefi ? 1 : 0))
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Prénom").font(.subheadline.bold())
-                    TextField("Votre prénom", text: $vm.participant)
-                        .textFieldStyle(.roundedBorder)
-                        .modifier(ShakeEffect(animatableData: vm.shakeParticipant ? 1 : 0))
+                    .modifier(ShakeEffect(animatableData: vm.shakeChallenge ? 1 : 0))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
@@ -161,19 +151,14 @@ struct CameraView: View {
     @ViewBuilder
     private var saveButton: some View {
         Button {
-            if vm.selectedDefi == nil {
+            if vm.selectedChallenge == nil {
                 vm.showToastMessage("Veuillez sélectionner un défi.", type: .error)
-                withAnimation(.default) { vm.shakeDefi.toggle() }
+                withAnimation(.default) { vm.shakeChallenge.toggle() }
                 return
             }
             if vm.selectedImage == nil {
                 vm.showToastMessage("Veuillez prendre une photo.", type: .error)
                 withAnimation(.default) { vm.shakeImage.toggle() }
-                return
-            }
-            if vm.participant.trimmingCharacters(in: .whitespaces).isEmpty {
-                vm.showToastMessage("Veuillez saisir votre prénom.", type: .error)
-                withAnimation(.default) { vm.shakeParticipant.toggle() }
                 return
             }
             vm.enregistrerPhoto()

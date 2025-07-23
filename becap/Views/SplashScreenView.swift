@@ -17,7 +17,7 @@ struct SplashScreenView: View {
     var body: some View {
         if viewModel.logoAnimIsDone && viewModel.fetchingAlreadyConnectedUserIsDone {
             if viewModel.isAuthenticated {
-                MainTabView(defiManager: DefiManager())
+                MainTabView(challengeManager: ChallengeManager.shared)
             } else {
                 LoginView()
             }
@@ -46,7 +46,7 @@ struct SplashScreenView: View {
                     .font(.system(size: 60))
                     .foregroundColor(.white)
                     .padding(.bottom, 16)
-                
+
                 Text("Becap")
                     .font(.largeTitle)
                     .fontWeight(.bold)

@@ -8,12 +8,12 @@
 import SwiftUI
 
 class CalendarDetailViewModel: ObservableObject {
-    let defi: Defi
-    @Published var allPhotos: [PhotoDefi]
+    let challenge: Challenge
+    @Published var allPhotos: [ChallengePhoto]
     @Published var selectedParticipant: String? = nil
 
-    init(defi: Defi, photos: [PhotoDefi]) {
-        self.defi = defi
+    init(challenge: Challenge, photos: [ChallengePhoto]) {
+        self.challenge = challenge
         self.allPhotos = photos
     }
 
@@ -21,14 +21,14 @@ class CalendarDetailViewModel: ObservableObject {
     var uniqueParticipants: [String] {
         Set(
             allPhotos
-                .filter { $0.defiId == defi.id }
-                .map { $0.prenomAuteur }
+                .filter { $0.challengeId == challenge.id } // ← à adapter !
+                .map { $0.authorName }
         )
         .sorted()
     }
 
     // Appelée quand les photos sont modifiées (ex : suppression)
-    func updatePhotos(_ photos: [PhotoDefi]) {
+    func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
     }
 }

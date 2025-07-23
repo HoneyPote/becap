@@ -5,29 +5,35 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-import SwiftUI
+//
+//
+//  CalendarDetailView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 15/07/2025.
+//
 
 import SwiftUI
 
 struct PagerInfo: Identifiable {
     let id = UUID()
-    let photos: [PhotoDefi]
+    let photos: [ChallengePhoto]
     let index: Int
     let date: Date
 }
 
 struct CalendarDetailView: View {
-    @EnvironmentObject var defiManager: DefiManager
+    @EnvironmentObject var challengeManager: ChallengeManager
     @StateObject private var vm: CalendarDetailViewModel
     @State private var selectedPagerInfo: PagerInfo?
 
-    init(defi: Defi, photos: [PhotoDefi]) {
-        _vm = StateObject(wrappedValue: CalendarDetailViewModel(defi: defi, photos: photos))
+    init(challenge: Challenge, photos: [ChallengePhoto]) {
+        _vm = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge, photos: photos))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(vm.defi.name)
+            Text(vm.challenge.title)
                 .font(.largeTitle.bold())
                 .foregroundColor(.white)
                 .padding(.top, 42)
@@ -47,16 +53,14 @@ struct CalendarDetailView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(0..<vm.defi.duration, id: \.self) { i in
-                        let date = Calendar.current.date(byAdding: .day, value: i, to: vm.defi.startDate)!
+                    ForEach(0..<vm.challenge.duration, id: \.self) { i in
+                        let date = Calendar.current.date(byAdding: .day, value: i, to: vm.challenge.startDate)!
                         let isToday = Calendar.current.isDateInToday(date)
                         let photosOfDay = vm.allPhotos.filter {
-                            $0.defiId == vm.defi.id &&
-                            Calendar.current.isDate($0.date, inSameDayAs: date) &&
-                            (vm.selectedParticipant == nil || $0.prenomAuteur == vm.selectedParticipant)
+                            Calendar.current.isDate($0.date, inSameDayAs: date)
+//                            && (vm.selectedParticipant == nil || $0.authorName == vm.selectedParticipant)
                         }
 
-                        // === Corrige le background ici avec AnyView ===
                         let todayBackground: AnyView = isToday
                             ? AnyView(
                                 LinearGradient(
@@ -101,6 +105,7 @@ struct CalendarDetailView: View {
                             .background(todayBackground)
                             .clipShape(RoundedRectangle(cornerRadius: 16))
                         }
+                        .disabled(photosOfDay.isEmpty)
                     }
                 }
                 .padding()
@@ -112,17 +117,18 @@ struct CalendarDetailView: View {
                 photos: info.photos,
                 startIndex: info.index,
                 onDelete: { photo in
-                    if let idx = defiManager.photos.firstIndex(where: { $0.id == photo.id }) {
-                        try? FileManager.default.removeItem(atPath: photo.imagePath)
-                        defiManager.photos.remove(at: idx)
-                        vm.updatePhotos(defiManager.photos)
+                    challengeManager.deletePhoto(photo) { success in
+                        guard success else { return }
+                        // Mets à jour la liste locale en enlevant la photo supprimée
+                        let newPhotos = vm.allPhotos.filter { $0.id != photo.id }
+                        vm.updatePhotos(newPhotos)
                         if let pager = selectedPagerInfo {
-                            let newPhotos = pager.photos.filter { $0.id != photo.id }
-                            if newPhotos.isEmpty {
+                            let pagerPhotos = pager.photos.filter { $0.id != photo.id }
+                            if pagerPhotos.isEmpty {
                                 selectedPagerInfo = nil
                             } else {
-                                let newIndex = min(pager.index, newPhotos.count-1)
-                                selectedPagerInfo = PagerInfo(photos: newPhotos, index: newIndex, date: pager.date)
+                                let newIndex = min(pager.index, pagerPhotos.count-1)
+                                selectedPagerInfo = PagerInfo(photos: pagerPhotos, index: newIndex, date: pager.date)
                             }
                         }
                     }

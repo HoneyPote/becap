@@ -1,35 +1,30 @@
-//
-//  HomeViewModel.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 19/07/2025.
-//
-
 import SwiftUI
 
 class HomeViewModel: ObservableObject {
-    @Published var defiToDelete: Defi?
     @Published var showDeleteAlert = false
+    @Published var lastError: String?
+    private var challengeToDelete: Challenge?
 
-    func confirmDelete(_ defi: Defi) {
-        defiToDelete = defi
+    func confirmDelete(_ challenge: Challenge) {
+        challengeToDelete = challenge
         showDeleteAlert = true
     }
 
-    func performDelete(defiManager: DefiManager) {
-        if let defi = defiToDelete {
-            let photosToRemove = defiManager.photos.filter { $0.defiId == defi.id }
-            for photo in photosToRemove {
-                try? FileManager.default.removeItem(atPath: photo.imagePath)
+    func performDelete(manager: ChallengeManager) {
+        guard let challenge = challengeToDelete else { return }
+        manager.deleteChallenge(challenge) { [weak self] success in
+            DispatchQueue.main.async {
+                if !success {
+                    self?.lastError = "Erreur lors de la suppression du défi."
+                }
+                self?.showDeleteAlert = false
+                self?.challengeToDelete = nil
             }
-            defiManager.photos.removeAll { $0.defiId == defi.id }
-            defiManager.removeDefi(defi)
-            defiToDelete = nil
         }
     }
 
     func cancelDelete() {
-        defiToDelete = nil
         showDeleteAlert = false
+        challengeToDelete = nil
     }
 }

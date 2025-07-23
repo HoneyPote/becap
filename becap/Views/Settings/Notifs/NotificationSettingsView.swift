@@ -9,6 +9,7 @@ import SwiftUI
 
 struct NotificationSettingsView: View {
     @ObservedObject var vm: NotificationSettingsViewModel
+    let onSave: ([ChallengeNotification]) -> Void  // <-- ajout closure
     @Environment(\.dismiss) var dismiss
 
     var body: some View {
@@ -35,14 +36,16 @@ struct NotificationSettingsView: View {
                                     }
                                     .font(.caption)
                                 }
-                                ForEach(Array(vm.notificationConfig[day].times.enumerated()), id: \.offset) { idx, time in
+                                ForEach(vm.notificationConfig[day].times, id: \.self) { time in
                                     HStack {
                                         DatePicker(
                                             "",
                                             selection: Binding(
-                                                get: { vm.notificationConfig[day].times[idx] },
+                                                get: { time },
                                                 set: { newVal in
-                                                    vm.notificationConfig[day].times[idx] = newVal
+                                                    if let i = vm.notificationConfig[day].times.firstIndex(of: time) {
+                                                        vm.notificationConfig[day].times[i] = newVal
+                                                    }
                                                 }
                                             ),
                                             displayedComponents: .hourAndMinute
@@ -51,7 +54,9 @@ struct NotificationSettingsView: View {
                                         .colorScheme(.dark)
                                         Spacer()
                                         Button {
-                                            vm.removeTime(for: day, at: idx)
+                                            if let i = vm.notificationConfig[day].times.firstIndex(of: time) {
+                                                vm.removeTime(for: day, at: i)
+                                            }
                                         } label: {
                                             Image(systemName: "minus.circle.fill")
                                                 .foregroundColor(.red)
@@ -80,7 +85,7 @@ struct NotificationSettingsView: View {
                 }
 
                 Button("Enregistrer") {
-                    // Ici tu passes vm.updatedConfig à ton DefiManager/parent
+                    onSave(vm.updatedConfig) // <-- ici sauvegarde via closure
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
