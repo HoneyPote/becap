@@ -44,9 +44,13 @@ class SettingsViewModel: ObservableObject {
         Task {
             do {
                 try accountManager.signOut()
-                self.isSignedOut = true
+                await MainActor.run {
+                    isSignedOut = true
+                }
             } catch {
-                signoutError = error.localizedDescription
+                await MainActor.run {
+                    signoutError = error.localizedDescription
+                }
             }
         }
     }

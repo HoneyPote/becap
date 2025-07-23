@@ -16,7 +16,7 @@ struct SettingsView: View {
     }
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             VStack(alignment: .leading, spacing: 0) {
                 Text("Settings")
                     .font(.largeTitle.bold())
@@ -69,10 +69,9 @@ struct SettingsView: View {
             .onAppear {
                 vm.refresh()
             }
-        }
-        .navigationViewStyle(.stack)
-        .navigationDestination(isPresented: $vm.isSignedOut) {
-            LoginView()
+            .navigationDestination(isPresented: $vm.isSignedOut) {
+                LoginView()
+            }
         }
     }
 }

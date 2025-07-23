@@ -19,9 +19,13 @@ class AuthentificationViewModel: ObservableObject {
         Task {
             do {
                 _ = try await accountManager.login(email: email, password: password)
-                isAuthenticated = true
+                await MainActor.run {
+                    isAuthenticated = true
+                }
             } catch {
-                authError = error.localizedDescription
+                await MainActor.run {
+                    authError = error.localizedDescription
+                }
             }
         }
     }
@@ -30,9 +34,13 @@ class AuthentificationViewModel: ObservableObject {
         Task {
             do {
                 _ = try await accountManager.register(email: email, password: password, name: name)
-                isAuthenticated = true
+                await MainActor.run {
+                    isAuthenticated = true
+                }
             } catch {
-                authError = error.localizedDescription
+                await MainActor.run {
+                    authError = error.localizedDescription
+                }
             }
         }
     }
