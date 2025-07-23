@@ -8,7 +8,8 @@
 import SwiftUI
 
 struct MainTabView: View {
-    @EnvironmentObject var defiManager: DefiManager
+    // @ObservedObject plutôt que @StateObject puisque defiManager est injecté depuis le login ou le register
+    @ObservedObject var defiManager: DefiManager
 
     var body: some View {
         TabView {
@@ -27,6 +28,13 @@ struct MainTabView: View {
                     Label("Settings", systemImage: "gearshape.fill")
                 }
         }
+        .environmentObject(defiManager)
+        .onAppear {
+            defiManager.loadDefis()
+            defiManager.loadPhotos()
+            NotificationManager.shared.requestAuthorization()
+        }
+        .navigationBarBackButtonHidden(true)
     }
 }
 

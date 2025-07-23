@@ -10,8 +10,11 @@ import SwiftUI
 class SettingsViewModel: ObservableObject {
     @Published var selectedDefi: Defi?
     @Published private(set) var defis: [Defi] = []
+    @Published var isSignedOut: Bool = false
+    @Published var signoutError: String? = nil
 
     private var defiManager: DefiManager
+    private let accountManager: AccountServiceProtocol = AccountService()
 
     init(defiManager: DefiManager) {
         self.defiManager = defiManager
@@ -35,5 +38,16 @@ class SettingsViewModel: ObservableObject {
     // Utilisé pour le bouton notifications
     var currentDefi: Defi? {
         selectedDefi ?? defis.first
+    }
+
+    func signOut() {
+        Task {
+            do {
+                try accountManager.signOut()
+                self.isSignedOut = true
+            } catch {
+                signoutError = error.localizedDescription
+            }
+        }
     }
 }

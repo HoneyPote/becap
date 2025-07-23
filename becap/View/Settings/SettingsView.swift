@@ -56,6 +56,11 @@ struct SettingsView: View {
                         Label("Notifications", systemImage: "bell")
                             .foregroundColor(.gray)
                     }
+                    Button("Se déconnecter") {
+                        vm.signOut()
+                    }
+                    .foregroundStyle(.red)
+                    .frame(alignment: .center)
                 }
                 .listStyle(.insetGrouped)
                 .background(LinearGradient.petrolToSky.ignoresSafeArea())
@@ -66,5 +71,8 @@ struct SettingsView: View {
             }
         }
         .navigationViewStyle(.stack)
+        .navigationDestination(isPresented: $vm.isSignedOut) {
+            LoginView()
+        }
     }
 }
