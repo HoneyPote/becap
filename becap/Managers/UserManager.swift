@@ -7,19 +7,26 @@
 
 import Foundation
 
+protocol UserManagerProtocol {
+    var currentUser: User? { get }
+
+    func saveUser(user: User?)
+    func resetUser()
+}
+
 // Singleton
-final class UserManager: ObservableObject {
+final class UserManager: UserManagerProtocol, ObservableObject {
     static let shared = UserManager()
 
-    @Published var currentUser: User?
+    @Published private(set) var currentUser: User?
 
     private init() {}
-    
-    func saveUser (user: User) {
+
+    func saveUser(user: User?) {
         self.currentUser = user
     }
-    
-    func resetUser () {
+
+    func resetUser() {
         self.currentUser = nil
     }
 }

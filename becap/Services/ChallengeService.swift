@@ -37,6 +37,26 @@ final class ChallengeService {
         }
     }
 
+    func fetchAllChallengesOnce(completion: @escaping ([Challenge]) -> Void) {
+        db.collection("challenges").getDocuments { snapshot, error in
+            guard let documents = snapshot?.documents else {
+                print("❌ fetchAllChallengesOnce: snapshot vide")
+                completion([])
+                return
+            }
+            let challenges = documents.compactMap { try? $0.data(as: Challenge.self) }
+            completion(challenges)
+        }
+    }
+
+    func fetchAllChallengesOnce() async -> [Challenge] {
+        await withCheckedContinuation { continuation in
+            fetchAllChallengesOnce { challenges in
+                continuation.resume(returning: challenges)
+            }
+        }
+    }
+
     func addChallenge(_ challenge: Challenge, completion: ((Error?) -> Void)? = nil) {
         do {
             _ = try db.collection(collection).addDocument(from: challenge) { error in
@@ -133,7 +153,7 @@ final class ChallengeService {
 
     // MARK: - Photos
 
-    func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws {
+    func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto {
         guard let data = image.jpegData(compressionQuality: 0.8) else {
             throw ChallengeServiceError.invalidImageData("Invalid image data")
         }
@@ -141,13 +161,13 @@ final class ChallengeService {
         let fileName = "\(UUID().uuidString).jpg"
         let ref = storage.reference().child("photos/\(challengeId)/\(author.id ?? "unknown")/\(fileName)")
 
-        // Upload image
+        // Upload image to Storage
         _ = try await ref.putDataAsync(data, metadata: nil)
 
         // Get download URL
         let url = try await ref.downloadURL()
 
-        // Create photo
+        // Create photo object
         let photo = ChallengePhoto(
             authorUid: author.id ?? "",
             authorName: author.name,
@@ -158,27 +178,16 @@ final class ChallengeService {
         )
 
         // Save in Firestore
+        try savePhoto(photo, challengeId: challengeId)
+
+        return photo
+    }
+
+    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws {
         let docRef = db.collection(collection).document(challengeId).collection("photos").document()
         var photoToSave = photo
         photoToSave.id = docRef.documentID
         try docRef.setData(from: photoToSave)
-    }
-
-    private func savePhoto(_ photo: ChallengePhoto, challengeId: String, completion: @escaping (Result<ChallengePhoto, Error>) -> Void) {
-        do {
-            let ref = db.collection(collection).document(challengeId).collection("photos").document()
-            var photoToSave = photo
-            photoToSave.id = ref.documentID
-            try ref.setData(from: photoToSave) { error in
-                if let error = error {
-                    completion(.failure(error))
-                } else {
-                    completion(.success(photoToSave))
-                }
-            }
-        } catch {
-            completion(.failure(error))
-        }
     }
 
     func fetchPhotos(for challengeId: String, completion: @escaping ([ChallengePhoto]) -> Void) {
@@ -188,5 +197,28 @@ final class ChallengeService {
                 let photos = snapshot?.documents.compactMap { try? $0.data(as: ChallengePhoto.self) } ?? []
                 completion(photos)
             }
+    }
+
+    // MARK: - Notifications
+
+    func updateNotifications(for challenge: Challenge,
+                             config: [ChallengeNotification],
+                             completion: ((Error?) -> Void)? = nil) {
+        // mise à jour Firestore (fixée)
+        let db = Firestore.firestore()
+
+        // Convertir explicitement les dates en timestamps
+        let firestoreConfig = config.map { notif in
+            return [
+                "dayIndex": notif.dayIndex,
+                "times": notif.times.map { Timestamp(date: $0) }
+            ] as [String : Any]
+        }
+
+        db.collection("challenges").document(challenge.id ?? "").updateData([
+            "notificationsConfig": firestoreConfig
+        ]) { error in
+            completion?(error)
+        }
     }
 }

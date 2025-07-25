@@ -9,22 +9,24 @@ import Foundation
 
 class AuthentificationViewModel: ObservableObject {
     @Published var authError: String? = nil
-    @Published var isAuthenticated: Bool = false
 
-    private let accountManager: AccountManagerProtocol = AccountManager()
+    private let accountManager: AccountManagerProtocol
 
-    init() {}
+    init(accountManager: AccountManagerProtocol = AccountManager()) {
+        self.accountManager = accountManager
+    }
 
     func login(email: String, password: String) {
         Task {
             do {
                 _ = try await accountManager.login(email: email, password: password)
                 await MainActor.run {
-                    isAuthenticated = true
+                    AppState.shared.isLoggedIn = true
                 }
             } catch {
                 await MainActor.run {
                     authError = error.localizedDescription
+                    AppState.shared.isLoggedIn = false
                 }
             }
         }
@@ -35,11 +37,12 @@ class AuthentificationViewModel: ObservableObject {
             do {
                 _ = try await accountManager.register(email: email, password: password, name: name)
                 await MainActor.run {
-                    isAuthenticated = true
+                    AppState.shared.isLoggedIn = true
                 }
             } catch {
                 await MainActor.run {
                     authError = error.localizedDescription
+                    AppState.shared.isLoggedIn = false
                 }
             }
         }

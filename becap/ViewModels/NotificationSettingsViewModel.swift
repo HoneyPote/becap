@@ -9,11 +9,22 @@ import SwiftUI
 
 class NotificationSettingsViewModel: ObservableObject {
     @Published var notificationConfig: [ChallengeNotification]
+
+    private let challengeManager: ChallengeManager
+
+    let currentChallenge: Challenge
     let duration: Int
 
-    init(config: [ChallengeNotification], duration: Int) {
-        self.notificationConfig = config
-        self.duration = duration
+    // Getter pour renvoyer la config éditée à ChallengeManager ou ChallengeService
+    var updatedConfig: [ChallengeNotification] {
+        notificationConfig
+    }
+
+    init(challengeManager: ChallengeManager = ChallengeManager.shared, currentChallenge: Challenge) {
+        self.challengeManager = challengeManager
+        self.currentChallenge = currentChallenge
+        self.notificationConfig = currentChallenge.notificationsConfig ?? []
+        self.duration = currentChallenge.duration
     }
 
     func addTime(for day: Int, date: Date) {
@@ -40,8 +51,7 @@ class NotificationSettingsViewModel: ObservableObject {
         }
     }
 
-    // Getter pour renvoyer la config éditée à ChallengeManager ou ChallengeService
-    var updatedConfig: [ChallengeNotification] {
-        notificationConfig
+    func updateNotificationConfig() {
+        challengeManager.updateNotifications(for: currentChallenge, config: updatedConfig)
     }
 }

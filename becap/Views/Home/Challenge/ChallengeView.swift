@@ -6,23 +6,19 @@
 //
 
 //
-//  ChallengeView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 15/07/2025.
-//
-
 import SwiftUI
 
 struct ChallengeView: View {
     @ObservedObject var challengeManager: ChallengeManager
     @StateObject private var vm = HomeViewModel()
-
+    @State private var showJoinView = false
+    
+    
     var body: some View {
         NavigationView {
             ZStack {
                 LinearGradient.petrolToSky.ignoresSafeArea()
-
+                
                 VStack(alignment: .leading) {
                     Text("Liste des défis")
                         .font(.largeTitle.bold())
@@ -30,10 +26,13 @@ struct ChallengeView: View {
                         .padding(.top, 42)
                         .padding(.bottom, 12)
                         .padding(.horizontal, 24)
-
+                    
                     ScrollView {
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))]) {
-                            ForEach(challengeManager.challenges) { challenge in
+                            JoinButtonCell {
+                                showJoinView = true
+                            }
+                            ForEach(filteredChallenges) { challenge in
                                 DefiCell(
                                     challenge: challenge,
                                     photos: challengeManager.photos[challenge.id ?? ""] ?? [],
@@ -46,8 +45,8 @@ struct ChallengeView: View {
                         .padding()
                     }
                 }
-
-                // TOAST personnalisé en bas de l’écran
+                
+                
                 if let error = vm.lastError {
                     VStack {
                         Spacer()
@@ -76,7 +75,6 @@ struct ChallengeView: View {
                     .transition(.move(edge: .bottom).combined(with: .opacity))
                     .zIndex(10)
                     .onAppear {
-                        // Disparition auto du toast après 2s
                         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                             withAnimation { vm.lastError = nil }
                         }
@@ -94,8 +92,24 @@ struct ChallengeView: View {
             }
             .onAppear {
                 challengeManager.loadAllPhotos()
+                
+                print("[ChallengeView] onAppear")
+                
+                Task {
+                    await challengeManager.fetchAndFilterChallenges()
+                }
             }
         }
         .navigationViewStyle(.stack)
+        .sheet(isPresented: $showJoinView) {
+            JoinDefiView().environmentObject(challengeManager)
+        }
+    }
+    
+    private var filteredChallenges: [Challenge] {
+        guard let userId = challengeManager.currentUser?.id else { return [] }
+        return challengeManager.challenges.filter {
+            $0.participantUids.contains(userId) || $0.creatorUID == userId
+        }
     }
 }

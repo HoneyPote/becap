@@ -1,0 +1,54 @@
+//
+//  NewDefiViewModel.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 25/07/2025.
+//
+import SwiftUI
+
+@MainActor
+final class NewDefiViewModel: ObservableObject {
+    @Published var nom: String = ""
+    @Published var duree: Int = 30
+    @Published var heureNotification: Date = Date()
+    @Published var isLoading: Bool = false
+
+    var isFormValid: Bool {
+        !nom.isEmpty
+    }
+
+    func createChallenge(using manager: ChallengeManager, completion: @escaping (Bool) -> Void) {
+        guard let currentUser = manager.currentUser, let uid = currentUser.id else {
+            print("❌ Aucun utilisateur connecté")
+            completion(false)
+            return
+        }
+
+        isLoading = true
+
+        let config: [ChallengeNotification] = (0..<duree).map {
+            ChallengeNotification(dayIndex: $0, times: [heureNotification])
+        }
+
+        let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
+
+        let newChallenge = Challenge(
+            id: nil,
+            title: nom,
+            duration: duree,
+            startDate: Date(),
+            creatorUID: uid,
+            participantUids: [uid],
+            status: "active",
+            notificationsConfig: config,
+            code: code
+        )
+
+        manager.addNewChallengeToFirestore(newChallenge) { success in
+            DispatchQueue.main.async {
+                self.isLoading = false
+                completion(success)
+            }
+        }
+    }
+}

@@ -8,11 +8,17 @@
 import SwiftUI
 
 class CalendarDetailViewModel: ObservableObject {
-    let challenge: Challenge
     @Published var allPhotos: [ChallengePhoto]
     @Published var selectedParticipant: String? = nil
 
-    init(challenge: Challenge, photos: [ChallengePhoto]) {
+    private let challengeManager: ChallengeManager
+
+    let challenge: Challenge
+
+    init(challengeManager: ChallengeManager = ChallengeManager.shared,
+         challenge: Challenge,
+         photos: [ChallengePhoto]) {
+        self.challengeManager = challengeManager
         self.challenge = challenge
         self.allPhotos = photos
     }
@@ -27,8 +33,19 @@ class CalendarDetailViewModel: ObservableObject {
         .sorted()
     }
 
+    func deletePhoto(_ photo: ChallengePhoto, completion: @escaping (Bool) -> Void) {
+        challengeManager.deletePhoto(photo) { isDeleted in
+            if isDeleted {
+                // Mets à jour la liste locale en enlevant la photo supprimée
+                let newPhotos = self.allPhotos.filter { $0.id != photo.id }
+                self.updatePhotos(newPhotos)
+            }
+            completion(isDeleted)
+        }
+    }
+
     // Appelée quand les photos sont modifiées (ex : suppression)
-    func updatePhotos(_ photos: [ChallengePhoto]) {
+    private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
     }
 }

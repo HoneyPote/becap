@@ -12,26 +12,35 @@ struct MainTabView: View {
     @ObservedObject var challengeManager: ChallengeManager
 
     var body: some View {
-        TabView {
-            ChallengeView(challengeManager: challengeManager)
-                .tabItem {
-                    Label("Challenge", systemImage: "house.fill")
-                }
+        Group {
+            TabView {
+                ChallengeView(challengeManager: challengeManager)
+                    .tabItem {
+                        Label("Challenge", systemImage: "house.fill")
+                    }
 
-            CameraView(challengeManager: challengeManager)
-                .tabItem {
-                    Label("Photo", systemImage: "camera.fill")
-                }
-            SettingsView()
-                .tabItem {
-                    Label("Settings", systemImage: "gearshape.fill")
-                }
+                CameraView()
+                    .tabItem {
+                        Label("Photo", systemImage: "camera.fill")
+                    }
+                SettingsView()
+                    .tabItem {
+                        Label("Settings", systemImage: "gearshape.fill")
+                    }
+            }
         }
         .environmentObject(ChallengeManager.shared)
         .onAppear {
-            challengeManager.loadChallenges()
+            ChallengeManager.shared.loadCurrentUser { success in
+                 if success {
+                     Task { await ChallengeManager.shared.fetchAndFilterChallenges() }
+                 } else {
+                     // ⛔ Gérer scénario d’erreur
+                 }
+             }
             NotificationManager.shared.requestAuthorization()
         }
+        
         .navigationBarBackButtonHidden(true)
     }
 }

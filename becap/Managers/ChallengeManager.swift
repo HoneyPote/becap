@@ -1,4 +1,3 @@
-//
 //  ChallengeManager.swift
 //  becap
 //
@@ -8,92 +7,43 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseAuth
+import SwiftUI
 
 // MARK: - Modèles
 
-struct User: Identifiable, Codable {
-    @DocumentID var id: String?
-    var email: String
-    var name: String
-    var photoURL: String?
-    var medals: [UserMedal]?
-    var joinedChallenges: [String]?
-}
-
-struct UserMedal: Codable, Identifiable {
-    var id: String { name }
-    let name: String
-    let description: String
-    let iconName: String
-    let achievedDate: Date
-}
-
-struct Challenge: Identifiable, Codable, Hashable {
-    @DocumentID var id: String?
-    var title: String
-    var duration: Int
-    var startDate: Date
-    var creatorUID: String
-    var participantUids: [String]
-    var status: String // "active", "finished"
-    var notificationsConfig: [ChallengeNotification]?
-
-    // Hashable synthétique via les propriétés, mais tu peux aussi customiser si besoin :
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(title)
-    }
-
-    static func ==(lhs: Challenge, rhs: Challenge) -> Bool {
-        lhs.id == rhs.id && lhs.title == rhs.title
-    }
-}
-
-struct ChallengeNotification: Codable {
-    var dayIndex: Int
-    var times: [Date] // Format "HH:mm" ou utiliser Date si tu préfères
-}
-
 struct ParticipantProgress: Identifiable, Codable {
-    var id: String // user UID
+    var id: String
     var joinedDate: Date
     var validatedDays: [Date]
     var medals: [UserMedal]
     var currentStreak: Int
 }
 
-struct ChallengePhoto: Identifiable, Codable, Hashable {
-    @DocumentID var id: String?
-    var challengeId: String?             // ID du défi (parent)
-    var authorUid: String                // UID Firebase de l'auteur
-    var authorName: String               // Nom ou prénom affiché
-    var imageUrl: String                 // URL Cloud Storage de la photo
-    var description: String?             // Description optionnelle (légende)
-    var date: Date                       // Date de prise ou de soumission
-    var createdAt: Date                  // Date de création Firestore (souvent == date)
-
-    // Pour Hashable automatique
-    static func == (lhs: ChallengePhoto, rhs: ChallengePhoto) -> Bool {
-        lhs.id == rhs.id
-    }
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
 // MARK: - ChallengeManager
 
 final class ChallengeManager: ObservableObject {
+
     static let shared = ChallengeManager()
+
+    private let challengeService: ChallengeService
 
     @Published var currentUser: User?
     @Published var challenges: [Challenge] = []
-    @Published var participants: [String: [ParticipantProgress]] = [:] // challengeId -> [progress]
+    @Published var participants: [String: [ParticipantProgress]] = [:]
     @Published var medals: [UserMedal] = []
-    @Published var photos: [String: [ChallengePhoto]] = [:] // challengeId -> [photo]
+    @Published var photos: [String: [ChallengePhoto]] = [:]
+    @Published var selectedTab: Tabs = .challenge
 
-    private init() {}
+    private init(challengeService: ChallengeService = ChallengeService.shared) {
+        self.challengeService = challengeService
+    }
 
-    // MARK: - User
+    enum Tabs: Hashable {
+        case challenge
+        case camera
+        case settings
+    }
 
     func saveUser(_ user: User) {
         self.currentUser = user
@@ -103,31 +53,106 @@ final class ChallengeManager: ObservableObject {
         self.currentUser = nil
     }
 
-    // MARK: - Challenge CRUD (Firestore à implémenter dans un Service !)
+    func loadCurrentUserFromFirestore(completion: @escaping (Bool) -> Void) {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            print("❌ Aucun utilisateur connecté")
+            completion(false)
+            return
+        }
+        Firestore.firestore().collection("users").document(uid).getDocument { snapshot, error in
+            if let error = error {
+                print("❌ Erreur Firestore: \(error.localizedDescription)")
+                completion(false)
+                return
+            }
 
-    func addChallenge(_ challenge: Challenge) {
-        self.challenges.append(challenge)
+            do {
+                if let user = try snapshot?.data(as: User.self) {
+                    print("✅ Utilisateur chargé: \(user.name)")
+                    self.currentUser = user
+                    completion(true)
+                } else {
+                    print("❌ Document utilisateur introuvable ou vide")
+                    completion(false)
+                }
+            } catch {
+                print("❌ Erreur de décodage utilisateur: \(error.localizedDescription)")
+                completion(false)
+            }
+        }
     }
 
-    func joinChallenge(_ challenge: Challenge, for user: User) {
-        // À compléter selon logique Firestore
+    func challengesForCurrentUser() -> [Challenge] {
+        guard let uid = currentUser?.id else { return [] }
+        return challenges.filter { $0.creatorUID == uid || $0.participantUids.contains(uid) }
+    }
+    /// Récupère tous les défis présents dans Firestore sans filtrage
+    func fetchAllChallengesOnceAsync() async -> [Challenge] {
+        let db = Firestore.firestore()
+
+        do {
+            let snapshot = try await db.collection("challenges").getDocuments()
+            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            return challenges
+        } catch {
+            print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
+            return []
+        }
     }
 
-    // MARK: - Médailles
+    /// Met à jour un défi dans Firestore et localement dans la liste `challenges`
+    func updateChallenge(_ updatedChallenge: Challenge) async {
+        guard let id = updatedChallenge.id else {
+            print("❌ Challenge ID manquant")
+            return
+        }
 
+        if let index = challenges.firstIndex(where: { $0.id == id }) {
+            challenges[index] = updatedChallenge
+        }
+
+        let db = Firestore.firestore()
+        do {
+            try db.collection("challenges").document(id).setData(from: updatedChallenge) { error in
+                if let error = error {
+                    print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
+                } else {
+                    print("✅ Firestore challenge mis à jour")
+                }
+            }
+        } catch {
+            print("❌ Erreur d'encodage updateChallenge: \(error)")
+        }
+    }
+
+    /// Ajoute un nouveau défi dans Firestore puis recharge la liste des défis filtrés
+    func addNewChallengeToFirestore(_ challenge: Challenge, completion: ((Bool) -> Void)? = nil) {
+        ChallengeService.shared.addChallenge(challenge) { error in
+            if let error = error {
+                print("❌ Erreur création défi: \(error)")
+                completion?(false)
+                return
+            }
+
+            Task {
+                await self.fetchAndFilterChallenges()
+                DispatchQueue.main.async {
+                    completion?(true)
+                }
+            }
+        }
+    }
+
+    /// Ajoute une médaille à un utilisateur pour un défi donné (dans le cache local)
     func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
-        // Ajoute la médaille dans participants[challengeId], puis mets à jour Firestore
         if var progresses = participants[challengeId],
            let idx = progresses.firstIndex(where: { $0.id == userId }) {
             progresses[idx].medals.append(medal)
             participants[challengeId] = progresses
         }
     }
-
-    // MARK: - Progression
-
+    /// Met à jour la progression d’un utilisateur pour un jour validé dans un défi
     func updateProgress(for challengeId: String, userId: String, on day: Date) {
-        // Ajoute le jour validé dans la progression
         if var progresses = participants[challengeId],
            let idx = progresses.firstIndex(where: { $0.id == userId }) {
             if !progresses[idx].validatedDays.contains(where: { Calendar.current.isDate($0, inSameDayAs: day) }) {
@@ -136,23 +161,85 @@ final class ChallengeManager: ObservableObject {
             }
         }
     }
-
-    // MARK: - Photos
+    /// Upload une photo dans Firebase Storage via `ChallengeService`
     func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
-        try await ChallengeService.shared.uploadPhoto(image: image, challengeId: challengeId, author: author, description: description)
+        let photo = try await ChallengeService.shared.uploadPhoto(image: image,
+                                                                  challengeId: challengeId,
+                                                                  author: author,
+                                                                  description: description)
+        savePhoto(photo, to: challengeId)
     }
 
-    func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
+    private func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
         photos[challengeId, default: []].append(photo)
     }
 
-    func loadChallenges() {
-        ChallengeService.shared.fetchChallenges { [weak self] challenges in
-            DispatchQueue.main.async {
-                self?.challenges = challenges
+
+
+
+    ///  /// Charge l'utilisateur courant depuis Firestore
+    @MainActor
+    func loadCurrentUser(completion: @escaping (Bool) -> Void) {
+        guard let firebaseUser = Auth.auth().currentUser else {
+            print("❌ Aucun utilisateur authentifié")
+            self.currentUser = nil
+            completion(false)
+            return
+        }
+
+        let uid = firebaseUser.uid
+        let email = firebaseUser.email ?? ""
+        let db = Firestore.firestore()
+
+        db.collection("users").document(uid).getDocument { snapshot, error in
+            if let error = error {
+                print("❌ Erreur FStore récupération user:", error.localizedDescription)
+                completion(false)
+                return
             }
+
+            guard let snapshot = snapshot, snapshot.exists,
+                  let user = try? snapshot.data(as: User.self) else {
+                print("ℹ️ Document utilisateur introuvable, création automatique")
+                let newUser = User(id: uid, email: email, name: firebaseUser.displayName ?? "", photoURL: nil, medals: [], joinedChallenges: [])
+                self.currentUser = newUser
+
+                do {
+                    try db.collection("users").document(uid).setData(from: newUser)
+                    print("✅ Utilisateur sauvegardé en base")
+                } catch {
+                    print("❌ Échec sauvegarde utilisateur:", error.localizedDescription)
+                }
+                completion(true)
+                return
+            }
+
+            self.currentUser = user
+            print("✅ Utilisateur chargé:", user.name)
+            completion(true)
         }
     }
+
+    /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
+    @MainActor
+    func fetchAndFilterChallenges() async {
+        guard let user = currentUser else {
+            print("❌ Aucun utilisateur connecté pour filtrer les défis")
+            DispatchQueue.main.async { self.challenges = [] }
+            return
+        }
+        let allChallenges = await fetchAllChallengesOnceAsync()
+
+        let filtered = allChallenges.filter { challenge in
+            challenge.creatorUID == user.id || challenge.participantUids.contains(user.id ?? "")
+        }
+
+        DispatchQueue.main.async {
+            self.challenges = filtered
+            print("✅ Défis filtrés pour \(user.name):", filtered.map(\.title))
+        }
+    }
+
 
     func loadAllPhotos() {
         for challenge in challenges {
@@ -164,37 +251,20 @@ final class ChallengeManager: ObservableObject {
         }
     }
 
-    func updateNotifications(for challenge: Challenge, config: [ChallengeNotification]) {
+    func updateNotifications(for challenge: Challenge,
+                             config: [ChallengeNotification],
+                             completion: ((Error?) -> Void)? = nil) {
         guard let id = challenge.id else { return }
 
-        // mise à jour locale (correcte)
         if let idx = self.challenges.firstIndex(where: { $0.id == id }) {
             self.challenges[idx].notificationsConfig = config
         }
 
-        // mise à jour Firestore (fixée)
-        let db = Firestore.firestore()
-
-        // Convertir explicitement les dates en timestamps
-        let firestoreConfig = config.map { notif in
-            return [
-                "dayIndex": notif.dayIndex,
-                "times": notif.times.map { Timestamp(date: $0) }
-            ] as [String : Any]
-        }
-
-        db.collection("challenges").document(id).updateData([
-            "notificationsConfig": firestoreConfig
-        ]) { error in
-            if let error = error {
-                print("Erreur mise à jour Firestore:", error.localizedDescription)
-            } else {
-                print("✅ Firestore config sauvegardée")
-            }
+        challengeService.updateNotifications(for: challenge, config: config) { error in
+            completion?(error)
         }
     }
 }
-
 extension ChallengeManager {
     /// Supprime un challenge (et toutes ses photos associées) côté Firestore & Storage
     func deleteChallenge(_ challenge: Challenge, completion: @escaping (Bool) -> Void) {

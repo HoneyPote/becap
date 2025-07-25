@@ -29,82 +29,80 @@ struct PhotoListModalView: View {
     }
 
     var body: some View {
-        NavigationView {
-            VStack(spacing: 16) {
-                Text("Photos du \(formatted(date))")
-                    .font(.headline)
+        VStack(spacing: 16) {
+            Text("Photos du \(formatted(date))")
+                .font(.headline)
 
-                if let participant = participant {
-                    Text("Filtré : \(participant)")
-                } else {
-                    Text("Tous les participants")
-                }
+            if let participant = participant {
+                Text("Filtré : \(participant)")
+            } else {
+                Text("Tous les participants")
+            }
 
-                if photos.isEmpty {
-                    Spacer()
-                    Text("📸 Aucune photo enregistrée")
-                    Spacer()
-                } else {
-                    ScrollView {
-                        ForEach(photos) { photo in
-                            VStack(alignment: .leading) {
-                                HStack {
-                                    Text(photo.authorName)
-                                        .font(.subheadline)
-                                    Spacer()
-                                    Button(role: .destructive) {
-                                        toDelete = photo
-                                        showDeleteAlert = true
-                                    } label: {
-                                        Image(systemName: "trash")
-                                            .foregroundColor(.red)
-                                    }
-                                }
-                                .padding(.bottom, 2)
-                                if let url = URL(string: photo.imageUrl) {
-                                    AsyncImage(url: url) { phase in
-                                        switch phase {
-                                        case .success(let image):
-                                            image
-                                                .resizable()
-                                                .scaledToFit()
-                                                .frame(maxHeight: 200)
-                                                .cornerRadius(10)
-                                        case .failure:
-                                            Text("Image introuvable")
-                                                .foregroundColor(.gray)
-                                        case .empty:
-                                            ProgressView()
-                                        @unknown default:
-                                            EmptyView()
-                                        }
-                                    }
-                                } else {
-                                    Text("URL invalide")
-                                        .foregroundColor(.gray)
+            if photos.isEmpty {
+                Spacer()
+                Text("📸 Aucune photo enregistrée")
+                Spacer()
+            } else {
+                ScrollView {
+                    ForEach(photos) { photo in
+                        VStack(alignment: .leading) {
+                            HStack {
+                                Text(photo.authorName)
+                                    .font(.subheadline)
+                                Spacer()
+                                Button(role: .destructive) {
+                                    toDelete = photo
+                                    showDeleteAlert = true
+                                } label: {
+                                    Image(systemName: "trash")
+                                        .foregroundColor(.red)
                                 }
                             }
-                            .padding()
+                            .padding(.bottom, 2)
+                            if let url = URL(string: photo.imageUrl) {
+                                AsyncImage(url: url) { phase in
+                                    switch phase {
+                                    case .success(let image):
+                                        image
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(maxHeight: 200)
+                                            .cornerRadius(10)
+                                    case .failure:
+                                        Text("Image introuvable")
+                                            .foregroundColor(.gray)
+                                    case .empty:
+                                        ProgressView()
+                                    @unknown default:
+                                        EmptyView()
+                                    }
+                                }
+                            } else {
+                                Text("URL invalide")
+                                    .foregroundColor(.gray)
+                            }
                         }
+                        .padding()
                     }
                 }
             }
-            .padding()
-            .navigationTitle("Détails")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Fermer") { dismiss() }
-                }
+        }
+        .padding()
+        .navigationTitle("Détails")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("Fermer") { dismiss() }
             }
-            .alert("Supprimer la photo ?", isPresented: $showDeleteAlert, presenting: toDelete) { photo in
-                Button("Supprimer", role: .destructive) {
-                  //  supprimer(photo)
-                }
-                Button("Annuler", role: .cancel) {}
-            } message: { _ in
-                Text("Cette action est irréversible.")
+        }
+        .alert("Supprimer la photo ?", isPresented: $showDeleteAlert, presenting: toDelete) { photo in
+            Button("Supprimer", role: .destructive) {
+              //  supprimer(photo)
             }
+            Button("Annuler", role: .cancel) {}
+        } message: { _ in
+            Text("Cette action est irréversible.")
         }
     }
 

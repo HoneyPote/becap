@@ -23,28 +23,39 @@ struct PagerInfo: Identifiable {
 }
 
 struct CalendarDetailView: View {
-    @EnvironmentObject var challengeManager: ChallengeManager
-    @StateObject private var vm: CalendarDetailViewModel
+    @StateObject private var viewModel: CalendarDetailViewModel
+
     @State private var selectedPagerInfo: PagerInfo?
 
     init(challenge: Challenge, photos: [ChallengePhoto]) {
-        _vm = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge, photos: photos))
+        _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge, photos: photos))
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(vm.challenge.title)
-                .font(.largeTitle.bold())
-                .foregroundColor(.white)
-                .padding(.top, 42)
-                .padding(.bottom, 12)
-                .padding(.horizontal, 24)
+            HStack(alignment: .top) {
+                Text(viewModel.challenge.title)
+                    .font(.largeTitle.bold())
+                    .foregroundColor(.white)
+                    .padding(.top, 42)
+                    .padding(.bottom, 12)
+                    .padding(.horizontal, 24)
+                Spacer()
+                NavigationLink(destination: NotificationSettingsView(challenge: viewModel.challenge)) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 20, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding()
+                        .background(Circle().fill(Color.blue))
+                        .shadow(radius: 4)
+                }
+            }
 
             // Filtre participant
-            Picker("Filtrer par", selection: $vm.selectedParticipant) {
+            Picker("Filtrer par", selection: $viewModel.selectedParticipant) {
                 Text("Tous").tag(String?.none)
-                ForEach(vm.uniqueParticipants, id: \.self) { p in
-                    Text(p).tag(Optional(p))
+                ForEach(viewModel.uniqueParticipants, id: \.self) { participant in
+                    Text(participant).tag(Optional(participant))
                 }
             }
             .pickerStyle(.segmented)
@@ -53,12 +64,12 @@ struct CalendarDetailView: View {
 
             ScrollView {
                 VStack(spacing: 12) {
-                    ForEach(0..<vm.challenge.duration, id: \.self) { i in
-                        let date = Calendar.current.date(byAdding: .day, value: i, to: vm.challenge.startDate)!
+                    ForEach(0..<viewModel.challenge.duration, id: \.self) { i in
+                        let date = Calendar.current.date(byAdding: .day, value: i, to: viewModel.challenge.startDate)!
                         let isToday = Calendar.current.isDateInToday(date)
-                        let photosOfDay = vm.allPhotos.filter {
+                        let photosOfDay = viewModel.allPhotos.filter {
                             Calendar.current.isDate($0.date, inSameDayAs: date)
-//                            && (vm.selectedParticipant == nil || $0.authorName == vm.selectedParticipant)
+//                            && (viewModel.selectedParticipant == nil || $0.authorName == viewModel.selectedParticipant)
                         }
 
                         let todayBackground: AnyView = isToday
@@ -117,11 +128,8 @@ struct CalendarDetailView: View {
                 photos: info.photos,
                 startIndex: info.index,
                 onDelete: { photo in
-                    challengeManager.deletePhoto(photo) { success in
+                    viewModel.deletePhoto(photo) { success in
                         guard success else { return }
-                        // Mets à jour la liste locale en enlevant la photo supprimée
-                        let newPhotos = vm.allPhotos.filter { $0.id != photo.id }
-                        vm.updatePhotos(newPhotos)
                         if let pager = selectedPagerInfo {
                             let pagerPhotos = pager.photos.filter { $0.id != photo.id }
                             if pagerPhotos.isEmpty {

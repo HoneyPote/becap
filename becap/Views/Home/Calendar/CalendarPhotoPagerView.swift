@@ -4,14 +4,6 @@
 //
 //  Created by Adam Mabrouki on 15/07/2025.
 //
-
-//
-//  CalendarPhotoPagerView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 15/07/2025.
-//
-
 import SwiftUI
 
 struct CalendarPhotoPagerView: View {

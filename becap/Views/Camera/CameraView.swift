@@ -4,29 +4,13 @@
 //
 //  Created by Adam Mabrouki on 15/07/2025.
 //
+
 import SwiftUI
 
-struct ShakeEffect: GeometryEffect {
-    var shakes: CGFloat = 0
-    var animatableData: CGFloat
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        let translation = 10 * sin(animatableData * .pi * 2)
-        return ProjectionTransform(CGAffineTransform(translationX: translation, y: 0))
-    }
-}
-
 struct CameraView: View {
-    @EnvironmentObject var challengeManager: ChallengeManager
-    @StateObject private var vm: CameraViewModel
+    @StateObject private var viewModel: CameraViewModel = CameraViewModel()
 
-    // Injection du ViewModel
-    init(challengeManager: ChallengeManager) {
-        _vm = StateObject(wrappedValue: CameraViewModel(challengeManager: challengeManager))
-    }
-    init(viewModel: CameraViewModel) {
-        _vm = StateObject(wrappedValue: viewModel)
-    }
+    @State private var showCamera: Bool = false
 
     var body: some View {
         ScrollView {
@@ -34,22 +18,22 @@ struct CameraView: View {
                 header
                 infoCard
                 photoCard
-                saveButton
+                uploadPhotoButton
             }
             .padding([.horizontal, .bottom])
             .padding(.top, 2)
         }
+        .scrollBounceBehavior(.basedOnSize, axes: [.vertical])
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
         .navigationTitle("Prendre une photo")
-        .sheet(isPresented: $vm.showCamera) {
-            CameraCaptureView(image: $vm.selectedImage)
+        .sheet(isPresented: $showCamera) {
+            CameraCaptureView(image: $viewModel.selectedImage)
         }
-        .overlay(toastView)
-        .onAppear {
-            if vm.selectedChallenge == nil, let first = challengeManager.challenges.first {
-                vm.selectedChallenge = first
+        .overlay(content: {
+            if viewModel.toast.isShown {
+                toastView
             }
-        }
+        })
     }
 
     private var header: some View {
@@ -62,21 +46,16 @@ struct CameraView: View {
 
     private var infoCard: some View {
         GroupBox {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Défi").font(.subheadline.bold())
-                    Picker("Défi", selection: $vm.selectedChallenge) {
-                        ForEach(challengeManager.challenges) { challenge in
-                            Text(challenge.title).tag(Optional(challenge))
-                        }
+            HStack(alignment: .center, spacing: 12) {
+                Text("Défi").font(.subheadline.bold())
+                Picker("Défi", selection: $viewModel.selectedChallenge) {
+                    ForEach(viewModel.challenges) { challenge in
+                        Text(challenge.title).tag(Optional(challenge))
                     }
-                    .pickerStyle(.menu)
-                    .modifier(ShakeEffect(animatableData: vm.shakeChallenge ? 1 : 0))
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .pickerStyle(.menu)
+                .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
             }
-            .padding(.vertical, 2)
-            .padding(.horizontal, 4)
         }
         .background(.thinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -87,7 +66,7 @@ struct CameraView: View {
     private var photoCard: some View {
         GroupBox {
             VStack(spacing: 18) {
-                if let image = vm.selectedImage {
+                if let image = viewModel.selectedImage {
                     Image(uiImage: image)
                         .resizable()
                         .scaledToFit()
@@ -99,7 +78,7 @@ struct CameraView: View {
                                 .stroke(Color.accentColor.opacity(0.4), lineWidth: 2)
                         )
                         .padding(.bottom, 2)
-                        .modifier(ShakeEffect(animatableData: vm.shakeImage ? 1 : 0))
+                        .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
                 } else {
                     ZStack {
                         RoundedRectangle(cornerRadius: 18)
@@ -110,12 +89,12 @@ struct CameraView: View {
                             .foregroundColor(.gray.opacity(0.4))
                     }
                     .padding(.bottom, 2)
-                    .modifier(ShakeEffect(animatableData: vm.shakeImage ? 1 : 0))
+                    .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
                 }
 
                 takePhotoButton
 
-                TextField("Description (optionnelle)", text: $vm.descriptionText)
+                TextField("Description (optionnelle)", text: $viewModel.descriptionText)
                     .textFieldStyle(.roundedBorder)
             }
             .padding(.horizontal, 4)
@@ -127,85 +106,80 @@ struct CameraView: View {
 
     @ViewBuilder
     private var takePhotoButton: some View {
-        let canTakePhoto = true
         Button {
-            vm.showCamera = true
+            showCamera = true
         } label: {
-            Label(vm.selectedImage == nil ? "Prendre une photo" : "Reprendre une photo", systemImage: "camera.fill")
+            Label(viewModel.takePhotoButtonLabel, systemImage: "camera.fill")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
                 .background(
-                    canTakePhoto
-                        ? AnyView(Color.clear.background(.thinMaterial))
-                        : AnyView(Color.gray.opacity(0.4))
+                    AnyView(Color.clear.background(.thinMaterial))
                 )
                 .foregroundColor(.accentColor)
                 .clipShape(RoundedRectangle(cornerRadius: 14))
                 .shadow(color: Color.black.opacity(0.11), radius: 7, x: 0, y: 3)
         }
-        .disabled(!canTakePhoto)
-        .opacity(canTakePhoto ? 1.0 : 0.5)
     }
 
     @ViewBuilder
-    private var saveButton: some View {
+    private var uploadPhotoButton: some View {
         Button {
-            if vm.selectedChallenge == nil {
-                vm.showToastMessage("Veuillez sélectionner un défi.", type: .error)
-                withAnimation(.default) { vm.shakeChallenge.toggle() }
-                return
-            }
-            if vm.selectedImage == nil {
-                vm.showToastMessage("Veuillez prendre une photo.", type: .error)
-                withAnimation(.default) { vm.shakeImage.toggle() }
-                return
-            }
-            vm.enregistrerPhoto()
+            viewModel.uploadPhoto()
         } label: {
-            Label("Enregistrer la photo", systemImage: "square.and.arrow.down.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(Color.clear.background(.thinMaterial))
-                .foregroundColor(.accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .shadow(color: Color.black.opacity(0.13), radius: 8, x: 0, y: 3)
+            if viewModel.isUploadingPhoto {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle())
+            } else {
+                Label("Enregistrer la photo", systemImage: "square.and.arrow.down.fill")
+                    .font(.headline)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Color.clear.background(.thinMaterial))
+                    .foregroundColor(.accentColor)
+                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                    .shadow(color: Color.black.opacity(0.13), radius: 8, x: 0, y: 3)
+            }
         }
         .padding(.top, 2)
     }
 
     private var toastView: some View {
-        Group {
-            if vm.showToast {
-                VStack {
-                    Spacer()
-                    HStack(spacing: 8) {
-                        Spacer()
-                        Text(vm.toastMessage)
-                            .foregroundColor(.white)
-                            .font(.headline)
-                            .padding(.vertical, 12)
-                            .padding(.horizontal, 22)
-                            .background(vm.toastType == .success ? Color.green.opacity(0.95) : Color.red.opacity(0.95))
-                            .cornerRadius(28)
-                            .shadow(radius: 16)
-                        Button(action: {
-                            vm.toastTimer?.invalidate()
-                            withAnimation { vm.showToast = false }
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(.white)
-                                .font(.title2)
-                        }
-                        .padding(.trailing, 6)
-                        Spacer()
-                    }
-                    .padding(.bottom, 44)
+        VStack {
+            Spacer()
+            HStack(spacing: 8) {
+                Spacer()
+                Text(viewModel.toast.message)
+                    .foregroundColor(.white)
+                    .font(.headline)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 22)
+                    .background(viewModel.toast.type == .success ? Color.green.opacity(0.95) : Color.red.opacity(0.95))
+                    .cornerRadius(28)
+                    .shadow(radius: 16)
+                Button(action: {
+                    viewModel.closeToast()
+                }) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.white)
+                        .font(.title2)
                 }
-                .transition(.move(edge: .bottom).combined(with: .opacity))
-                .zIndex(10)
+                .padding(.trailing, 6)
+                Spacer()
             }
+            .padding(.bottom, 44)
         }
+        .transition(.move(edge: .bottom).combined(with: .opacity))
+        .zIndex(10)
+    }
+}
+
+struct ShakeEffect: GeometryEffect {
+    var shakes: CGFloat = 0
+    var animatableData: CGFloat
+
+    func effectValue(size: CGSize) -> ProjectionTransform {
+        let translation = 10 * sin(animatableData * .pi * 2)
+        return ProjectionTransform(CGAffineTransform(translationX: translation, y: 0))
     }
 }

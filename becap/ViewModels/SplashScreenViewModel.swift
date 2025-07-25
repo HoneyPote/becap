@@ -9,7 +9,6 @@ import Foundation
 import SwiftUI
 
 class SplashScreenViewModel: ObservableObject {
-    @Published var isAuthenticated: Bool = false
     @Published var fetchingAlreadyConnectedUserIsDone: Bool = false
     @Published var logoAnimIsDone: Bool = false
 
@@ -34,14 +33,14 @@ class SplashScreenViewModel: ObservableObject {
                     UserManager.shared.saveUser(user: user)
                 }
                 await MainActor.run {
-                    self.isAuthenticated = true
                     self.fetchingAlreadyConnectedUserIsDone = true
+                    AppState.shared.isLoggedIn = true
                 }
             } catch let error {
                 print("Erreur lors de la récupération de l'utilisateur : \(error.localizedDescription)")
                 await MainActor.run {
-                    self.isAuthenticated = false
                     self.fetchingAlreadyConnectedUserIsDone = true
+                    AppState.shared.isLoggedIn = false
                 }
             }
         }

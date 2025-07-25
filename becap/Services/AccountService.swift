@@ -10,6 +10,13 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
+enum FirestoreUserKeys {
+    static let users = "users"
+    static let email = "email"
+    static let name = "name"
+    static let createdAt = "createdAt"
+}
+
 enum AccountError: Error {
     case createUserError(String)
     case fetchUserError(String)
@@ -25,39 +32,32 @@ protocol AccountServiceProtocol {
 }
 
 class AccountService: AccountServiceProtocol {
-    private let firebaseAuth = Auth.auth()
-    private let firestoreDB = Firestore.firestore()
+    private let firebaseAuth: Auth
+    private let firestoreDB: Firestore
 
-    private(set) var currentUser: FirebaseAuth.User? = Auth.auth().currentUser
+    var currentUser: FirebaseAuth.User? {
+        Auth.auth().currentUser
+    }
+
+    init(firebaseAuth: Auth = Auth.auth(), firestoreDB: Firestore = Firestore.firestore()) {
+        self.firebaseAuth = firebaseAuth
+        self.firestoreDB = firestoreDB
+    }
 }
 
 extension AccountService {
     func login(email: String, password: String) async throws -> FirebaseAuth.User {
-        do {
-            return try await firebaseAuth.signIn(withEmail: email, password: password).user
-        } catch let error {
-            throw error
-        }
+        return try await firebaseAuth.signIn(withEmail: email, password: password).user
     }
 
     func register(email: String, password: String, name: String) async throws -> FirebaseAuth.User {
-        do {
-            let result = try await firebaseAuth.createUser(withEmail: email, password: password)
-
-            try await createUserDocument(user: result.user, name: name)
-
-            return result.user
-        } catch let error {
-            throw error
-        }
+        let firebaseUser = try await firebaseAuth.createUser(withEmail: email, password: password).user
+        try await createUserDocument(user: firebaseUser, name: name)
+        return firebaseUser
     }
 
     func signOut() throws {
-        do {
-            try firebaseAuth.signOut()
-        } catch let error {
-            throw error
-        }
+        try firebaseAuth.signOut()
     }
 
     func fetchUserDocument(uid: String) async throws -> DocumentSnapshot {
@@ -74,11 +74,11 @@ extension AccountService {
             throw AccountError.createUserError("Unable to create user, missing email.")
         }
 
-        let ref = firestoreDB.collection("users").document(user.uid)
+        let ref = firestoreDB.collection(FirestoreUserKeys.users).document(user.uid)
         try await ref.setData([
-            "email": email,
-            "name": name,
-            "createdAt": FieldValue.serverTimestamp()
+            FirestoreUserKeys.email: email,
+            FirestoreUserKeys.name: name,
+            FirestoreUserKeys.createdAt: FieldValue.serverTimestamp()
         ])
     }
 
