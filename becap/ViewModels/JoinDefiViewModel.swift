@@ -1,39 +1,40 @@
-////
-////  JoinDefiViewModelswift
-////  becap
-////
-////  Created by Adam Mabrouki on 23/07/2025.
-////
 //
-//import Foundation
-//import SwiftUI
-//import FirebaseFirestore
-/// MARK: - ViewModel de JoinDefiView
-///
-///
+//  JoinDefiViewModelswift
+//  becap
+//
+//  Created by Adam Mabrouki on 23/07/2025.
+//
+
 import SwiftUI
+import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
-
-@MainActor
-final class JoinDefiViewModel: ObservableObject {
-    // Code saisi par l'utilisateur pour rejoindre un défi
+class JoinDefiViewModel: ObservableObject {
     @Published var code: String = ""
-
-    // Liste des défis créés ou rejoints par l'utilisateur
     @Published var userCreatedChallenges: [Challenge] = []
-
-    // Défi sélectionné pour affichage ou partage
     @Published var selectedChallengeToShare: Challenge?
-
-    // État d'affichage de l'alerte
     @Published var showingAlert = false
     @Published var alertTitle = ""
     @Published var alertMessage = ""
 
+    private var cancellables = Set<AnyCancellable>()
+
+    private let currentUser: User?
+    private let challengeManager: ChallengeManager
+
+    init(userManager: UserManagerProtocol = UserManager.shared,
+         challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.currentUser = userManager.currentUser
+        self.challengeManager = challengeManager
+    }
+
+    func onAppear() {
+        observeChallengesChanges()
+    }
+
     /// Rejoint un défi si le code est valide
-    func joinChallengeIfCodeValid(challengeManager: ChallengeManager, onSuccess: @escaping () -> Void) async {
+    func joinChallengeIfCodeValid(onSuccess: @escaping () -> Void) async throws {
         // Vérifie que le code est bien un code à 6 chiffres
         guard code.count == 6 else {
             alert(title: "Code invalide", message: "Le code doit contenir 6 chiffres.")
@@ -41,7 +42,6 @@ final class JoinDefiViewModel: ObservableObject {
         }
 
         // Recharge les défis de l'utilisateur (filtrés + complets)
-        await challengeManager.fetchAndFilterChallenges()
         let allChallenges = await challengeManager.fetchAllChallengesOnceAsync()
 
         // Cherche le défi correspondant au code
@@ -51,7 +51,7 @@ final class JoinDefiViewModel: ObservableObject {
         }
 
         // Vérifie que l'utilisateur est bien connecté
-        guard let user = challengeManager.currentUser, let userId = user.id else {
+        guard let user = currentUser, let userId = user.id else {
             alert(title: "Erreur", message: "Utilisateur non connecté.")
             return
         }
@@ -63,7 +63,7 @@ final class JoinDefiViewModel: ObservableObject {
 
             // MAJ dans Firestore + rechargement local
             await challengeManager.updateChallenge(updated)
-            await challengeManager.fetchAndFilterChallenges()
+            _ = try await challengeManager.fetchAndFilterChallenges()
 
             // Petit délai avant de naviguer
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
@@ -76,20 +76,16 @@ final class JoinDefiViewModel: ObservableObject {
     }
 
     /// Charge tous les défis où l'utilisateur participe ou qu’il a créés
-    func loadAllUserChallenges(challengeManager: ChallengeManager) async {
-        let all = await challengeManager.fetchAllChallengesOnceAsync()
-        guard let user = challengeManager.currentUser, let uid = user.id else { return }
-
-        // Filtre les défis liés à l'utilisateur
-        let userOwned = all.filter { $0.creatorUID == uid || $0.participantUids.contains(uid) }
-
-        // MAJ des valeurs pour la vue
-        DispatchQueue.main.async {
-            self.userCreatedChallenges = userOwned
-            if self.selectedChallengeToShare == nil {
-                self.selectedChallengeToShare = userOwned.first
+    func observeChallengesChanges() {
+        challengeManager.$challenges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] challenges in
+                self?.userCreatedChallenges = challenges
+                if self?.selectedChallengeToShare == nil {
+                    self?.selectedChallengeToShare = challenges.first
+                }
             }
-        }
+            .store(in: &cancellables)
     }
 
     /// Déclenche une alerte avec titre et message donnés

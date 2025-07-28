@@ -18,6 +18,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var status: String // "active", "finished"
     var notificationsConfig: [ChallengeNotification]?
     var code: String? // <- Ajouté ici
+    var photos: [ChallengePhoto]?
 
     // Hashable synthétique via les propriétés, mais tu peux aussi customiser si besoin :
     func hash(into hasher: inout Hasher) {

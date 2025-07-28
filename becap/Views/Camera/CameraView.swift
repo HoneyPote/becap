@@ -23,6 +23,9 @@ struct CameraView: View {
             .padding([.horizontal, .bottom])
             .padding(.top, 2)
         }
+        .onAppear{
+            viewModel.onAppear()
+        }
         .scrollBounceBehavior(.basedOnSize, axes: [.vertical])
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
         .navigationTitle("Prendre une photo")

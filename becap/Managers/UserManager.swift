@@ -20,7 +20,7 @@ final class UserManager: UserManagerProtocol, ObservableObject {
 
     @Published private(set) var currentUser: User?
 
-    private init() {}
+    init() {}
 
     func saveUser(user: User?) {
         self.currentUser = user

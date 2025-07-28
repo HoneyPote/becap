@@ -13,13 +13,21 @@ final class NewDefiViewModel: ObservableObject {
     @Published var heureNotification: Date = Date()
     @Published var isLoading: Bool = false
 
+    private let currentUser: User?
+    private let challengeManager: ChallengeManager
+
     var isFormValid: Bool {
         !nom.isEmpty
     }
 
-    func createChallenge(using manager: ChallengeManager, completion: @escaping (Bool) -> Void) {
-        guard let currentUser = manager.currentUser, let uid = currentUser.id else {
-            print("❌ Aucun utilisateur connecté")
+    init(userManager: UserManagerProtocol = UserManager.shared,
+         challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.currentUser = userManager.currentUser
+        self.challengeManager = challengeManager
+    }
+
+    func createChallenge(completion: @escaping (Bool) -> Void) {
+        guard let currentUser = currentUser, let uid = currentUser.id else {
             completion(false)
             return
         }
@@ -44,7 +52,7 @@ final class NewDefiViewModel: ObservableObject {
             code: code
         )
 
-        manager.addNewChallengeToFirestore(newChallenge) { success in
+        challengeManager.addNewChallengeToFirestore(newChallenge) { success in
             DispatchQueue.main.async {
                 self.isLoading = false
                 completion(success)

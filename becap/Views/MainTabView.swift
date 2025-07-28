@@ -8,39 +8,39 @@
 import SwiftUI
 
 struct MainTabView: View {
-    // ChallengeManager partagé (injecté depuis login/register)
-    @ObservedObject var challengeManager: ChallengeManager
+    @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
 
     var body: some View {
         Group {
             TabView {
-                ChallengeView(challengeManager: challengeManager)
-                    .tabItem {
-                        Label("Challenge", systemImage: "house.fill")
-                    }
+                if viewModel.challengesDoneFetching {
+                    HomeView()
+                        .tabItem {
+                            Label("Challenge", systemImage: "house.fill")
+                        }
 
-                CameraView()
-                    .tabItem {
-                        Label("Photo", systemImage: "camera.fill")
-                    }
-                SettingsView()
-                    .tabItem {
-                        Label("Settings", systemImage: "gearshape.fill")
-                    }
+                    CameraView()
+                        .tabItem {
+                            Label("Photo", systemImage: "camera.fill")
+                        }
+                    SettingsView()
+                        .tabItem {
+                            Label("Settings", systemImage: "gearshape.fill")
+                        }
+                } else {
+                    ProgressView()
+                        .tabItem {
+                            Label("Challenge", systemImage: "hourglass")
+                        }
+                }
             }
         }
-        .environmentObject(ChallengeManager.shared)
         .onAppear {
-            ChallengeManager.shared.loadCurrentUser { success in
-                 if success {
-                     Task { await ChallengeManager.shared.fetchAndFilterChallenges() }
-                 } else {
-                     // ⛔ Gérer scénario d’erreur
-                 }
-             }
             NotificationManager.shared.requestAuthorization()
         }
-        
+        .task {
+            viewModel.fetchFilteredChallenges()
+        }
         .navigationBarBackButtonHidden(true)
     }
 }

@@ -4,8 +4,9 @@ import FirebaseFirestore
 
 struct JoinDefiView: View {
     @Environment(\.dismiss) private var dismiss
-    @EnvironmentObject var challengeManager: ChallengeManager
-    @StateObject private var vm = JoinDefiViewModel()
+
+    @StateObject private var viewModel = JoinDefiViewModel()
+
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -20,19 +21,11 @@ struct JoinDefiView: View {
             .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .navigationTitle("Défis")
         }
-
         .onAppear {
-            challengeManager.loadCurrentUser { success in
-                if success {
-                    Task {
-                        await challengeManager.fetchAndFilterChallenges()
-                        await vm.loadAllUserChallenges(challengeManager: challengeManager)
-                    }
-                }
-            }
+            viewModel.onAppear()
         }
-        .alert(isPresented: $vm.showingAlert) {
-            Alert(title: Text(vm.alertTitle), message: Text(vm.alertMessage), dismissButton: .default(Text("OK")))
+        .alert(isPresented: $viewModel.showingAlert) {
+            Alert(title: Text(viewModel.alertTitle), message: Text(viewModel.alertMessage), dismissButton: .default(Text("OK")))
         }
     }
 
@@ -43,7 +36,7 @@ struct JoinDefiView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             VStack(spacing: 12) {
-                TextField("Code à 6 chiffres", text: $vm.code)
+                TextField("Code à 6 chiffres", text: $viewModel.code)
                     .keyboardType(.numberPad)
                     .padding()
                     .background(Color(.secondarySystemBackground))
@@ -53,7 +46,7 @@ struct JoinDefiView: View {
                 Button(action: {
                     isFocused = false
                     Task {
-                        await vm.joinChallengeIfCodeValid(challengeManager: challengeManager) {
+                        try await viewModel.joinChallengeIfCodeValid() {
                             dismiss()
                         }
                     }
@@ -83,22 +76,23 @@ struct JoinDefiView: View {
                 .font(.title2.bold())
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if !vm.userCreatedChallenges.isEmpty {
-                Picker("Sélectionner un défi", selection: $vm.selectedChallengeToShare) {
-                    ForEach(vm.userCreatedChallenges, id: \.id) { challenge in
+            if !viewModel.userCreatedChallenges.isEmpty {
+                Picker("Sélectionner un défi", selection: $viewModel.selectedChallengeToShare) {
+                    ForEach(viewModel.userCreatedChallenges, id: \.id) { challenge in
                         Text(challenge.title).tag(Optional(challenge))
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
                 .padding(.horizontal)
 
-                if let challenge = vm.selectedChallengeToShare {
+                if let challenge = viewModel.selectedChallengeToShare {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Code :")
                                 .font(.subheadline)
-                                .foregroundColor(.secondary)
+                                .foregroundColor(.gray)
                             Text(challenge.code ?? "—")
+                                .foregroundColor(.black)
                                 .font(.title2.monospacedDigit())
                                 .bold()
                         }

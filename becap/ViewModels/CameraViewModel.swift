@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 import AVFoundation
 
 class CameraViewModel: ObservableObject {
@@ -17,23 +18,37 @@ class CameraViewModel: ObservableObject {
     @Published var toast: Toast = Toast(isShown: false, type: .error, message: "")
     @Published var isUploadingPhoto: Bool = false
 
+    private var cancellables = Set<AnyCancellable>()
+
     private let challengeManager: ChallengeManager
     private let currentUser: User?
 
-    let challenges: [Challenge]
+    var challenges: [Challenge] = []
 
     var takePhotoButtonLabel: String {
         selectedImage == nil ? "Prendre une photo" : "Reprendre une photo"
     }
 
-    init(challengeManager: ChallengeManager = ChallengeManager.shared) {
+    init(userManager: UserManager = UserManager.shared,
+         challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.currentUser = userManager.currentUser
         self.challengeManager = challengeManager
-        self.currentUser = UserManager.shared.currentUser
-        self.challenges = challengeManager.challenges
+    }
 
-        if !challenges.isEmpty, let first = challenges.first {
-            selectedChallenge = first
-        }
+    func onAppear() {
+        observeChallengesChanges()
+    }
+
+    func observeChallengesChanges() {
+        challengeManager.$challenges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] challenges in
+                self?.challenges = challenges
+                if !challenges.isEmpty, let first = challenges.first {
+                    self?.selectedChallenge = first
+                }
+            }
+            .store(in: &cancellables)
     }
 
     func uploadPhoto() {

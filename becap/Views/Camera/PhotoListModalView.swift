@@ -98,7 +98,7 @@ struct PhotoListModalView: View {
         }
         .alert("Supprimer la photo ?", isPresented: $showDeleteAlert, presenting: toDelete) { photo in
             Button("Supprimer", role: .destructive) {
-              //  supprimer(photo)
+                //  supprimer(photo)
             }
             Button("Annuler", role: .cancel) {}
         } message: { _ in
@@ -106,9 +106,9 @@ struct PhotoListModalView: View {
         }
     }
 
-//    func supprimer(_ photo: ChallengePhoto) {
-//        challengeManager.deletePhoto(photo) { _ in }
-//    }
+    //    func supprimer(_ photo: ChallengePhoto) {
+    //        challengeManager.deletePhoto(photo) { _ in }
+    //    }
 
     func formatted(_ date: Date) -> String {
         let formatter = DateFormatter()

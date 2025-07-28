@@ -9,7 +9,6 @@ import Foundation
 import Combine
 
 class SettingsViewModel: ObservableObject {
-    @Published var isSignedOut: Bool = false
     @Published var signoutError: String? = nil
 
     private let accountManager: AccountManagerProtocol
@@ -23,8 +22,8 @@ class SettingsViewModel: ObservableObject {
             do {
                 try accountManager.signOut()
                 await MainActor.run {
+                    AppState.shared.sessionID = UUID()
                     AppState.shared.isLoggedIn = false
-                    isSignedOut = true
                 }
             } catch {
                 await MainActor.run {

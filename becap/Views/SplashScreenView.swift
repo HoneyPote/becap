@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct SplashScreenView: View {
-    @ObservedObject private var appState = AppState.shared
+    @EnvironmentObject private var appState: AppState
 
     @StateObject private var viewModel = SplashScreenViewModel()
 
@@ -18,19 +18,20 @@ struct SplashScreenView: View {
 
     var body: some View {
         Group {
-            NavigationStack {
-                if viewModel.logoAnimIsDone && viewModel.fetchingAlreadyConnectedUserIsDone {
-                    if appState.isLoggedIn {
-                        MainTabView(challengeManager: ChallengeManager.shared)
-                    } else {
-                        LoginView()
-                    }
+            if viewModel.isReadyToProceed {
+                if appState.isLoggedIn {
+                    MainTabView()
+                        .id(appState.sessionID) // 💥 Vue root recréée à chaque changement
                 } else {
-                    splashScreen
+                    LoginView()
                 }
+            } else {
+                splashScreen
             }
         }
-        .id(appState.isLoggedIn)
+        .onAppear {
+            viewModel.onAppear()
+        }
         .animation(.easeInOut, value: appState.isLoggedIn)
     }
 
@@ -60,7 +61,6 @@ struct SplashScreenView: View {
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {
-                viewModel.onAppear()
                 withAnimation(.easeIn(duration: 1.2)) {
                     self.scale = 1.0
                     self.opacity = 1.0

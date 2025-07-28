@@ -12,9 +12,15 @@ class SplashScreenViewModel: ObservableObject {
     @Published var fetchingAlreadyConnectedUserIsDone: Bool = false
     @Published var logoAnimIsDone: Bool = false
 
-    private let accountManager: AccountManagerProtocol = AccountManager()
+    private let accountManager: AccountManagerProtocol
 
-    init() {}
+    var isReadyToProceed: Bool {
+        logoAnimIsDone && fetchingAlreadyConnectedUserIsDone
+    }
+
+    init(accountManager: AccountManagerProtocol = AccountManager()) {
+        self.accountManager = accountManager
+    }
 
     func onAppear() {
         fetchAlreadyConnectedUser()
@@ -26,7 +32,7 @@ class SplashScreenViewModel: ObservableObject {
             self.fetchingAlreadyConnectedUserIsDone = true
             return
         }
-        
+
         Task {
             do {
                 if let user = try await accountManager.fetchUser(uid: user.uid) {
@@ -40,13 +46,12 @@ class SplashScreenViewModel: ObservableObject {
                 print("Erreur lors de la récupération de l'utilisateur : \(error.localizedDescription)")
                 await MainActor.run {
                     self.fetchingAlreadyConnectedUserIsDone = true
-                    AppState.shared.isLoggedIn = false
                 }
             }
         }
     }
 
-    func animateLogo() {
+    private func animateLogo() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
             withAnimation {
                 self.logoAnimIsDone = true

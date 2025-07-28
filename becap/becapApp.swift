@@ -22,10 +22,13 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 struct becap: App {
     // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-    
+
+    @StateObject private var appState = AppState.shared
+
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
+                .environmentObject(appState)
         }
     }
 }

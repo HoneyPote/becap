@@ -16,7 +16,6 @@ import SwiftUI
 
 
 struct NewDefiView: View {
-    @EnvironmentObject var challengeManager: ChallengeManager
     @Environment(\.dismiss) var dismiss
     @StateObject private var vm = NewDefiViewModel()
 
@@ -49,7 +48,7 @@ struct NewDefiView: View {
                     }
                 } else {
                     Button("Créer le défi") {
-                        vm.createChallenge(using: challengeManager) { success in
+                        vm.createChallenge() { success in
                             if success {
                                 dismiss()
                             }

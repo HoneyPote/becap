@@ -69,22 +69,22 @@ struct CalendarDetailView: View {
                         let isToday = Calendar.current.isDateInToday(date)
                         let photosOfDay = viewModel.allPhotos.filter {
                             Calendar.current.isDate($0.date, inSameDayAs: date)
-//                            && (viewModel.selectedParticipant == nil || $0.authorName == viewModel.selectedParticipant)
+                            //                            && (viewModel.selectedParticipant == nil || $0.authorName == viewModel.selectedParticipant)
                         }
 
                         let todayBackground: AnyView = isToday
-                            ? AnyView(
-                                LinearGradient(
-                                    gradient: Gradient(colors: [
-                                        Color.green.opacity(0.82),
-                                        Color.green.opacity(0.45)
-                                    ]),
-                                    startPoint: .topLeading, endPoint: .bottomTrailing
-                                )
+                        ? AnyView(
+                            LinearGradient(
+                                gradient: Gradient(colors: [
+                                    Color.green.opacity(0.82),
+                                    Color.green.opacity(0.45)
+                                ]),
+                                startPoint: .topLeading, endPoint: .bottomTrailing
                             )
-                            : AnyView(
-                                Color.white.opacity(0.13)
-                            )
+                        )
+                        : AnyView(
+                            Color.white.opacity(0.13)
+                        )
 
                         Button {
                             if !photosOfDay.isEmpty {

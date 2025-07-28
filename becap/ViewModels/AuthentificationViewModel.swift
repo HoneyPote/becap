@@ -26,7 +26,6 @@ class AuthentificationViewModel: ObservableObject {
             } catch {
                 await MainActor.run {
                     authError = error.localizedDescription
-                    AppState.shared.isLoggedIn = false
                 }
             }
         }
@@ -42,7 +41,6 @@ class AuthentificationViewModel: ObservableObject {
             } catch {
                 await MainActor.run {
                     authError = error.localizedDescription
-                    AppState.shared.isLoggedIn = false
                 }
             }
         }

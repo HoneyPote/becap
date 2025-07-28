@@ -190,13 +190,10 @@ final class ChallengeService {
         try docRef.setData(from: photoToSave)
     }
 
-    func fetchPhotos(for challengeId: String, completion: @escaping ([ChallengePhoto]) -> Void) {
-        db.collection(collection).document(challengeId).collection("photos")
-//            .order(by: "date")
-            .addSnapshotListener { snapshot, error in
-                let photos = snapshot?.documents.compactMap { try? $0.data(as: ChallengePhoto.self) } ?? []
-                completion(photos)
-            }
+    func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto] {
+        let allPhotos = try await db.collection(collection).document(challengeId).collection("photos").getDocuments()
+
+        return allPhotos.documents.compactMap { try? $0.data(as: ChallengePhoto.self) }
     }
 
     // MARK: - Notifications

@@ -8,11 +8,11 @@
 import SwiftUI
 
 struct RegisterView: View {
-    @StateObject private var viewModel = AuthentificationViewModel()
+    @ObservedObject var authViewModel: AuthentificationViewModel
 
+    @State private var name = ""
     @State private var email = ""
     @State private var password = ""
-    @State private var name = ""
 
     var body: some View {
         VStack(spacing: 20) {
@@ -31,11 +31,11 @@ struct RegisterView: View {
                 .textFieldStyle(RoundedBorderTextFieldStyle())
 
             Button("S'inscrire") {
-                viewModel.register(email: email, password: password, name: name)
+                authViewModel.register(email: email, password: password, name: name)
             }
             .buttonStyle(.borderedProminent)
 
-            if let error = viewModel.authError {
+            if let error = authViewModel.authError {
                 Text(error).foregroundColor(.red).font(.caption)
             }
         }
