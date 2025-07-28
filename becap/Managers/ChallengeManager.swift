@@ -10,25 +10,13 @@ import FirebaseFirestore
 import FirebaseStorage
 import FirebaseAuth
 
-// MARK: - Modèles
-
 enum Tabs: Hashable {
     case challenge
     case camera
     case settings
 }
 
-struct ParticipantProgress: Identifiable, Codable {
-    var id: String
-    var joinedDate: Date
-    var validatedDays: [Date]
-    var medals: [UserMedal]
-    var currentStreak: Int
-}
-
-// MARK: - ChallengeManager
-
-final class ChallengeManager: ObservableObject {
+class ChallengeManager: ObservableObject {
     static let shared = ChallengeManager()
 
     private var cancellables = Set<AnyCancellable>()
@@ -121,16 +109,6 @@ extension ChallengeManager {
 
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
         return try await challengeService.fetchPhotos(for: challengeId)
-
-        //        return photos
-        //        for challenge in challenges {
-        //            challengeService.fetchPhotos(for: challenge.id ?? "") { [weak self] photos in
-        //                DispatchQueue.main.async {
-        //                    photos.append(photos)
-        //                    self?.photos[challenge.id ?? ""] = photos
-        //                }
-        //            }
-        //        }
     }
 
     /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
@@ -188,7 +166,7 @@ extension ChallengeManager {
             }
 
             Task {
-                _ = try await self.fetchAndFilterChallenges()
+                try await self.fetchAndFilterChallenges()
                 DispatchQueue.main.async {
                     completion?(true)
                 }
@@ -211,31 +189,17 @@ extension ChallengeManager {
     }
 
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
-    @MainActor
-    func fetchAndFilterChallenges() async throws -> [Challenge] {
-        guard let user = currentUser, let userId = user.id else { return [] }
+    func fetchAndFilterChallenges() async throws {
+        guard let user = currentUser, let userId = user.id else { return }
 
-        let allChallenges = await fetchAllChallengesOnceAsync()
-
-        let filtered = allChallenges.filter { challenge in
+        let filtered = await fetchAllChallengesOnceAsync().filter { challenge in
             challenge.creatorUID == userId || challenge.participantUids.contains(userId)
         }
 
-        var newFiltered: [Challenge] = []
-        for filter in filtered {
-            guard let challengeId = filter.id else { continue }
-
-            var object = filter
-            object.photos = try await loadPhotos(from: challengeId)
-            newFiltered.append(object)
-        }
-
-        DispatchQueue.main.async {
-            self.challenges = newFiltered
+        await MainActor.run {
+            self.challenges = filtered
             print("✅ Défis filtrés pour \(user.name):", filtered.map(\.title))
         }
-
-        return newFiltered
     }
 
     /// Met à jour un défi dans Firestore et localement dans la liste `challenges`

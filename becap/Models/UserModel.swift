@@ -24,3 +24,11 @@ struct UserMedal: Codable, Identifiable {
     let iconName: String
     let achievedDate: Date
 }
+
+struct ParticipantProgress: Identifiable, Codable {
+    var id: String
+    var joinedDate: Date
+    var validatedDays: [Date]
+    var medals: [UserMedal]
+    var currentStreak: Int
+}

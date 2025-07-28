@@ -18,7 +18,7 @@ class MainTabViewModel: ObservableObject {
 
     func fetchFilteredChallenges() {
         Task {
-            _ = try await challengeManager.fetchAndFilterChallenges()
+            try await challengeManager.fetchAndFilterChallenges()
             await MainActor.run {
                 self.challengesDoneFetching = true
             }

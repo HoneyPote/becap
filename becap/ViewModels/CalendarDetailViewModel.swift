@@ -7,20 +7,26 @@
 
 import SwiftUI
 
+struct CalendarDetailCell: Hashable {
+    var date: Date
+    var photos: [ChallengePhoto]
+    var isToday: Bool
+}
+
 class CalendarDetailViewModel: ObservableObject {
-    @Published var allPhotos: [ChallengePhoto]
+    @Published var allPhotos: [ChallengePhoto] = []
     @Published var selectedParticipant: String? = nil
+    @Published var detailCells: [CalendarDetailCell]?
+    @Published var doneLoadingPhotos: Bool = false
 
     private let challengeManager: ChallengeManager
 
     let challenge: Challenge
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         challenge: Challenge,
-         photos: [ChallengePhoto]) {
+         challenge: Challenge) {
         self.challengeManager = challengeManager
         self.challenge = challenge
-        self.allPhotos = photos
     }
 
     // Liste des participants uniques du défi (pour le filtre)
@@ -33,10 +39,44 @@ class CalendarDetailViewModel: ObservableObject {
         .sorted()
     }
 
+    func onAppear() {
+        fetchPhotos()
+    }
+
+    func buildDetailcells() {
+        detailCells = (0..<challenge.duration).compactMap { day in
+            guard let date = Calendar.current.date(byAdding: .day, value: day, to: challenge.startDate)
+            else { return nil }
+
+            let photos = allPhotos.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
+//                && (selectedParticipant == nil || $0.authorName == selectedParticipant)
+            }
+
+            let isToday = Calendar.current.isDateInToday(date)
+
+            return CalendarDetailCell(date: date, photos: photos, isToday: isToday)
+        }
+    }
+
+    func fetchPhotos() {
+        guard let challengeId = challenge.id else { return }
+
+        self.doneLoadingPhotos = false
+
+        Task {
+            let newPhotos = try await challengeManager.loadPhotos(from: challengeId)
+
+            await MainActor.run {
+                self.updatePhotos(newPhotos)
+                self.doneLoadingPhotos = true
+            }
+        }
+    }
+
     func deletePhoto(_ photo: ChallengePhoto, completion: @escaping (Bool) -> Void) {
         challengeManager.deletePhoto(photo) { isDeleted in
             if isDeleted {
-                // Mets à jour la liste locale en enlevant la photo supprimée
                 let newPhotos = self.allPhotos.filter { $0.id != photo.id }
                 self.updatePhotos(newPhotos)
             }
@@ -47,5 +87,6 @@ class CalendarDetailViewModel: ObservableObject {
     // Appelée quand les photos sont modifiées (ex : suppression)
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
+        buildDetailcells()
     }
 }

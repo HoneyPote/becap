@@ -9,11 +9,10 @@ import SwiftUI
 
 struct DefiCell: View {
     let challenge: Challenge
-    let photos: [ChallengePhoto]
     let onDelete: () -> Void
 
     var body: some View {
-        NavigationLink(destination: CalendarDetailView(challenge: challenge, photos: photos)) {
+        NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(.thinMaterial)
@@ -44,10 +43,5 @@ struct DefiCell: View {
             }
         }
         .padding(4)
-    }
-
-    // Renvoie uniquement les photos liées à ce challenge
-    private var photosForChallenge: [ChallengePhoto] {
-        photos.filter { $0.challengeId == challenge.id }
     }
 }

@@ -33,7 +33,6 @@ struct HomeView: View {
                             ForEach(viewModel.challenges) { challenge in
                                 DefiCell(
                                     challenge: challenge,
-                                    photos: challenge.photos ?? [],
                                     onDelete: {
                                         viewModel.confirmDelete(challenge)
                                     }

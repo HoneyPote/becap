@@ -63,7 +63,7 @@ class JoinDefiViewModel: ObservableObject {
 
             // MAJ dans Firestore + rechargement local
             await challengeManager.updateChallenge(updated)
-            _ = try await challengeManager.fetchAndFilterChallenges()
+            try await challengeManager.fetchAndFilterChallenges()
 
             // Petit délai avant de naviguer
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
