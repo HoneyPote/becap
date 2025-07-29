@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+struct Participant: Hashable {
+    let id: String
+    let name: String
+}
+
 struct CalendarDetailCell: Hashable {
     var date: Date
     var photos: [ChallengePhoto]
@@ -15,78 +20,115 @@ struct CalendarDetailCell: Hashable {
 
 class CalendarDetailViewModel: ObservableObject {
     @Published var allPhotos: [ChallengePhoto] = []
-    @Published var selectedParticipant: String? = nil
     @Published var detailCells: [CalendarDetailCell]?
     @Published var doneLoadingPhotos: Bool = false
+    @Published var selectedPagerInfo: PagerInfo?
+    @Published var participants: [Participant] = []
 
+    private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
     let challenge: Challenge
 
-    init(challengeManager: ChallengeManager = ChallengeManager.shared,
+    init(accountManager: AccountManager = AccountManager(),
+         challengeManager: ChallengeManager = ChallengeManager.shared,
          challenge: Challenge) {
+        self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.challenge = challenge
     }
 
-    // Liste des participants uniques du défi (pour le filtre)
-    var uniqueParticipants: [String] {
-        Set(
-            allPhotos
-                .filter { $0.challengeId == challenge.id } // ← à adapter !
-                .map { $0.authorName }
-        )
-        .sorted()
+    func fetchInfos() {
+        self.doneLoadingPhotos = false
+
+        Task {
+            async let photosTask = try fetchPhotos()
+            async let allParticipants = try buildParticipants()
+
+            let (photos, participants) = try await (photosTask, allParticipants)
+
+            await MainActor.run {
+                self.participants = participants
+                self.updatePhotos(photos)
+                self.doneLoadingPhotos = true
+            }
+        }
     }
 
-    func onAppear() {
-        fetchPhotos()
+    func buildParticipants() async throws -> [Participant] {
+        var allParticipantsNames: [Participant] = []
+
+        for participantUid in challenge.participantUids {
+            guard let currentUser = challengeManager.currentUser,
+                  let user = try await accountManager.fetchUser(uid: participantUid) else { continue }
+
+            let participantName = currentUser.id == user.id ? "Moi" : user.name
+
+            allParticipantsNames.append(Participant(id: participantUid, name: participantName))
+        }
+
+        return allParticipantsNames
     }
 
-    func buildDetailcells() {
-        detailCells = (0..<challenge.duration).compactMap { day in
+    func detailButtonClicked(cell: CalendarDetailCell) {
+        if !cell.photos.isEmpty {
+            buildPagerInfo(cell: cell)
+        }
+    }
+
+    func buildDetailcells(for selectedParticipant: Participant? = nil) -> [CalendarDetailCell] {
+        return (0..<challenge.duration).compactMap { day in
             guard let date = Calendar.current.date(byAdding: .day, value: day, to: challenge.startDate)
             else { return nil }
 
             let photos = allPhotos.filter {
                 Calendar.current.isDate($0.date, inSameDayAs: date)
-//                && (selectedParticipant == nil || $0.authorName == selectedParticipant)
+                && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
             }
-
             let isToday = Calendar.current.isDateInToday(date)
 
             return CalendarDetailCell(date: date, photos: photos, isToday: isToday)
         }
     }
 
-    func fetchPhotos() {
-        guard let challengeId = challenge.id else { return }
-
-        self.doneLoadingPhotos = false
-
-        Task {
-            let newPhotos = try await challengeManager.loadPhotos(from: challengeId)
-
-            await MainActor.run {
-                self.updatePhotos(newPhotos)
-                self.doneLoadingPhotos = true
-            }
-        }
+    func buildPagerInfo(cell: CalendarDetailCell) {
+        selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
     }
 
-    func deletePhoto(_ photo: ChallengePhoto, completion: @escaping (Bool) -> Void) {
-        challengeManager.deletePhoto(photo) { isDeleted in
-            if isDeleted {
-                let newPhotos = self.allPhotos.filter { $0.id != photo.id }
-                self.updatePhotos(newPhotos)
+    func fetchPhotos() async throws -> [ChallengePhoto] {
+        guard let challengeId = challenge.id else { return [] }
+
+        return try await challengeManager.loadPhotos(from: challengeId)
+    }
+
+    func deletePhoto(_ photo: ChallengePhoto) {
+        guard let challengeId = challenge.id else { return }
+
+        Task {
+            do {
+                try await challengeManager.deletePhotos([photo], challengeId: challengeId)
+
+                await MainActor.run {
+                    self.allPhotos.removeAll(where: { $0.id == photo.id })
+
+                    if let pager = self.selectedPagerInfo {
+                        let pagerPhotos = pager.photos.filter { $0.id != photo.id }
+                        if pagerPhotos.isEmpty {
+                            self.selectedPagerInfo = nil
+                        } else {
+                            let newIndex = min(pager.index, pagerPhotos.count-1)
+                            self.selectedPagerInfo = PagerInfo(photos: pagerPhotos, index: newIndex, date: pager.date)
+                        }
+                    }
+                }
+            } catch let error {
+                print("Impossible de supprimer la photo. Error : \(error)")
             }
-            completion(isDeleted)
         }
     }
 
     // Appelée quand les photos sont modifiées (ex : suppression)
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
-        buildDetailcells()
     }
 }

@@ -14,7 +14,10 @@ struct CalendarPhotoPagerView: View {
 
     @State private var selection: Int
 
-    init(photos: [ChallengePhoto], startIndex: Int = 0, onDelete: @escaping (ChallengePhoto) -> Void, onClose: @escaping () -> Void) {
+    init(photos: [ChallengePhoto],
+         startIndex: Int = 0,
+         onDelete: @escaping (ChallengePhoto) -> Void,
+         onClose: @escaping () -> Void) {
         self.photos = photos
         self.startIndex = startIndex
         self.onDelete = onDelete

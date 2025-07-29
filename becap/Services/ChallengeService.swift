@@ -169,6 +169,7 @@ final class ChallengeService {
 
         // Create photo object
         let photo = ChallengePhoto(
+            challengeId: challengeId,
             authorUid: author.id ?? "",
             authorName: author.name,
             imageUrl: url.absoluteString,

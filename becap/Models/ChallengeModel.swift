@@ -32,7 +32,7 @@ struct Challenge: Identifiable, Codable, Hashable {
 
 struct ChallengePhoto: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
-    var challengeId: String?             // ID du défi (parent)
+    var challengeId: String?             // ID du défi (parent) // TODO: Passer en non optionnel lorsque bdd cleanée
     var authorUid: String                // UID Firebase de l'auteur
     var authorName: String               // Nom ou prénom affiché
     var imageUrl: String                 // URL Cloud Storage de la photo

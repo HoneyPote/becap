@@ -5,27 +5,19 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-//
-//
-//  CalendarDetailView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 15/07/2025.
-//
-
 import SwiftUI
 
 struct PagerInfo: Identifiable {
     let id = UUID()
-    let photos: [ChallengePhoto]
-    let index: Int
+    var photos: [ChallengePhoto]
+    var index: Int
     let date: Date
 }
 
 struct CalendarDetailView: View {
     @StateObject private var viewModel: CalendarDetailViewModel
 
-    @State private var selectedPagerInfo: PagerInfo?
+    @State private var selectedParticipant: Participant?
 
     init(challenge: Challenge) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -34,13 +26,14 @@ struct CalendarDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             headerView
+
             filterView
 
             ScrollView {
-                VStack(spacing: 12) {
-                    if viewModel.doneLoadingPhotos, let cells = viewModel.detailCells {
-                        ForEach(cells, id: \.self) { cell in
-                            toDetailButton(cell: cell)
+                LazyVStack(spacing: 12) {
+                    if viewModel.doneLoadingPhotos {
+                        ForEach(viewModel.buildDetailcells(for: selectedParticipant), id: \.self) { cell in
+                            detailCellButton(cell: cell)
                         }
                     } else {
                         ProgressView()
@@ -50,57 +43,33 @@ struct CalendarDetailView: View {
             }
         }
         .onAppear {
-            viewModel.onAppear()
+            viewModel.fetchInfos()
         }
         .refreshable {
-            viewModel.fetchPhotos()
+            viewModel.fetchInfos()
         }
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
-        .sheet(item: $selectedPagerInfo) { info in
-            CalendarPhotoPagerView(
-                photos: info.photos,
-                startIndex: info.index,
-                onDelete: { photo in
-                    viewModel.deletePhoto(photo) { success in
-                        guard success else { return }
-                        if let pager = selectedPagerInfo {
-                            let pagerPhotos = pager.photos.filter { $0.id != photo.id }
-                            if pagerPhotos.isEmpty {
-                                selectedPagerInfo = nil
-                            } else {
-                                let newIndex = min(pager.index, pagerPhotos.count-1)
-                                selectedPagerInfo = PagerInfo(photos: pagerPhotos, index: newIndex, date: pager.date)
-                            }
-                        }
-                    }
-                },
-                onClose: {
-                    selectedPagerInfo = nil
-                }
-            )
+        .sheet(item: $viewModel.selectedPagerInfo) { info in
+            photoPagerSheetView(info: info)
         }
     }
 
-    @ViewBuilder
-    func toDetailButton(cell: CalendarDetailCell) -> some View {
-        let todayBackground: AnyView = cell.isToday
-        ? AnyView(
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color.green.opacity(0.82),
-                    Color.green.opacity(0.45)
-                ]),
-                startPoint: .topLeading, endPoint: .bottomTrailing
-            )
-        )
-        : AnyView(
-            Color.white.opacity(0.13)
-        )
-
-        Button {
-            if !cell.photos.isEmpty {
-                selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
+    func photoPagerSheetView(info: PagerInfo) -> some View {
+        CalendarPhotoPagerView(
+            photos: info.photos,
+            startIndex: info.index,
+            onDelete: { photo in
+                viewModel.deletePhoto(photo)
+            },
+            onClose: {
+                viewModel.selectedPagerInfo = nil
             }
+        )
+    }
+
+    func detailCellButton(cell: CalendarDetailCell) -> some View {
+        Button {
+            viewModel.detailButtonClicked(cell: cell)
         } label: {
             HStack {
                 Text(cell.date, style: .date)
@@ -124,10 +93,18 @@ struct CalendarDetailView: View {
                     .foregroundColor(.white.opacity(0.4))
             }
             .padding()
-            .background(todayBackground)
+            .background(cellBackgroundView(isToday: cell.isToday))
             .clipShape(RoundedRectangle(cornerRadius: 16))
         }
         .disabled(cell.photos.isEmpty)
+    }
+
+    func cellBackgroundView(isToday: Bool) -> some View {
+        isToday
+        ? AnyView(LinearGradient(
+            gradient: Gradient(colors: [Color.green.opacity(0.82),Color.green.opacity(0.45)]),
+            startPoint: .topLeading, endPoint: .bottomTrailing))
+        : AnyView(Color.white.opacity(0.13))
     }
 
     var headerView: some View {
@@ -151,10 +128,10 @@ struct CalendarDetailView: View {
     }
 
     var filterView: some View {
-        Picker("Filtrer par", selection: $viewModel.selectedParticipant) {
-            Text("Tous").tag(String?.none)
-            ForEach(viewModel.uniqueParticipants, id: \.self) { participant in
-                Text(participant).tag(Optional(participant))
+        Picker("Filtrer par", selection: $selectedParticipant) {
+            Text("Tous").tag(Participant?.none)
+            ForEach(viewModel.participants, id: \.self) { participant in
+                Text(participant.name).tag(Optional(participant))
             }
         }
         .pickerStyle(.segmented)

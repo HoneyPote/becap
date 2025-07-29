@@ -112,44 +112,45 @@ extension ChallengeManager {
     }
 
     /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
-    func deletePhoto(_ photo: ChallengePhoto, completion: @escaping (Bool) -> Void) {
-        guard let challengeId = photo.challengeId, let photoId = photo.id else {
-            completion(false)
-            return
-        }
+    // TODO: Ne plus passer challengeId en paramètre et récupérer cette valeur à travers photo.challengeId lorsque toutes les photos auront un challengeId assigné
+    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws {
         let db = Firestore.firestore()
         let storage = Storage.storage()
-        // 1. Supprimer du Storage d'abord (si URL)
-        func removeFromStorage(_ completion: @escaping (Bool) -> Void) {
+
+        for photo in photosToDelete {
+            guard let photoId = photo.id else {
+                throw NSError(domain: "Invalid photo data", code: 400)
+            }
+
+            // 1. Supprimer du Storage
             if !photo.imageUrl.isEmpty {
                 let ref = storage.reference(forURL: photo.imageUrl)
-                ref.delete { error in
-                    if let error = error {
-                        print("Erreur lors de la suppression Storage: \(error)")
-                        completion(false)
-                    } else {
-                        completion(true)
-                    }
-                }
-            } else {
-                completion(true)
-            }
-        }
-        // 2. Supprimer de Firestore
-        removeFromStorage { storageSuccess in
-            db.collection("challenges").document(challengeId)
-                .collection("photos").document(photoId).delete { err in
-                    DispatchQueue.main.async {
-                        if let err = err {
-                            print("Erreur lors de la suppression Firestore: \(err)")
-                            completion(false)
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    ref.delete { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
                         } else {
-                            // MAJ cache local
-                            self.photos[challengeId]?.removeAll { $0.id == photoId }
-                            completion(storageSuccess)
+                            continuation.resume()
                         }
                     }
                 }
+            }
+
+            // 2. Supprimer de Firestore
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                db.collection("challenges").document(challengeId)
+                    .collection("photos").document(photoId)
+                    .delete { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume()
+                        }
+                    }
+            }
+
+            // 3. Mettre à jour le cache local
+            self.photos[challengeId]?.removeAll { $0.id == photoId }
         }
     }
 }
