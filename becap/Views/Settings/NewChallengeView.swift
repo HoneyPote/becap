@@ -1,12 +1,5 @@
 //
-//  NewDefiView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 15/07/2025.
-//
-
-//
-//  NewDefiView.swift
+//  NewChallengeView.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 15/07/2025.
@@ -14,19 +7,19 @@
 
 import SwiftUI
 
-
-struct NewDefiView: View {
+struct NewChallengeView: View {
     @Environment(\.dismiss) var dismiss
-    @StateObject private var vm = NewDefiViewModel()
+
+    @StateObject private var viewModel = NewChallengeViewModel()
 
     var body: some View {
         Form {
             Section(header: Text("Nom du défi")) {
-                TextField("Nom", text: $vm.nom)
+                TextField("Nom", text: $viewModel.nom)
             }
 
             Section(header: Text("Durée (jours)")) {
-                Picker("Durée", selection: $vm.duree) {
+                Picker("Durée", selection: $viewModel.duree) {
                     ForEach([7, 14, 30, 60, 90], id: \.self) { value in
                         Text("\(value) jours").tag(value)
                     }
@@ -35,11 +28,11 @@ struct NewDefiView: View {
             }
 
             Section(header: Text("Heure de notification")) {
-                DatePicker("Heure", selection: $vm.heureNotification, displayedComponents: .hourAndMinute)
+                DatePicker("Heure", selection: $viewModel.heureNotification, displayedComponents: .hourAndMinute)
             }
 
             Section {
-                if vm.isLoading {
+                if viewModel.isLoading {
                     HStack {
                         Spacer()
                         ProgressView("Création en cours...")
@@ -48,13 +41,13 @@ struct NewDefiView: View {
                     }
                 } else {
                     Button("Créer le défi") {
-                        vm.createChallenge() { success in
+                        viewModel.createChallenge() { success in
                             if success {
                                 dismiss()
                             }
                         }
                     }
-                    .disabled(!vm.isFormValid)
+                    .disabled(!viewModel.isFormValid)
                 }
             }
         }

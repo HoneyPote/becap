@@ -20,9 +20,7 @@ class HomeViewModel: ObservableObject {
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared) {
         self.challengeManager = challengeManager
-    }
 
-    func onAppear() {
         observeChallengesChanges()
     }
 
@@ -61,6 +59,12 @@ class HomeViewModel: ObservableObject {
                 self.showDeleteAlert = false
                 self.challengeToDelete = nil
             }
+        }
+    }
+
+    func refreshChallenges() {
+        Task {
+            try await challengeManager.fetchAndFilterChallenges()
         }
     }
 

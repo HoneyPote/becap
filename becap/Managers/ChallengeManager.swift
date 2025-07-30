@@ -22,26 +22,28 @@ class ChallengeManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let challengeService: ChallengeService
     private let userManager: UserManager
+    private let accountManager: AccountManager
+    private let rewardService: RewardService
+    private let alertManager: GlobalAlertManager
 
     @Published private(set) var currentUser: User?
 
     @Published var challenges: [Challenge] = []
-    @Published var participants: [String: [ParticipantProgress]] = [:]
+    //    @Published var participants: [String: [ParticipantProgress]] = [:] // TODO: Utile ?
     @Published var medals: [UserMedal] = []
     @Published var photos: [String: [ChallengePhoto]] = [:]
     @Published var selectedTab: Tabs = .challenge
 
-    var filteredChallenges: [Challenge] {
-        guard let userId = currentUser?.id else { return [] }
-        return challenges.filter {
-            $0.participantUids.contains(userId) || $0.creatorUID == userId
-        }
-    }
-
     init(userManager: UserManager = UserManager.shared,
-         challengeService: ChallengeService = ChallengeService.shared) {
+         challengeService: ChallengeService = ChallengeService.shared,
+         accountManager: AccountManager = AccountManager(),
+         rewardService: RewardService = RewardService.shared,
+         alertManager: GlobalAlertManager = GlobalAlertManager.shared) {
         self.userManager = userManager
         self.challengeService = challengeService
+        self.accountManager = accountManager
+        self.rewardService = rewardService
+        self.alertManager = alertManager
 
         observeCurrentUser()
     }
@@ -58,9 +60,9 @@ class ChallengeManager: ObservableObject {
     func updateNotifications(for challenge: Challenge,
                              config: [ChallengeNotification],
                              completion: ((Error?) -> Void)? = nil) {
-        guard let id = challenge.id else { return }
+        guard let challengeId = challenge.id else { return }
 
-        if let idx = self.challenges.firstIndex(where: { $0.id == id }) {
+        if let idx = self.challenges.firstIndex(where: { $0.id == challengeId }) {
             self.challenges[idx].notificationsConfig = config
         }
 
@@ -69,25 +71,15 @@ class ChallengeManager: ObservableObject {
         }
     }
 
+    // TODO: Utile ?
     /// Ajoute une médaille à un utilisateur pour un défi donné (dans le cache local)
-    func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
-        if var progresses = participants[challengeId],
-           let idx = progresses.firstIndex(where: { $0.id == userId }) {
-            progresses[idx].medals.append(medal)
-            participants[challengeId] = progresses
-        }
-    }
-
-    /// Met à jour la progression d’un utilisateur pour un jour validé dans un défi
-    func updateProgress(for challengeId: String, userId: String, on day: Date) {
-        if var progresses = participants[challengeId],
-           let idx = progresses.firstIndex(where: { $0.id == userId }) {
-            if !progresses[idx].validatedDays.contains(where: { Calendar.current.isDate($0, inSameDayAs: day) }) {
-                progresses[idx].validatedDays.append(day)
-                participants[challengeId] = progresses
-            }
-        }
-    }
+    //    func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
+    //        if var progresses = participants[challengeId],
+    //           let idx = progresses.firstIndex(where: { $0.id == userId }) {
+    //            progresses[idx].medals.append(medal)
+    //            participants[challengeId] = progresses
+    //        }
+    //    }
 }
 
 // MARK: Photos
@@ -103,16 +95,13 @@ extension ChallengeManager {
         }
     }
 
-    private func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
-        photos[challengeId, default: []].append(photo)
-    }
-
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
         return try await challengeService.fetchPhotos(for: challengeId)
     }
 
     /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
     // TODO: Ne plus passer challengeId en paramètre et récupérer cette valeur à travers photo.challengeId lorsque toutes les photos auront un challengeId assigné
+    // TODO: Lier proprement au service
     func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws {
         let db = Firestore.firestore()
         let storage = Storage.storage()
@@ -153,47 +142,34 @@ extension ChallengeManager {
             self.photos[challengeId]?.removeAll { $0.id == photoId }
         }
     }
+
+    private func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
+        photos[challengeId, default: []].append(photo)
+    }
 }
 
 // MARK: Challenges
 extension ChallengeManager {
     /// Ajoute un nouveau défi dans Firestore puis recharge la liste des défis filtrés
-    func addNewChallengeToFirestore(_ challenge: Challenge, completion: ((Bool) -> Void)? = nil) {
-        ChallengeService.shared.addChallenge(challenge) { error in
-            if let error = error {
-                print("❌ Erreur création défi: \(error)")
-                completion?(false)
-                return
-            }
+    func createChallenge(_ challenge: Challenge) async throws -> Challenge? {
+        do {
+            let newChallenge = try await challengeService.addChallenge(challenge)
+            try await self.fetchAndFilterChallenges()
 
-            Task {
-                try await self.fetchAndFilterChallenges()
-                DispatchQueue.main.async {
-                    completion?(true)
-                }
-            }
+            return newChallenge
         }
     }
 
     /// Récupère tous les défis présents dans Firestore sans filtrage
-    func fetchAllChallengesOnceAsync() async -> [Challenge] {
-        let db = Firestore.firestore()
-
-        do {
-            let snapshot = try await db.collection("challenges").getDocuments()
-            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
-            return challenges
-        } catch {
-            print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
-            return []
-        }
+    func fetchAllChallenges() async throws -> [Challenge] {
+        return try await challengeService.fetchAllChallenges()
     }
 
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
     func fetchAndFilterChallenges() async throws {
         guard let user = currentUser, let userId = user.id else { return }
 
-        let filtered = await fetchAllChallengesOnceAsync().filter { challenge in
+        let filtered = try await fetchAllChallenges().filter { challenge in
             challenge.creatorUID == userId || challenge.participantUids.contains(userId)
         }
 
@@ -203,31 +179,7 @@ extension ChallengeManager {
         }
     }
 
-    /// Met à jour un défi dans Firestore et localement dans la liste `challenges`
-    func updateChallenge(_ updatedChallenge: Challenge) async {
-        guard let id = updatedChallenge.id else {
-            print("❌ Challenge ID manquant")
-            return
-        }
-
-        if let index = challenges.firstIndex(where: { $0.id == id }) {
-            challenges[index] = updatedChallenge
-        }
-
-        let db = Firestore.firestore()
-        do {
-            try db.collection("challenges").document(id).setData(from: updatedChallenge) { error in
-                if let error = error {
-                    print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
-                } else {
-                    print("✅ Firestore challenge mis à jour")
-                }
-            }
-        } catch {
-            print("❌ Erreur d'encodage updateChallenge: \(error)")
-        }
-    }
-
+    // TODO: Lier proprement au service
     /// Supprime un challenge (et toutes ses photos associées) côté Firestore & Storage
     func deleteChallenge(_ challenge: Challenge, completion: @escaping (Bool) -> Void) {
         guard let challengeId = challenge.id else {
@@ -294,5 +246,183 @@ extension ChallengeManager {
             self.photos[challengeId] = nil
             completion(overallSuccess)
         }
+    }
+
+    func joinChallenge(_ challenge: Challenge, userId: String) async throws {
+        guard let challengeId = challenge.id else { return }
+
+        try await updateChallenge(challenge)
+        try await createNewParticipantProgress(userId: userId, challengeId: challengeId)
+    }
+
+    private func updateChallenge(_ challenge: Challenge) async throws {
+        guard let challengeId = challenge.id else {
+            print("❌ Challenge ID manquant")
+            return
+        }
+
+        try await challengeService.updateChallenge(challenge)
+        try await fetchAndFilterChallenges()
+
+        await MainActor.run {
+            if let index = challenges.firstIndex(where: { $0.id == challengeId }) {
+                challenges[index] = challenge
+            }
+        }
+    }
+}
+
+// MARK: Reward flow
+extension ChallengeManager {
+    func createNewParticipantProgress(userId: String, challengeId: String) async throws {
+        let userProgress = ParticipantProgress(id: userId,
+                                               joinedDate: Date(),
+                                               validatedDays: [],
+                                               medals: [],
+                                               currentStreak: 0)
+
+        try setUserProgress(userId: userId, challengeId: challengeId, progress: userProgress)
+    }
+
+    func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws {
+        do {
+            print("📥 updateProgress lancé pour userId=\(userId), challengeId=\(challengeId)")
+            guard var progress = try await fetchProgress(challengeId: challengeId, userId: userId) else { return }
+
+            guard shouldAppendDay(progress: progress, day: date) else {
+                print("🔁 Journée déjà validée pour \(date)")
+                return
+            }
+
+            progress.validatedDays.append(date)
+            progress.currentStreak = calculateStreak(from: progress.validatedDays)
+            print("✅ Nouvelle journée ajoutée. Streak actuel: \(progress.currentStreak)")
+
+            let newMedals = detectNewMedals(from: progress, challengeId: challengeId)
+            progress.medals.append(contentsOf: newMedals)
+
+            await rewardService.persistProgress(progress, for: challengeId)
+            await rewardService.addMedals(to: userId, medals: newMedals)
+
+            _ = try await accountManager.updateCurrentUser(with: userId)
+
+            for medal in newMedals {
+                await MainActor.run {
+                    alertManager.show(medal: medal, challengeId: challengeId)
+                    triggerLocalNotification(for: medal)
+                }
+            }
+        } catch {
+            print("❌ updateProgress > Erreur fetch: \(error)")
+        }
+    }
+
+    func assignCreationMedalsToUser(_ userId: String) async {
+        let createdCount = challenges.filter { $0.creatorUID == userId }.count
+        await rewardService.assignCreationMedals(to: userId, createdCount: createdCount)
+    }
+
+    private func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
+        return try challengeService.setUserProgress(userId: userId, challengeId: challengeId, progress: progress)
+    }
+
+    private func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
+        return try await challengeService.fetchProgress(challengeId: challengeId, userId: userId)
+    }
+
+    private func shouldAppendDay(progress: ParticipantProgress, day: Date) -> Bool {
+        !progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: day) }
+    }
+
+    private func detectNewMedals(from progress: ParticipantProgress, challengeId: String) -> [UserMedal] {
+        let sortedCount = progress.validatedDays.count
+        var medals: [UserMedal] = []
+
+        if sortedCount == 1 && !progress.medals.contains(where: { $0.name == "🟡 Premier jour" }) {
+            print("🥇 Ajout médaille: Premier jour")
+            medals.append(UserMedal(name: "🟡 Premier jour",
+                                    description: "Première validation !",
+                                    iconName: "circle.fill",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 3 && !progress.medals.contains(where: { $0.name == "🔥 3 jours" }) {
+            print("🥈 Ajout médaille: 3 jours")
+            medals.append(UserMedal(name: "🔥 3 jours",
+                                    description: "3 jours validés d'affilée",
+                                    iconName: "flame",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 7 && !progress.medals.contains(where: { $0.name == "🔥 7 jours" }) {
+            medals.append(UserMedal(name: "🔥 7 jours",
+                                    description: "7 jours validés d'affilée",
+                                    iconName: "flame.fill",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 8 && !progress.medals.contains(where: { $0.name == "🔥 8 jours" }) {
+            medals.append(UserMedal(name: "🔥 8 jours",
+                                    description: "8 jours validés d'affilée",
+                                    iconName: "flame.fill",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 14 && !progress.medals.contains(where: { $0.name == "🧨 14 jours" }) {
+            medals.append(UserMedal(name: "🧨 14 jours",
+                                    description: "14 jours de suite !",
+                                    iconName: "burst.fill",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if let challenge = challenges.first(where: { $0.id == challengeId }),
+           sortedCount >= challenge.duration,
+           !progress.medals.contains(where: { $0.name == "🏁 Terminé" }) {
+            medals.append(UserMedal(name: "🏁 Terminé",
+                                    description: "Défi complété",
+                                    iconName: "checkmark.seal",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        return medals
+    }
+
+    private func triggerLocalNotification(for medal: UserMedal) {
+        let content = UNMutableNotificationContent()
+
+        content.title = "🎖️ Nouvelle médaille débloquée!"
+        content.body = "\(medal.name): \(medal.description)"
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString,
+                                            content: content,
+                                            trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+
+    /// Calcule la série (streak) courante de jours validés
+    private func calculateStreak(from dates: [Date]) -> Int {
+        let sorted = dates.sorted(by: >)
+        var streak = 0
+
+        for date in sorted {
+            let expectedDate = Calendar.current.date(byAdding: .day, value: -streak, to: Date()) ?? date
+
+            if Calendar.current.isDate(date, inSameDayAs: expectedDate) {
+                streak += 1
+            } else {
+                break
+            }
+        }
+        print("🔢 Calcul streak depuis:", dates)
+
+        return streak
     }
 }

@@ -26,44 +26,47 @@ final class ChallengeService {
 
     // MARK: - Challenges
 
-    func fetchChallenges(completion: @escaping ([Challenge]) -> Void) {
-        db.collection(collection).addSnapshotListener { snapshot, error in
-            guard let docs = snapshot?.documents else {
-                completion([])
-                return
-            }
-            let challenges = docs.compactMap { try? $0.data(as: Challenge.self) }
-            completion(challenges)
-        }
-    }
-
-    func fetchAllChallengesOnce(completion: @escaping ([Challenge]) -> Void) {
-        db.collection("challenges").getDocuments { snapshot, error in
-            guard let documents = snapshot?.documents else {
-                print("❌ fetchAllChallengesOnce: snapshot vide")
-                completion([])
-                return
-            }
-            let challenges = documents.compactMap { try? $0.data(as: Challenge.self) }
-            completion(challenges)
-        }
-    }
-
-    func fetchAllChallengesOnce() async -> [Challenge] {
-        await withCheckedContinuation { continuation in
-            fetchAllChallengesOnce { challenges in
-                continuation.resume(returning: challenges)
-            }
-        }
-    }
-
-    func addChallenge(_ challenge: Challenge, completion: ((Error?) -> Void)? = nil) {
+    /// Récupère tous les défis présents dans Firestore sans filtrage
+    func fetchAllChallenges() async throws -> [Challenge] {
         do {
-            _ = try db.collection(collection).addDocument(from: challenge) { error in
-                completion?(error)
+            let snapshot = try await db.collection("challenges").getDocuments()
+            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            return challenges
+        } catch {
+            print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
+            return []
+        }
+    }
+
+    func addChallenge(_ challenge: Challenge) async throws -> Challenge? {
+        do {
+            let docRef = try db.collection(collection).addDocument(from: challenge)
+            let snapshot = try await docRef.getDocument()
+            let createdChallenge = try? snapshot.data(as: Challenge.self)
+
+            return createdChallenge
+        } catch {
+            print("Error creating challenge into database")
+            return nil
+        }
+    }
+
+    func updateChallenge(_ challenge: Challenge) async throws {
+        guard let challengeId = challenge.id else {
+            print("❌ Challenge ID manquant")
+            return
+        }
+
+        do {
+            try db.collection("challenges").document(challengeId).setData(from: challenge) { error in
+                if let error = error {
+                    print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
+                } else {
+                    print("✅ Firestore challenge mis à jour")
+                }
             }
         } catch {
-            completion?(error)
+            print("❌ Erreur d'encodage updateChallenge: \(error)")
         }
     }
 
@@ -151,6 +154,32 @@ final class ChallengeService {
         }
     }
 
+    func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
+        return try db
+            .collection("challenges")
+            .document(challengeId)
+            .collection("participants")
+            .document(userId)
+            .setData(from: progress)
+    }
+
+    func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
+        let snapshot = try await db
+            .collection("challenges")
+            .document(challengeId)
+            .collection("participants")
+            .document(userId)
+            .getDocument()
+
+        guard let progress = try? snapshot.data(as: ParticipantProgress.self) else {
+            print("⚠️ Pas de progression trouvée pour \(userId)")
+            return nil
+        }
+
+        print("📊 Progression chargée: validatedDays = \(progress.validatedDays.map { $0.description }), currentStreak = \(progress.currentStreak)")
+        return progress
+    }
+
     // MARK: - Photos
 
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto {
@@ -202,9 +231,6 @@ final class ChallengeService {
     func updateNotifications(for challenge: Challenge,
                              config: [ChallengeNotification],
                              completion: ((Error?) -> Void)? = nil) {
-        // mise à jour Firestore (fixée)
-        let db = Firestore.firestore()
-
         // Convertir explicitement les dates en timestamps
         let firestoreConfig = config.map { notif in
             return [

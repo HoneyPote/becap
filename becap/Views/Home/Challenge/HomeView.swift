@@ -13,7 +13,7 @@ struct HomeView: View {
     @State private var showJoinView = false
 
     var body: some View {
-        NavigationView {
+        NavigationStack {
             ZStack {
                 LinearGradient.petrolToSky.ignoresSafeArea()
 
@@ -57,10 +57,9 @@ struct HomeView: View {
                 }
             }
         }
-        .onAppear {
-            viewModel.onAppear()
+        .refreshable {
+            viewModel.refreshChallenges()
         }
-        .navigationViewStyle(.stack)
         .sheet(isPresented: $showJoinView) {
             JoinDefiView()
         }

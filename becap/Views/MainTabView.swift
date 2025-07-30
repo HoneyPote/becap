@@ -13,7 +13,7 @@ struct MainTabView: View {
     var body: some View {
         Group {
             TabView {
-                if viewModel.challengesDoneFetching {
+                if viewModel.infosDoneFetching {
                     HomeView()
                         .tabItem {
                             Label("Challenge", systemImage: "house.fill")
@@ -35,11 +35,18 @@ struct MainTabView: View {
                 }
             }
         }
+//        .overlay {
+//                  if let medal = alertManager.currentMedal {
+//                      MedalPopupView(medal: medal, onDismiss: alertManager.dismiss)
+//                          .transition(.scale)
+//                  }
+//              }
+        .environmentObject(ChallengeManager.shared)
         .onAppear {
             NotificationManager.shared.requestAuthorization()
         }
         .task {
-            viewModel.fetchFilteredChallenges()
+            viewModel.fetchInfos()
         }
         .navigationBarBackButtonHidden(true)
     }

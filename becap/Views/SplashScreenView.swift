@@ -48,7 +48,7 @@ struct SplashScreenView: View {
             .ignoresSafeArea()
 
             VStack {
-                Image(systemName: "bolt.fill")
+                Image(systemName: "flag.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.white)
                     .padding(.bottom, 16)

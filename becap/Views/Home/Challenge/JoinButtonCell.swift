@@ -11,15 +11,26 @@ struct JoinButtonCell: View {
         Button(action: onTap) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.white)
-                    .shadow(color: Color.black.opacity(0.13), radius: 12, x: 0, y: 5)
+                    .fill(
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                Color(red: 0.5, green: 0.0, blue: 0.1),   // bordeaux
+                                Color(red: 0.7, green: 0.3, blue: 0.3)    // vieux rose
+                            ]),
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 20, x: 5, y: 5)
+
                 VStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 26, weight: .bold))
-                        .foregroundColor(.gray)
+                        .foregroundColor(.white)
+
                     Text("Rejoindre ou Partager un défi")
                         .font(.headline)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.8)
                 }

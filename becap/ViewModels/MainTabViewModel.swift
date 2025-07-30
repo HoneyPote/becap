@@ -8,7 +8,7 @@
 import SwiftUI
 
 class MainTabViewModel: ObservableObject {
-    @Published var challengesDoneFetching: Bool = false
+    @Published var infosDoneFetching: Bool = false
 
     private var challengeManager: ChallengeManager
 
@@ -16,11 +16,12 @@ class MainTabViewModel: ObservableObject {
         self.challengeManager = challengeManager
     }
 
-    func fetchFilteredChallenges() {
+    func fetchInfos() {
         Task {
             try await challengeManager.fetchAndFilterChallenges()
+
             await MainActor.run {
-                self.challengesDoneFetching = true
+                self.infosDoneFetching = true
             }
         }
     }

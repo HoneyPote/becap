@@ -33,9 +33,7 @@ class CameraViewModel: ObservableObject {
          challengeManager: ChallengeManager = ChallengeManager.shared) {
         self.currentUser = userManager.currentUser
         self.challengeManager = challengeManager
-    }
 
-    func onAppear() {
         observeChallengesChanges()
     }
 
@@ -68,14 +66,19 @@ class CameraViewModel: ObservableObject {
             return
         }
 
-        guard let challengeId = challenge.id, let user = currentUser else { return }
+        guard let challengeId = challenge.id, let currentUser, let currentUserId = currentUser.id else { return }
 
         Task {
             do {
                 _ = try await self.challengeManager.uploadPhotoAsync(image: image,
                                                                      challengeId: challengeId,
-                                                                     author: user,
+                                                                     author: currentUser,
                                                                      description: descriptionText)
+
+                try await challengeManager.updateParticipantProgress(for: challengeId,
+                                                                     userId: currentUserId,
+                                                                     date: Date())
+
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
                     self.selectedImage = nil

@@ -23,6 +23,7 @@ struct UserMedal: Codable, Identifiable {
     let description: String
     let iconName: String
     let achievedDate: Date
+    var challengeId: String 
 }
 
 struct ParticipantProgress: Identifiable, Codable {

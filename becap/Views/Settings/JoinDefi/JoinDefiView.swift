@@ -21,9 +21,6 @@ struct JoinDefiView: View {
             .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .navigationTitle("Défis")
         }
-        .onAppear {
-            viewModel.onAppear()
-        }
         .alert(isPresented: $viewModel.showingAlert) {
             Alert(title: Text(viewModel.alertTitle), message: Text(viewModel.alertMessage), dismissButton: .default(Text("OK")))
         }

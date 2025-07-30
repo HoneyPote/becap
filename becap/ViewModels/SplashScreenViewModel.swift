@@ -28,16 +28,17 @@ class SplashScreenViewModel: ObservableObject {
     }
 
     func fetchAlreadyConnectedUser() {
-        guard let user = AccountService().currentUser else {
+        guard let currentUser = AccountService().currentUser else {
             self.fetchingAlreadyConnectedUserIsDone = true
             return
         }
 
         Task {
             do {
-                if let user = try await accountManager.fetchUser(uid: user.uid) {
-                    UserManager.shared.saveUser(user: user)
+                if let currentUser = try await accountManager.fetchUser(uid: currentUser.uid) {
+                    UserManager.shared.saveUser(user: currentUser)
                 }
+
                 await MainActor.run {
                     self.fetchingAlreadyConnectedUserIsDone = true
                     AppState.shared.isLoggedIn = true
