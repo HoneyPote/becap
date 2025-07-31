@@ -6,14 +6,27 @@
 //
 
 import SwiftUI
+import Combine
 
 class MainTabViewModel: ObservableObject {
+    @Published var medal: UserMedal?
     @Published var infosDoneFetching: Bool = false
 
-    private var challengeManager: ChallengeManager
+    private let challengeManager: ChallengeManager
+    private let alertManager: GlobalAlertManager
 
-    init(challengeManager: ChallengeManager = ChallengeManager.shared) {
+    private var cancellables = Set<AnyCancellable>()
+
+    init(challengeManager: ChallengeManager = ChallengeManager.shared,
+         alertManager: GlobalAlertManager = .shared) {
         self.challengeManager = challengeManager
+        self.alertManager = alertManager
+
+        observeMedals()
+    }
+
+    func dismissMedalPopup() {
+        alertManager.dismiss()
     }
 
     func fetchInfos() {
@@ -24,6 +37,15 @@ class MainTabViewModel: ObservableObject {
                 self.infosDoneFetching = true
             }
         }
+    }
+
+    private func observeMedals() {
+        alertManager.$currentMedal
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] currentMedal in
+                self?.medal = currentMedal
+            }
+            .store(in: &cancellables)
     }
 }
 

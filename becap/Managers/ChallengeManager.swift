@@ -20,6 +20,7 @@ class ChallengeManager: ObservableObject {
     static let shared = ChallengeManager()
 
     private var cancellables = Set<AnyCancellable>()
+
     private let challengeService: ChallengeService
     private let userManager: UserManager
     private let accountManager: AccountManager
