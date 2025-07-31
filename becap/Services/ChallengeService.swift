@@ -21,11 +21,11 @@ final class ChallengeService {
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
     private let collection = "challenges"
-
+    
     private init() {}
-
+    
     // MARK: - Challenges
-
+    
     /// Récupère tous les défis présents dans Firestore sans filtrage
     func fetchAllChallenges() async throws -> [Challenge] {
         do {
@@ -37,26 +37,26 @@ final class ChallengeService {
             return []
         }
     }
-
+    
     func addChallenge(_ challenge: Challenge) async throws -> Challenge? {
         do {
             let docRef = try db.collection(collection).addDocument(from: challenge)
             let snapshot = try await docRef.getDocument()
             let createdChallenge = try? snapshot.data(as: Challenge.self)
-
+            
             return createdChallenge
         } catch {
             print("Error creating challenge into database")
             return nil
         }
     }
-
+    
     func updateChallenge(_ challenge: Challenge) async throws {
         guard let challengeId = challenge.id else {
             print("❌ Challenge ID manquant")
             return
         }
-
+        
         do {
             try db.collection("challenges").document(challengeId).setData(from: challenge) { error in
                 if let error = error {
@@ -69,13 +69,13 @@ final class ChallengeService {
             print("❌ Erreur d'encodage updateChallenge: \(error)")
         }
     }
-
+    
     func deleteChallenge(challengeId: String, completion: ((Error?) -> Void)? = nil) {
         let challengeRef = db.collection(collection).document(challengeId)
-
+        
         // 1. Supprime les sous-collections (photos + participants)
         let batch = db.batch()
-
+        
         // a. Supprime toutes les photos (et éventuellement Storage si besoin)
         challengeRef.collection("photos").getDocuments { photoSnap, error in
             if let docs = photoSnap?.documents {
@@ -91,7 +91,7 @@ final class ChallengeService {
                     }
                 }
             }
-
+            
             // b. Supprime tous les participants
             challengeRef.collection("participants").getDocuments { partSnap, error in
                 if let docs = partSnap?.documents {
@@ -99,10 +99,10 @@ final class ChallengeService {
                         batch.deleteDocument(doc.reference)
                     }
                 }
-
+                
                 // c. Supprime le challenge lui-même
                 batch.deleteDocument(challengeRef)
-
+                
                 // d. Exécute le batch
                 batch.commit { error in
                     completion?(error)
@@ -110,9 +110,9 @@ final class ChallengeService {
             }
         }
     }
-
+    
     // MARK: - Participants
-
+    
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
         let ref = db.collection(collection).document(challengeId).collection("participants").document(progress.id)
         do {
@@ -123,7 +123,7 @@ final class ChallengeService {
             completion?(error)
         }
     }
-
+    
     func fetchParticipants(for challengeId: String, completion: @escaping ([ParticipantProgress]) -> Void) {
         db.collection(collection).document(challengeId).collection("participants")
             .addSnapshotListener { snapshot, error in
@@ -131,7 +131,7 @@ final class ChallengeService {
                 completion(progresses)
             }
     }
-
+    
     func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
         let ref = db.collection(collection).document(challengeId).collection("participants").document(progress.id)
         do {
@@ -142,9 +142,9 @@ final class ChallengeService {
             completion?(error)
         }
     }
-
+    
     // MARK: - Médailles
-
+    
     func addMedal(for challengeId: String, userId: String, medal: UserMedal, completion: ((Error?) -> Void)? = nil) {
         let ref = db.collection(collection).document(challengeId).collection("participants").document(userId)
         ref.updateData([
@@ -153,7 +153,7 @@ final class ChallengeService {
             completion?(error)
         }
     }
-
+    
     func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
         return try db
             .collection("challenges")
@@ -162,7 +162,7 @@ final class ChallengeService {
             .document(userId)
             .setData(from: progress)
     }
-
+    
     func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
         let snapshot = try await db
             .collection("challenges")
@@ -170,32 +170,35 @@ final class ChallengeService {
             .collection("participants")
             .document(userId)
             .getDocument()
-
+        
         guard let progress = try? snapshot.data(as: ParticipantProgress.self) else {
             print("⚠️ Pas de progression trouvée pour \(userId)")
             return nil
         }
-
+        
         print("📊 Progression chargée: validatedDays = \(progress.validatedDays.map { $0.description }), currentStreak = \(progress.currentStreak)")
         return progress
     }
-
+    
     // MARK: - Photos
-
+    
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto {
-        guard let data = image.jpegData(compressionQuality: 0.8) else {
+        
+        let resizedImage = image.resized(toMaxWidth: 720)
+        
+        guard let data = resizedImage.jpegData(compressionQuality: 0.6) else {
             throw ChallengeServiceError.invalidImageData("Invalid image data")
         }
-
+        
         let fileName = "\(UUID().uuidString).jpg"
         let ref = storage.reference().child("photos/\(challengeId)/\(author.id ?? "unknown")/\(fileName)")
-
+        
         // Upload image to Storage
         _ = try await ref.putDataAsync(data, metadata: nil)
-
+        
         // Get download URL
         let url = try await ref.downloadURL()
-
+        
         // Create photo object
         let photo = ChallengePhoto(
             challengeId: challengeId,
@@ -206,28 +209,28 @@ final class ChallengeService {
             date: Date(),
             createdAt: Date()
         )
-
+        
         // Save in Firestore
         try savePhoto(photo, challengeId: challengeId)
-
+        
         return photo
     }
-
+    
     private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws {
         let docRef = db.collection(collection).document(challengeId).collection("photos").document()
         var photoToSave = photo
         photoToSave.id = docRef.documentID
         try docRef.setData(from: photoToSave)
     }
-
+    
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto] {
         let allPhotos = try await db.collection(collection).document(challengeId).collection("photos").getDocuments()
-
+        
         return allPhotos.documents.compactMap { try? $0.data(as: ChallengePhoto.self) }
     }
-
+    
     // MARK: - Notifications
-
+    
     func updateNotifications(for challenge: Challenge,
                              config: [ChallengeNotification],
                              completion: ((Error?) -> Void)? = nil) {
@@ -238,11 +241,23 @@ final class ChallengeService {
                 "times": notif.times.map { Timestamp(date: $0) }
             ] as [String : Any]
         }
-
+        
         db.collection("challenges").document(challenge.id ?? "").updateData([
             "notificationsConfig": firestoreConfig
         ]) { error in
             completion?(error)
+        }
+    }
+}
+
+extension UIImage {
+    func resized(toMaxWidth width: CGFloat) -> UIImage {
+        let aspectRatio = size.height / size.width
+        let newSize = CGSize(width: width, height: width * aspectRatio)
+
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+        return renderer.image { _ in
+            self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 }

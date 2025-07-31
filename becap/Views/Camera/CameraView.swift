@@ -13,17 +13,18 @@ struct CameraView: View {
     @State private var showCamera: Bool = false
 
     var body: some View {
-        ScrollView {
+        ScrollView(.vertical, showsIndicators: true) {
             VStack(spacing: 24) {
                 header
                 infoCard
                 photoCard
                 uploadPhotoButton
             }
+            .frame(maxWidth: .infinity)
             .padding([.horizontal, .bottom])
             .padding(.top, 2)
         }
-        .scrollBounceBehavior(.basedOnSize, axes: [.vertical])
+       // .scrollBounceBehavior(.basedOnSize, axes: [.vertical])
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
         .navigationTitle("Prendre une photo")
         .sheet(isPresented: $showCamera) {

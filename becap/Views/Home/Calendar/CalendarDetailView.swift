@@ -114,16 +114,31 @@ struct CalendarDetailView: View {
                 .foregroundColor(.white)
                 .padding(.top, 42)
                 .padding(.bottom, 12)
-                .padding(.horizontal, 24)
+                .padding(.leading, 24)
+
             Spacer()
-            NavigationLink(destination: NotificationSettingsView(challenge: viewModel.challenge)) {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 20, weight: .medium))
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Circle().fill(Color.blue))
-                    .shadow(radius: 4)
+
+            HStack(spacing: 12) {
+                NavigationLink(destination: NotificationSettingsView(challenge: viewModel.challenge)) {
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Circle().fill(.ultraThinMaterial))
+                        .shadow(radius: 4)
+                }
+
+                NavigationLink(destination: JoinDefiView()) {
+                    Image(systemName: "square.and.arrow.up.fill")
+                        .font(.system(size: 17, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(10)
+                        .background(Circle().fill(.ultraThinMaterial))
+                        .shadow(radius: 4)
+                }
             }
+            .padding(.top, 42)
+            .padding(.trailing)
         }
     }
 

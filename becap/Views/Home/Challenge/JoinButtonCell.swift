@@ -28,7 +28,7 @@ struct JoinButtonCell: View {
                         .font(.system(size: 26, weight: .bold))
                         .foregroundColor(.white)
 
-                    Text("Rejoindre ou Partager un défi")
+                    Text("Nouveau Challenge")
                         .font(.headline)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)

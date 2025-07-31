@@ -11,6 +11,7 @@ struct NewChallengeView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var viewModel = NewChallengeViewModel()
+    @Binding var challengeCreated: Bool
 
     var body: some View {
         Form {
@@ -43,6 +44,7 @@ struct NewChallengeView: View {
                     Button("Créer le défi") {
                         viewModel.createChallenge() { success in
                             if success {
+                                challengeCreated = true 
                                 dismiss()
                             }
                         }

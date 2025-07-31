@@ -11,6 +11,7 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
 
     @State private var showingLogoutAlert = false
+    @State private var showCreationToast = false
 
     var body: some View {
         NavigationView {
@@ -44,6 +45,19 @@ struct SettingsView: View {
             Button("Annuler", role: .cancel) {}
             Button("Déconnexion", role: .destructive) {
                 viewModel.signOut()
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showCreationToast {
+                ToastView(message: "Défi créé avec succès 🎉", systemImage: "checkmark.circle")
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                            withAnimation {
+                                showCreationToast = false
+                            }
+                        }
+                    }
+                    .padding(.bottom, 40)
             }
         }
     }
@@ -90,7 +104,7 @@ struct SettingsView: View {
 
     private var navigationList: some View {
         VStack(spacing: 12) {
-            NavigationLink(destination: NewChallengeView()) {
+            NavigationLink(destination: NewChallengeView(challengeCreated: $showCreationToast)) {
                 Label("Créer un nouveau défi", systemImage: "plus.circle")
                     .font(.headline)
                     .foregroundColor(.blue)
