@@ -23,6 +23,7 @@ struct MainTabView: View {
                         .tabItem {
                             Label("Photo", systemImage: "camera.fill")
                         }
+
                     SettingsView()
                         .tabItem {
                             Label("Settings", systemImage: "gearshape.fill")
