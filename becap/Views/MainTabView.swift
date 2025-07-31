@@ -9,6 +9,7 @@ import SwiftUI
 
 struct MainTabView: View {
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
+    @StateObject private var alertManager = GlobalAlertManager.shared
 
     var body: some View {
         Group {
@@ -35,12 +36,13 @@ struct MainTabView: View {
                 }
             }
         }
-//        .overlay {
-//                  if let medal = alertManager.currentMedal {
-//                      MedalPopupView(medal: medal, onDismiss: alertManager.dismiss)
-//                          .transition(.scale)
-//                  }
-//              }
+        .overlay {
+            if alertManager.isShown, let medal = alertManager.currentMedal {
+                MedalPopupView(medal: medal, onDismiss: alertManager.dismiss)
+                    .transition(.scale)
+            }
+        }
+        .environmentObject(alertManager)
         .environmentObject(ChallengeManager.shared)
         .onAppear {
             NotificationManager.shared.requestAuthorization()
