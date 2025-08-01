@@ -16,8 +16,9 @@ struct PagerInfo: Identifiable {
 
 struct CalendarDetailView: View {
     @StateObject private var viewModel: CalendarDetailViewModel
-
+    @State private var expandedCellDate: Date?
     @State private var selectedParticipant: Participant?
+    @State private var selectedGridCell: CalendarDetailCell?
 
     init(challenge: Challenge) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -26,14 +27,19 @@ struct CalendarDetailView: View {
     var body: some View {
         VStack(spacing: 0) {
             headerView
-
             filterView
 
             ScrollView {
                 LazyVStack(spacing: 12) {
                     if viewModel.doneLoadingPhotos {
                         ForEach(viewModel.buildDetailcells(for: selectedParticipant), id: \.self) { cell in
-                            detailCellButton(cell: cell)
+                            if selectedParticipant == nil {
+                                calendarDayButton(for: cell) {
+                                    selectedGridCell = cell
+                                }
+                            } else {
+                                detailCellButton(cell: cell)
+                            }
                         }
                     } else {
                         ProgressView()
@@ -51,6 +57,11 @@ struct CalendarDetailView: View {
         .background(LinearGradient.petrolToSky.ignoresSafeArea())
         .sheet(item: $viewModel.selectedPagerInfo) { info in
             photoPagerSheetView(info: info)
+        }
+        .sheet(item: $selectedGridCell) { cell in
+            GridPhotosSheetView(cell: cell) {
+                selectedGridCell = nil
+            }
         }
     }
 
@@ -85,6 +96,37 @@ struct CalendarDetailView: View {
                         .background(
                             Capsule().fill(Color.green.opacity(0.95))
                         )
+                        .padding(.leading, 4)
+                }
+                Spacer()
+                Text("\(cell.photos.count) photo(s)")
+                    .foregroundColor(.white.opacity(0.6))
+                Image(systemName: "chevron.right")
+                    .foregroundColor(.white.opacity(0.4))
+            }
+            .padding()
+            .background(cellBackgroundView(isToday: cell.isToday))
+            .clipShape(RoundedRectangle(cornerRadius: 16))
+        }
+        .disabled(cell.photos.isEmpty)
+    }
+
+    func calendarDayButton(for cell: CalendarDetailCell, action: @escaping () -> Void) -> some View {
+        Button {
+            if !cell.photos.isEmpty {
+                action()
+            }
+        } label: {
+            HStack {
+                Text(cell.date, style: .date)
+                    .foregroundColor(.white)
+                if cell.isToday {
+                    Text("Aujourd’hui")
+                        .font(.caption)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Capsule().fill(Color.green.opacity(0.95)))
                         .padding(.leading, 4)
                 }
                 Spacer()

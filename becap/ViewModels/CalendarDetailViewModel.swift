@@ -12,10 +12,12 @@ struct Participant: Hashable {
     let name: String
 }
 
-struct CalendarDetailCell: Hashable {
+struct CalendarDetailCell: Hashable,Identifiable {
     var date: Date
     var photos: [ChallengePhoto]
     var isToday: Bool
+
+    var id: Date { date }
 }
 
 class CalendarDetailViewModel: ObservableObject {
