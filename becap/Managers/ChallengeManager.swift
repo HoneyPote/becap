@@ -16,8 +16,42 @@ enum Tabs: Hashable {
     case settings
 }
 
-class ChallengeManager: ObservableObject {
+protocol ChallengeManagerProtocol {
+    var currentUser: User? { get }
+    var challenges: [Challenge] { get }
+    var photos: [String: [ChallengePhoto]] { get }
+
+    // Challenge
+    func createChallenge(_ challenge: Challenge) async throws -> Challenge?
+    func fetchAllChallenges() async throws -> [Challenge]
+    func fetchAndFilterChallenges() async throws
+    func deleteChallenge(_ challenge: Challenge, completion: @escaping (Bool) -> Void)
+    func joinChallenge(_ challenge: Challenge, userId: String) async throws
+
+    // Photos
+    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String?) async throws
+    func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto]
+    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws
+
+    // Reward flow
+    func createNewParticipantProgress(userId: String, challengeId: String) async throws
+    func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws
+    func assignCreationMedalsToUser(_ userId: String) async
+
+    // Notifications
+    func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+}
+
+class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     static let shared = ChallengeManager()
+
+    @Published private(set) var currentUser: User?
+    @Published private(set) var challenges: [Challenge] = []
+    @Published private(set) var photos: [String: [ChallengePhoto]] = [:]
+
+//    @Published var participants: [String: [ParticipantProgress]] = [:] // TODO: Utile ?
+//    @Published var medals: [UserMedal] = [] // TODO: Utile ?
+//    @Published var selectedTab: Tabs = .challenge // TODO: Utile ?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -26,14 +60,6 @@ class ChallengeManager: ObservableObject {
     private let accountManager: AccountManager
     private let rewardService: RewardService
     private let alertManager: GlobalAlertManager
-
-    @Published private(set) var currentUser: User?
-
-    @Published var challenges: [Challenge] = []
-    //    @Published var participants: [String: [ParticipantProgress]] = [:] // TODO: Utile ?
-    @Published var medals: [UserMedal] = []
-    @Published var photos: [String: [ChallengePhoto]] = [:]
-    @Published var selectedTab: Tabs = .challenge
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
@@ -48,110 +74,10 @@ class ChallengeManager: ObservableObject {
 
         observeCurrentUser()
     }
-
-    func observeCurrentUser() {
-        userManager.$currentUser
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentUser in
-                self?.currentUser = currentUser
-            }
-            .store(in: &cancellables)
-    }
-
-    func updateNotifications(for challenge: Challenge,
-                             config: [ChallengeNotification],
-                             completion: ((Error?) -> Void)? = nil) {
-        guard let challengeId = challenge.id else { return }
-
-        if let idx = self.challenges.firstIndex(where: { $0.id == challengeId }) {
-            self.challenges[idx].notificationsConfig = config
-        }
-
-        challengeService.updateNotifications(for: challenge, config: config) { error in
-            completion?(error)
-        }
-    }
-
-    // TODO: Utile ?
-    /// Ajoute une médaille à un utilisateur pour un défi donné (dans le cache local)
-    //    func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
-    //        if var progresses = participants[challengeId],
-    //           let idx = progresses.firstIndex(where: { $0.id == userId }) {
-    //            progresses[idx].medals.append(medal)
-    //            participants[challengeId] = progresses
-    //        }
-    //    }
 }
 
-// MARK: Photos
+// MARK: - Challenges
 extension ChallengeManager {
-    /// Upload une photo dans Firebase Storage via `ChallengeService`
-    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
-        let photo = try await ChallengeService.shared.uploadPhoto(image: image,
-                                                                  challengeId: challengeId,
-                                                                  author: author,
-                                                                  description: description)
-        await MainActor.run {
-            savePhoto(photo, to: challengeId)
-        }
-    }
-
-    func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
-        return try await challengeService.fetchPhotos(for: challengeId)
-    }
-
-    /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
-    // TODO: Ne plus passer challengeId en paramètre et récupérer cette valeur à travers photo.challengeId lorsque toutes les photos auront un challengeId assigné
-    // TODO: Lier proprement au service
-    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws {
-        let db = Firestore.firestore()
-        let storage = Storage.storage()
-
-        for photo in photosToDelete {
-            guard let photoId = photo.id else {
-                throw NSError(domain: "Invalid photo data", code: 400)
-            }
-
-            // 1. Supprimer du Storage
-            if !photo.imageUrl.isEmpty {
-                let ref = storage.reference(forURL: photo.imageUrl)
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    ref.delete { error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume()
-                        }
-                    }
-                }
-            }
-
-            // 2. Supprimer de Firestore
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                db.collection("challenges").document(challengeId)
-                    .collection("photos").document(photoId)
-                    .delete { error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume()
-                        }
-                    }
-            }
-
-            // 3. Mettre à jour le cache local
-            self.photos[challengeId]?.removeAll { $0.id == photoId }
-        }
-    }
-
-    private func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
-        photos[challengeId, default: []].append(photo)
-    }
-}
-
-// MARK: Challenges
-extension ChallengeManager {
-    /// Ajoute un nouveau défi dans Firestore puis recharge la liste des défis filtrés
     func createChallenge(_ challenge: Challenge) async throws -> Challenge? {
         do {
             let newChallenge = try await challengeService.addChallenge(challenge)
@@ -256,6 +182,8 @@ extension ChallengeManager {
         try await createNewParticipantProgress(userId: userId, challengeId: challengeId)
     }
 
+    // Challenges - Privates
+
     private func updateChallenge(_ challenge: Challenge) async throws {
         guard let challengeId = challenge.id else {
             print("❌ Challenge ID manquant")
@@ -273,7 +201,75 @@ extension ChallengeManager {
     }
 }
 
-// MARK: Reward flow
+// MARK: - Photos
+extension ChallengeManager {
+    /// Upload une photo dans Firebase Storage via `ChallengeService`
+    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
+        let photo = try await challengeService.uploadPhoto(image: image,
+                                                                  challengeId: challengeId,
+                                                                  author: author,
+                                                                  description: description)
+        await MainActor.run {
+            savePhoto(photo, to: challengeId)
+        }
+    }
+
+    func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
+        return try await challengeService.fetchPhotos(for: challengeId)
+    }
+
+    /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
+    // TODO: Ne plus passer challengeId en paramètre et récupérer cette valeur à travers photo.challengeId lorsque toutes les photos auront un challengeId assigné
+    // TODO: Lier proprement au service
+    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws {
+        let db = Firestore.firestore()
+        let storage = Storage.storage()
+
+        for photo in photosToDelete {
+            guard let photoId = photo.id else {
+                throw NSError(domain: "Invalid photo data", code: 400)
+            }
+
+            // 1. Supprimer du Storage
+            if !photo.imageUrl.isEmpty {
+                let ref = storage.reference(forURL: photo.imageUrl)
+                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                    ref.delete { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume()
+                        }
+                    }
+                }
+            }
+
+            // 2. Supprimer de Firestore
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                db.collection("challenges").document(challengeId)
+                    .collection("photos").document(photoId)
+                    .delete { error in
+                        if let error = error {
+                            continuation.resume(throwing: error)
+                        } else {
+                            continuation.resume()
+                        }
+                    }
+            }
+
+            // 3. Mettre à jour le cache local
+            self.photos[challengeId]?.removeAll { $0.id == photoId }
+        }
+    }
+
+    // Photos - Privates
+
+    private func savePhoto(_ photo: ChallengePhoto, to challengeId: String) {
+        photos[challengeId, default: []].append(photo)
+    }
+}
+
+// MARK: - Reward flow
 extension ChallengeManager {
     func createNewParticipantProgress(userId: String, challengeId: String) async throws {
         let userProgress = ParticipantProgress(id: userId,
@@ -322,6 +318,8 @@ extension ChallengeManager {
         let createdCount = challenges.filter { $0.creatorUID == userId }.count
         await rewardService.assignCreationMedals(to: userId, createdCount: createdCount)
     }
+
+    // Reward flow - Privates
 
     private func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
         return try challengeService.setUserProgress(userId: userId, challengeId: challengeId, progress: progress)
@@ -407,8 +405,6 @@ extension ChallengeManager {
         UNUserNotificationCenter.current().add(request)
     }
 
-
-    /// Calcule la série (streak) courante de jours validés
     private func calculateStreak(from dates: [Date]) -> Int {
         let sorted = dates.sorted(by: >)
         var streak = 0
@@ -425,5 +421,44 @@ extension ChallengeManager {
         print("🔢 Calcul streak depuis:", dates)
 
         return streak
+    }
+
+    // TODO: Utile ?
+    /// Ajoute une médaille à un utilisateur pour un défi donné (dans le cache local)
+    //    func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
+    //        if var progresses = participants[challengeId],
+    //           let idx = progresses.firstIndex(where: { $0.id == userId }) {
+    //            progresses[idx].medals.append(medal)
+    //            participants[challengeId] = progresses
+    //        }
+    //    }
+}
+
+// MARK: - Notifications
+extension ChallengeManager {
+    func updateNotifications(for challenge: Challenge,
+                             config: [ChallengeNotification],
+                             completion: ((Error?) -> Void)? = nil) {
+        guard let challengeId = challenge.id else { return }
+
+        if let idx = self.challenges.firstIndex(where: { $0.id == challengeId }) {
+            self.challenges[idx].notificationsConfig = config
+        }
+
+        challengeService.updateNotifications(for: challenge, config: config) { error in
+            completion?(error)
+        }
+    }
+}
+
+// MARK: - Observers
+extension ChallengeManager {
+    private func observeCurrentUser() {
+        userManager.$currentUser
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] currentUser in
+                self?.currentUser = currentUser
+            }
+            .store(in: &cancellables)
     }
 }

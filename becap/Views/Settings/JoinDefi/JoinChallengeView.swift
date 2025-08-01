@@ -1,16 +1,22 @@
+//
+//  JoinChallengeView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 23/07/2025.
+//
+
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
 
-struct JoinDefiView: View {
+struct JoinChallengeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.colorScheme) private var colorScheme
 
-    @StateObject private var viewModel = JoinDefiViewModel()
+    @StateObject private var viewModel = JoinChallengeViewModel()
     @FocusState private var isFocused: Bool
 
     @State private var isCodeCopied = false
-    @State private var navigateToNewChallenge = false
     @State private var showCreationToast = false
 
     var body: some View {
@@ -18,8 +24,20 @@ struct JoinDefiView: View {
             ScrollView {
                 VStack(spacing: 32) {
                     newChallengeButton
+                        .cornerRadius(16)
+                        .padding(.horizontal)
+
                     joinByCodeSection
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+
                     shareExistingChallengeSection
+                        .padding()
+                        .background(.ultraThinMaterial)
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
                 }
                 .padding()
             }
@@ -61,16 +79,21 @@ struct JoinDefiView: View {
 
                 Button(action: {
                     isFocused = false
-                    Task {
-                        try await viewModel.joinChallengeIfCodeValid() {
-                            dismiss()
-                        }
+                    viewModel.joinChallenge() {
+                        dismiss()
                     }
                 }) {
                     HStack {
                         Spacer()
-                        Text("Rejoindre")
-                            .bold()
+
+                        if viewModel.isJoining {
+                            ProgressView("Création en cours...")
+                                .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                        } else {
+                            Text("Rejoindre")
+                                .bold()
+                        }
+
                         Spacer()
                     }
                 }
@@ -80,10 +103,6 @@ struct JoinDefiView: View {
                 .cornerRadius(12)
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
     }
 
     private var shareExistingChallengeSection: some View {
@@ -94,83 +113,79 @@ struct JoinDefiView: View {
                 .foregroundColor(.primary)
 
             if !viewModel.userCreatedChallenges.isEmpty {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color.white)
-                        .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
-
-                    Picker("Sélectionner un défi", selection: $viewModel.selectedChallengeToShare) {
-                        ForEach(viewModel.userCreatedChallenges, id: \.id) { challenge in
-                            Text(challenge.title)
-                                .tag(Optional(challenge))
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .padding(.horizontal)
-                }
-                .padding(.horizontal, 50)
+                createdChallengesPicker
+                    .padding(.horizontal, 50)
 
                 if let challenge = viewModel.selectedChallengeToShare {
-                    HStack {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text("Code :")
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-
-                            Text(challenge.code ?? "—")
-                                .font(.title2.monospacedDigit())
-                                .bold()
-                                .foregroundColor(.primary)
-
-                            if isCodeCopied {
-                                Text("Code copié ✅")
-                                    .font(.caption)
-                                    .foregroundColor(.green)
-                                    .transition(.opacity)
-                            }
-                        }
-
-
-                        Button(action: {
-                            UIPasteboard.general.string = challenge.code
-                            withAnimation {
-                                isCodeCopied = true
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                                withAnimation {
-                                    isCodeCopied = false
-                                }
-                            }
-                        }) {
-                            Image(systemName: "doc.on.doc")
-                                .foregroundColor(.white)
-                                .background(Circle().fill(.ultraThinMaterial))
-                                .shadow(radius: 4)
-                        }
-                    }
-                    .padding(.horizontal)
+                    challengeToShareCode(challenge)
+                        .padding(.horizontal)
                 }
             } else {
-                Text("Aucun défi créé encore")
+                Text("Aucun défi encore créé")
                     .foregroundColor(.secondary)
             }
         }
-        .padding()
-        .background(.ultraThinMaterial)
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.05), radius: 10, x: 0, y: 4)
+    }
+
+    private var createdChallengesPicker: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.1), radius: 4, x: 0, y: 2)
+
+            Picker("Sélectionner un défi", selection: $viewModel.selectedChallengeToShare) {
+                ForEach(viewModel.userCreatedChallenges, id: \.id) { challenge in
+                    Text(challenge.title)
+                        .tag(Optional(challenge))
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .padding(.horizontal)
+        }
+    }
+
+    private func challengeToShareCode(_ challenge: Challenge) -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Code :")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+
+                Text(challenge.code ?? "—")
+                    .font(.title2.monospacedDigit())
+                    .bold()
+                    .foregroundColor(.primary)
+
+                if isCodeCopied {
+                    Text("Code copié ✅")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                        .transition(.opacity)
+                }
+            }
+
+            Button(action: {
+                UIPasteboard.general.string = challenge.code
+                withAnimation {
+                    isCodeCopied = true
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                    withAnimation {
+                        isCodeCopied = false
+                    }
+                }
+            }) {
+                Image(systemName: "doc.on.doc")
+                    .foregroundColor(.white)
+                    .background(Circle().fill(.ultraThinMaterial))
+                    .shadow(radius: 4)
+            }
+        }
     }
 
     private var newChallengeButton: some View {
         VStack(spacing: 12) {
-            NavigationLink(destination: NewChallengeView(challengeCreated: $showCreationToast),
-                           isActive: $navigateToNewChallenge) {
-                EmptyView()
-            }
-
-            Button {
-                navigateToNewChallenge = true
-            } label: {
+            NavigationLink(destination: NewChallengeView(challengeCreated: $showCreationToast)) {
                 Label("Créer un nouveau défi", systemImage: "plus.circle")
                     .font(.headline)
                     .foregroundColor(.white)
@@ -188,7 +203,5 @@ struct JoinDefiView: View {
                 endPoint: .bottomTrailing
             )
         )
-        .cornerRadius(16)
-        .padding(.horizontal)
     }
 }

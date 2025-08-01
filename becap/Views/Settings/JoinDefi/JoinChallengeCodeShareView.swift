@@ -1,5 +1,5 @@
 //
-//  JoinDefiCodeShareView.swift
+//  JoinChallengeCodeShareView.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 23/07/2025.
@@ -8,7 +8,7 @@
 import SwiftUI
 import UIKit
 
-struct JoinDefiCodeShareView: View {
+struct JoinChallengeCodeShareView: View {
     let code: String
 
     var body: some View {

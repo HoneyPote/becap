@@ -61,7 +61,7 @@ struct HomeView: View {
             viewModel.refreshChallenges()
         }
         .sheet(isPresented: $showJoinView) {
-            JoinDefiView()
+            JoinChallengeView()
         }
     }
 

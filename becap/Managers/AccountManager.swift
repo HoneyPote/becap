@@ -27,6 +27,7 @@ class AccountManager: AccountManagerProtocol {
 
     func updateCurrentUser(with uid: String) async throws -> User? {
         let user = try await self.fetchUser(uid: uid)
+
         userManager.saveUser(user: user)
         return user
     }
@@ -35,16 +36,19 @@ class AccountManager: AccountManagerProtocol {
 extension AccountManager {
     func login(email: String, password: String) async throws -> User? {
         let firebaseUser = try await accountService.login(email: email, password: password)
+
         return try await updateCurrentUser(with: firebaseUser.uid)
     }
 
     func register(email: String, password: String, name: String) async throws -> User? {
         let firebaseUser = try await accountService.register(email: email, password: password, name: name)
+
         return try await updateCurrentUser(with: firebaseUser.uid)
     }
 
     func signOut() throws {
         try accountService.signOut()
+
         userManager.resetUser()
     }
 

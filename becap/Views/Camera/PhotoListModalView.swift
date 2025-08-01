@@ -5,10 +5,7 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-// ChallengeApp/Views/PhotoListModalView.swift
-
-import SwiftUI
-
+// TODO: Utile ?
 import SwiftUI
 
 struct PhotoListModalView: View {

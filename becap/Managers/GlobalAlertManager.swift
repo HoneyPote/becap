@@ -45,15 +45,17 @@ class GlobalAlertManager: ObservableObject {
         }
     }
 
-    private func playFeedback() {
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
-        AudioServicesPlaySystemSound(1057)
-    }
-
     func dismiss() {
         self.isShown = false
         self.currentMedal = nil
         timer?.invalidate()
+    }
+
+    // Privates
+
+    private func playFeedback() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+        AudioServicesPlaySystemSound(1057)
     }
 }

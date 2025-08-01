@@ -45,12 +45,15 @@ class SplashScreenViewModel: ObservableObject {
                 }
             } catch let error {
                 print("Erreur lors de la récupération de l'utilisateur : \(error.localizedDescription)")
+
                 await MainActor.run {
                     self.fetchingAlreadyConnectedUserIsDone = true
                 }
             }
         }
     }
+
+    // MARK: - Private functions
 
     private func animateLogo() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {

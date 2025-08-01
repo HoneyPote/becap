@@ -9,6 +9,7 @@ import SwiftUI
 struct CalendarPhotoPagerView: View {
     let photos: [ChallengePhoto]
     let startIndex: Int
+    let canDelelte: Bool
     let onDelete: (ChallengePhoto) -> Void
     let onClose: () -> Void
 
@@ -16,10 +17,12 @@ struct CalendarPhotoPagerView: View {
 
     init(photos: [ChallengePhoto],
          startIndex: Int = 0,
+         canDelete: Bool,
          onDelete: @escaping (ChallengePhoto) -> Void,
          onClose: @escaping () -> Void) {
         self.photos = photos
         self.startIndex = startIndex
+        self.canDelelte = canDelete
         self.onDelete = onDelete
         self.onClose = onClose
         _selection = State(initialValue: startIndex)
@@ -106,22 +109,24 @@ struct CalendarPhotoPagerView: View {
                     .animation(.default, value: selection)
 
                     // Bouton supprimer en haut à droite
-                    HStack {
-                        Spacer()
-                        Button(role: .destructive) {
-                            if !photos.isEmpty, selection < photos.count {
-                                onDelete(photos[selection])
+                    if canDelelte {
+                        HStack {
+                            Spacer()
+                            Button(role: .destructive) {
+                                if !photos.isEmpty, selection < photos.count {
+                                    onDelete(photos[selection])
+                                }
+                            } label: {
+                                Label("Supprimer", systemImage: "trash")
+                                    .foregroundColor(.red)
+                                    .padding(8)
+                                    .background(.thinMaterial)
+                                    .clipShape(Capsule())
                             }
-                        } label: {
-                            Label("Supprimer", systemImage: "trash")
-                                .foregroundColor(.red)
-                                .padding(8)
-                                .background(.thinMaterial)
-                                .clipShape(Capsule())
+                            .padding(.trailing, 16)
                         }
-                        .padding(.trailing, 16)
+                        .frame(height: 44)
                     }
-                    .frame(height: 44)
                 }
             }
             .padding(.top, 24)

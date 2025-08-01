@@ -8,15 +8,6 @@
 import Foundation
 import Combine
 
-struct MedalDisplayItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let description: String
-    let iconName: String
-    let count: Int
-    let latestDate: Date
-}
-
 class SettingsViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var signoutError: String? = nil
@@ -36,19 +27,11 @@ class SettingsViewModel: ObservableObject {
         observeCurrentUser()
     }
 
-    func observeCurrentUser() {
-        userManager.$currentUser
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentUser in
-                self?.currentUser = currentUser
-            }
-            .store(in: &cancellables)
-    }
-
     func signOut() {
         Task {
             do {
                 try accountManager.signOut()
+
                 await MainActor.run {
                     AppState.shared.sessionID = UUID()
                     AppState.shared.isLoggedIn = false
@@ -62,17 +45,14 @@ class SettingsViewModel: ObservableObject {
     }
 }
 
-// TODO: Que faire de ça ? Si inutile, supprimer struct MedalDisplayItem
-//func groupedMedals(from medals: [UserMedal]) -> [MedalDisplayItem] {
-//    let grouped = Dictionary(grouping: medals, by: \.name)
-//    return grouped.map { (name, medals) in
-//        MedalDisplayItem(
-//            name: name,
-//            description: medals.first?.description ?? "",
-//            iconName: medals.first?.iconName ?? "star",
-//            count: medals.count,
-//            latestDate: medals.map(\.achievedDate).max() ?? Date()
-//        )
-//    }
-//    .sorted { $0.latestDate > $1.latestDate }
-//}
+// MARK: - Observers
+extension SettingsViewModel {
+    private func observeCurrentUser() {
+        userManager.$currentUser
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] currentUser in
+                self?.currentUser = currentUser
+            }
+            .store(in: &cancellables)
+    }
+}

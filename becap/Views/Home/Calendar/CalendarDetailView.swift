@@ -58,6 +58,7 @@ struct CalendarDetailView: View {
         CalendarPhotoPagerView(
             photos: info.photos,
             startIndex: info.index,
+            canDelete: viewModel.canDeletePhoto(photos: info.photos),
             onDelete: { photo in
                 viewModel.deletePhoto(photo)
             },
@@ -128,7 +129,7 @@ struct CalendarDetailView: View {
                         .shadow(radius: 4)
                 }
 
-                NavigationLink(destination: JoinDefiView()) {
+                NavigationLink(destination: JoinChallengeView()) {
                     Image(systemName: "square.and.arrow.up.fill")
                         .font(.system(size: 17, weight: .medium))
                         .foregroundColor(.white)

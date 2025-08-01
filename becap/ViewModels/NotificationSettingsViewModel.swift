@@ -15,7 +15,6 @@ class NotificationSettingsViewModel: ObservableObject {
     let currentChallenge: Challenge
     let duration: Int
 
-    // Getter pour renvoyer la config éditée à ChallengeManager ou ChallengeService
     var updatedConfig: [ChallengeNotification] {
         notificationConfig
     }
@@ -29,11 +28,13 @@ class NotificationSettingsViewModel: ObservableObject {
 
     func addTime(for day: Int, date: Date) {
         guard day < notificationConfig.count, notificationConfig[day].times.count < 3 else { return }
+
         notificationConfig[day].times.append(date)
     }
 
     func removeTime(for day: Int, at index: Int) {
         guard day < notificationConfig.count, index < notificationConfig[day].times.count else { return }
+
         notificationConfig[day].times.remove(at: index)
     }
 
@@ -45,7 +46,9 @@ class NotificationSettingsViewModel: ObservableObject {
 
     func duplicateDay(_ day: Int) {
         guard day < notificationConfig.count else { return }
+
         let times = notificationConfig[day].times
+
         for i in 0..<notificationConfig.count {
             notificationConfig[i].times = times
         }

@@ -24,15 +24,6 @@ class HomeViewModel: ObservableObject {
         observeChallengesChanges()
     }
 
-    func observeChallengesChanges() {
-        challengeManager.$challenges
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] challenges in
-                self?.challenges = challenges
-            }
-            .store(in: &cancellables)
-    }
-
     func onAppearDeleteChallengeError() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
@@ -71,5 +62,17 @@ class HomeViewModel: ObservableObject {
     func cancelDelete() {
         showDeleteAlert = false
         challengeToDelete = nil
+    }
+}
+
+//MARK: Observers
+extension HomeViewModel {
+    private func observeChallengesChanges() {
+        challengeManager.$challenges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] challenges in
+                self?.challenges = challenges
+            }
+            .store(in: &cancellables)
     }
 }

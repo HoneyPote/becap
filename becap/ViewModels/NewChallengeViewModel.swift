@@ -72,6 +72,7 @@ class NewChallengeViewModel: ObservableObject {
     }
 
     // MARK: - Private functions
+
     private func refreshUserMedals(userId: String) async throws {
         Task {
             guard let newUser = try await accountManager.updateCurrentUser(with: userId) else { return }

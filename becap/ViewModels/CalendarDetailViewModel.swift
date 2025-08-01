@@ -55,19 +55,12 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    func buildParticipants() async throws -> [Participant] {
-        var allParticipantsNames: [Participant] = []
+    func canDeletePhoto(photos: [ChallengePhoto]) -> Bool {
+        guard let currentUser = challengeManager.currentUser,
+              let currentUserId = currentUser.id
+        else { return false }
 
-        for participantUid in challenge.participantUids {
-            guard let currentUser = challengeManager.currentUser,
-                  let user = try await accountManager.fetchUser(uid: participantUid) else { continue }
-
-            let participantName = currentUser.id == user.id ? "Moi" : user.name
-
-            allParticipantsNames.append(Participant(id: participantUid, name: participantName))
-        }
-
-        return allParticipantsNames
+        return photos.first?.authorUid == currentUserId
     }
 
     func detailButtonClicked(cell: CalendarDetailCell) {
@@ -89,16 +82,6 @@ class CalendarDetailViewModel: ObservableObject {
 
             return CalendarDetailCell(date: date, photos: photos, isToday: isToday)
         }
-    }
-
-    func buildPagerInfo(cell: CalendarDetailCell) {
-        selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
-    }
-
-    func fetchPhotos() async throws -> [ChallengePhoto] {
-        guard let challengeId = challenge.id else { return [] }
-
-        return try await challengeManager.loadPhotos(from: challengeId)
     }
 
     func deletePhoto(_ photo: ChallengePhoto) {
@@ -127,7 +110,33 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    // Appelée quand les photos sont modifiées (ex : suppression)
+    // MARK: - Private functions
+
+    private func buildParticipants() async throws -> [Participant] {
+        var allParticipantsNames: [Participant] = []
+
+        for participantUid in challenge.participantUids {
+            guard let currentUser = challengeManager.currentUser,
+                  let user = try await accountManager.fetchUser(uid: participantUid) else { continue }
+
+            let participantName = currentUser.id == user.id ? "Moi" : user.name
+
+            allParticipantsNames.append(Participant(id: participantUid, name: participantName))
+        }
+
+        return allParticipantsNames
+    }
+
+    private func buildPagerInfo(cell: CalendarDetailCell) {
+        selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
+    }
+
+    private func fetchPhotos() async throws -> [ChallengePhoto] {
+        guard let challengeId = challenge.id else { return [] }
+
+        return try await challengeManager.loadPhotos(from: challengeId)
+    }
+
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
     }

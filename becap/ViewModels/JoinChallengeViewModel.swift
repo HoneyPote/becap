@@ -1,5 +1,5 @@
 //
-//  JoinDefiViewModelswift
+//  JoinChallengeViewModel.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 23/07/2025.
@@ -10,13 +10,14 @@ import Combine
 import FirebaseAuth
 import FirebaseFirestore
 
-class JoinDefiViewModel: ObservableObject {
-    @Published var code: String = ""
+class JoinChallengeViewModel: ObservableObject {
     @Published var userCreatedChallenges: [Challenge] = []
     @Published var selectedChallengeToShare: Challenge?
-    @Published var showingAlert = false
-    @Published var alertTitle = ""
-    @Published var alertMessage = ""
+    @Published var code: String = ""
+    @Published var alertTitle: String = ""
+    @Published var alertMessage: String = ""
+    @Published var showingAlert: Bool = false
+    @Published var isJoining: Bool = false
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -32,15 +33,19 @@ class JoinDefiViewModel: ObservableObject {
     }
 
     // TODO: Supprimer participantUids et récupérer collection participant
-    func joinChallengeIfCodeValid(onSuccess: @escaping () -> Void) async throws {
+    func joinChallenge(onSuccess: @escaping () -> Void) {
+        isJoining = true
+
         guard let currentUser, let currentUserId = currentUser.id else {
             alert(title: "Erreur", message: "Utilisateur non connecté.")
+            isJoining = false
             return
         }
 
         // Vérifie que le code est bien un code à 6 chiffres
         guard code.count == 6 else {
             alert(title: "Code invalide", message: "Le code doit contenir 6 chiffres.")
+            isJoining = false
             return
         }
 
@@ -48,6 +53,7 @@ class JoinDefiViewModel: ObservableObject {
             guard let challenge = try await challengeManager.fetchAllChallenges().first(where: { $0.code == code })
             else {
                 alert(title: "Défi introuvable", message: "Vérifie que le code est correct.")
+                isJoining = false
                 return
             }
 
@@ -57,16 +63,32 @@ class JoinDefiViewModel: ObservableObject {
 
                 try await challengeManager.joinChallenge(updatedChallenge, userId: currentUserId)
 
-                // Petit délai avant de naviguer
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                    onSuccess()
+                await MainActor.run {
+                    self.isJoining = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        onSuccess()
+                    }
                 }
             } else {
-                alert(title: "Déjà membre", message: "Tu fais déjà partie de ce défi.")
+                await MainActor.run {
+                    self.alert(title: "Déjà membre", message: "Tu fais déjà partie de ce défi.")
+                    self.isJoining = false
+                }
             }
         }
     }
 
+    // MARK: - Private functions
+
+    private func alert(title: String, message: String) {
+        self.alertTitle = title
+        self.alertMessage = message
+        self.showingAlert = true
+    }
+}
+
+// MARK: - Observers
+extension JoinChallengeViewModel {
     private func observeChallengesChanges() {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
@@ -77,11 +99,5 @@ class JoinDefiViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
-    }
-
-    private func alert(title: String, message: String) {
-        self.alertTitle = title
-        self.alertMessage = message
-        self.showingAlert = true
     }
 }

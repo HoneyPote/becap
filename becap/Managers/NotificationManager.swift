@@ -55,6 +55,8 @@ class NotificationManager {
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
     }
 
+    // Privates
+
     private func notificationID(for challenge: Challenge, dayIndex: Int, time: Date) -> String {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
         let idStr = challenge.id ?? "noid"

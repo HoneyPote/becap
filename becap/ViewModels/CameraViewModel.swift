@@ -37,18 +37,6 @@ class CameraViewModel: ObservableObject {
         observeChallengesChanges()
     }
 
-    func observeChallengesChanges() {
-        challengeManager.$challenges
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] challenges in
-                self?.challenges = challenges
-                if !challenges.isEmpty, let first = challenges.first {
-                    self?.selectedChallenge = first
-                }
-            }
-            .store(in: &cancellables)
-    }
-
     func uploadPhoto() {
         isUploadingPhoto = true
 
@@ -100,7 +88,7 @@ class CameraViewModel: ObservableObject {
         withAnimation { toast.isShown = false }
     }
 
-    // MARK: Private methods
+    // MARK: - Private functions
 
     private func updateToast(_ message: String, type: ToastType) {
         toast.timer?.invalidate()
@@ -116,5 +104,20 @@ class CameraViewModel: ObservableObject {
         AudioServicesPlaySystemSound(1057)
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
+    }
+}
+
+// MARK: - Observers
+extension CameraViewModel {
+    private func observeChallengesChanges() {
+        challengeManager.$challenges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] challenges in
+                self?.challenges = challenges
+                if !challenges.isEmpty, let first = challenges.first {
+                    self?.selectedChallenge = first
+                }
+            }
+            .store(in: &cancellables)
     }
 }

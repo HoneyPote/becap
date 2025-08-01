@@ -25,10 +25,6 @@ class MainTabViewModel: ObservableObject {
         observeMedals()
     }
 
-    func dismissMedalPopup() {
-        alertManager.dismiss()
-    }
-
     func fetchInfos() {
         Task {
             try await challengeManager.fetchAndFilterChallenges()
@@ -39,6 +35,13 @@ class MainTabViewModel: ObservableObject {
         }
     }
 
+    func dismissMedalPopup() {
+        alertManager.dismiss()
+    }
+}
+
+// MARK: - Observers
+extension MainTabViewModel {
     private func observeMedals() {
         alertManager.$currentMedal
             .receive(on: DispatchQueue.main)
@@ -48,4 +51,3 @@ class MainTabViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 }
-
