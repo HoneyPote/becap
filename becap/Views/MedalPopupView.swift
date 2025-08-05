@@ -20,11 +20,14 @@ struct MedalPopupView: View {
             Color.black.opacity(0.4).ignoresSafeArea()
 
             VStack(spacing: 16) {
-                Image(systemName: medal.iconName)
+                Text("Nouvelle médaille !")
+                    .font(.title2.weight(.bold))
+                    .foregroundColor(.yellow)
+                    .shadow(color: Color.black.opacity(0.15), radius: 3, x: 0, y: 2)
+                Image(medal.iconName)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 60, height: 60)
-                    .foregroundColor(.yellow)
                     .scaleEffect(animate ? 1.2 : 0.8)
                     .animation(.spring(response: 0.4, dampingFraction: 0.5), value: animate)
 

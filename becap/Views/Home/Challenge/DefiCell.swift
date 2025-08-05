@@ -15,8 +15,8 @@ struct DefiCell: View {
         NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(.thinMaterial)
-                    .shadow(color: Color.black.opacity(0.13), radius: 12, x: 0, y: 5)
+                                   .fill(Color(red: 0.98, green: 0.80, blue: 0.36))
+                                   .shadow(radius: 5, x: 0, y: 5)
                 VStack(spacing: 8) {
                     Text(challenge.title)
                         .font(.headline)

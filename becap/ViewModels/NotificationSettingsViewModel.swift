@@ -27,15 +27,35 @@ class NotificationSettingsViewModel: ObservableObject {
     }
 
     func addTime(for day: Int, date: Date) {
-        guard day < notificationConfig.count, notificationConfig[day].times.count < 3 else { return }
+        var timeToAdd = date
 
-        notificationConfig[day].times.append(date)
+        // Si la date est aujourd'hui et passée, décale de 1 jour ou 1 min
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dayDate = calendar.date(byAdding: .day, value: day, to: today)!
+
+        let combinedDate = calendar.date(bySettingHour: calendar.component(.hour, from: timeToAdd),
+                                          minute: calendar.component(.minute, from: timeToAdd),
+                                          second: 0,
+                                          of: dayDate)!
+
+        if combinedDate < Date() {
+            // Déplace dans le futur
+            timeToAdd = calendar.date(byAdding: .minute, value: 1, to: Date())!
+        }
+
+        notificationConfig[day].times.append(timeToAdd)
+    }
+    func updateTime(for day: Int, oldTime: Date, newTime: Date) {
+        guard notificationConfig.indices.contains(day) else { return }
+        if let index = notificationConfig[day].times.firstIndex(of: oldTime) {
+            notificationConfig[day].times[index] = newTime
+        }
     }
 
-    func removeTime(for day: Int, at index: Int) {
-        guard day < notificationConfig.count, index < notificationConfig[day].times.count else { return }
-
-        notificationConfig[day].times.remove(at: index)
+    func removeTime(for day: Int, time: Date) {
+        guard notificationConfig.indices.contains(day) else { return }
+        notificationConfig[day].times.removeAll { $0 == time }
     }
 
     func resetAll() {
@@ -56,5 +76,6 @@ class NotificationSettingsViewModel: ObservableObject {
 
     func updateNotificationConfig() {
         challengeManager.updateNotifications(for: currentChallenge, config: updatedConfig)
+       
     }
 }

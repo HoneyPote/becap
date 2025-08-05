@@ -37,16 +37,7 @@ struct SplashScreenView: View {
 
     var splashScreen: some View {
         ZStack {
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 122/255, green: 182/255, blue: 242/255), // #7AB6F2
-                    Color(red: 36/255, green: 107/255, blue: 206/255)   // #246BCE
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
+            LinearGradient.petrolToSky.ignoresSafeArea()
             VStack {
                 Image(systemName: "flag.fill")
                     .font(.system(size: 60))

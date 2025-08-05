@@ -7,21 +7,28 @@
 
 import SwiftUI
 import Combine
+import OneSignalFramework
+import Firebase
 
 class HomeViewModel: ObservableObject {
     @Published var showDeleteAlert = false
     @Published var deleteChallengeError: String?
     @Published var challenges: [Challenge] = []
+    @Published var currentUser: User?
 
     private var cancellables = Set<AnyCancellable>()
 
-    private var challengeManager: ChallengeManager
+    private let challengeManager: ChallengeManager
+    private let userManager: UserManager
     private var challengeToDelete: Challenge?
 
-    init(challengeManager: ChallengeManager = ChallengeManager.shared) {
+    init(challengeManager: ChallengeManager = ChallengeManager.shared,
+         userManager: UserManager = UserManager.shared) {
         self.challengeManager = challengeManager
+        self.userManager = userManager
 
         observeChallengesChanges()
+        observeCurrentUser()
     }
 
     func onAppearDeleteChallengeError() {
@@ -65,7 +72,7 @@ class HomeViewModel: ObservableObject {
     }
 }
 
-//MARK: Observers
+// MARK: - Observers
 extension HomeViewModel {
     private func observeChallengesChanges() {
         challengeManager.$challenges
@@ -74,5 +81,30 @@ extension HomeViewModel {
                 self?.challenges = challenges
             }
             .store(in: &cancellables)
+    }
+
+    private func observeCurrentUser() {
+        userManager.$currentUser
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] user in
+                self?.currentUser = user
+                self?.refreshPlayerIdIfNeeded()
+            }
+            .store(in: &cancellables)
+    }
+
+    func refreshPlayerIdIfNeeded() {
+        guard let userId = currentUser?.id,
+              let playerId = OneSignal.User.pushSubscription.id,
+              !playerId.isEmpty else {
+            print("⚠️ Pas de playerId ou de userId dispo.")
+            return
+        }
+
+        Firestore.firestore().collection("users").document(userId).setData([
+            "onesignalPlayerId": playerId
+        ], merge: true)
+
+        print("🔁 playerId forcé/rafraîchi : \(playerId)")
     }
 }

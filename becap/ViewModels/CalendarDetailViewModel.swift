@@ -10,6 +10,16 @@ import SwiftUI
 struct Participant: Hashable {
     let id: String
     let name: String
+    var medals: [UserMedal]
+
+    static func ==(lhs: Participant, rhs: Participant) -> Bool {
+        lhs.id == rhs.id && lhs.name == rhs.name
+    }
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(name)
+    }
 }
 
 struct CalendarDetailCell: Hashable,Identifiable {
@@ -30,20 +40,25 @@ class CalendarDetailViewModel: ObservableObject {
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
-    let challenge: Challenge
+    var challenge: Challenge
+    private  var challengeId: String?
 
     init(accountManager: AccountManager = AccountManager(),
-         challengeManager: ChallengeManager = ChallengeManager.shared,
-         challenge: Challenge) {
-        self.accountManager = accountManager
-        self.challengeManager = challengeManager
-        self.challenge = challenge
-    }
+             challengeManager: ChallengeManager = ChallengeManager.shared,
+             challenge: Challenge) {
+            self.accountManager = accountManager
+            self.challengeManager = challengeManager
+            self.challenge = challenge
+            self.challengeId = challenge.id
+        }
 
     func fetchInfos() {
         self.doneLoadingPhotos = false
 
         Task {
+            guard let challenge = challengeManager.challenges.first(where: { $0.id == challengeId }) else { return }
+
+                     self.challenge = challenge
             async let photosTask = try fetchPhotos()
             async let allParticipants = try buildParticipants()
 
@@ -115,7 +130,7 @@ class CalendarDetailViewModel: ObservableObject {
     // MARK: - Private functions
 
     private func buildParticipants() async throws -> [Participant] {
-        var allParticipantsNames: [Participant] = []
+        var allParticipantsNamesAndMedals: [Participant] = []
 
         for participantUid in challenge.participantUids {
             guard let currentUser = challengeManager.currentUser,
@@ -123,10 +138,9 @@ class CalendarDetailViewModel: ObservableObject {
 
             let participantName = currentUser.id == user.id ? "Moi" : user.name
 
-            allParticipantsNames.append(Participant(id: participantUid, name: participantName))
+            allParticipantsNamesAndMedals.append(Participant(id: participantUid, name: participantName, medals: user.medals ?? []))
         }
-
-        return allParticipantsNames
+        return allParticipantsNamesAndMedals
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {
@@ -141,5 +155,12 @@ class CalendarDetailViewModel: ObservableObject {
 
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
+    }
+}
+
+// CalendarDetailViewModel.swift
+extension CalendarDetailViewModel {
+    func participant(for uid: String) -> Participant? {
+        participants.first(where: { $0.id == uid })
     }
 }

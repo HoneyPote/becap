@@ -14,45 +14,111 @@ struct NewChallengeView: View {
     @Binding var challengeCreated: Bool
 
     var body: some View {
-        Form {
-            Section(header: Text("Nom du défi")) {
-                TextField("Nom", text: $viewModel.nom)
-            }
+        ZStack {
+            LinearGradient.petrolToSky.ignoresSafeArea()
 
-            Section(header: Text("Durée (jours)")) {
-                Picker("Durée", selection: $viewModel.duree) {
-                    ForEach([7, 14, 30, 60, 90], id: \.self) { value in
-                        Text("\(value) jours").tag(value)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
+            ScrollView {
+                VStack(spacing: 32) {
+                    Text("Créer un défi")
+                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                        .foregroundColor(.white)
+                        .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 36)
+                        .padding(.horizontal, 18)
 
-            Section(header: Text("Heure de notification")) {
-                DatePicker("Heure", selection: $viewModel.heureNotification, displayedComponents: .hourAndMinute)
-            }
-
-            Section {
-                if viewModel.isLoading {
-                    HStack {
-                        Spacer()
-                        ProgressView("Création en cours...")
-                            .progressViewStyle(CircularProgressViewStyle(tint: .blue))
-                        Spacer()
-                    }
-                } else {
-                    Button("Créer le défi") {
-                        viewModel.createChallenge() { success in
-                            if success {
-                                challengeCreated = true 
-                                dismiss()
-                            }
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 18) {
+                            Text("Nom du défi")
+                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+                            TextField("Nom", text: $viewModel.nom)
+                                .padding(14)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(12)
+                                .font(.system(.body, design: .rounded))
                         }
                     }
-                    .disabled(!viewModel.isFormValid)
+
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 18) {
+                            Text("Durée (jours)")
+                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+                            Picker("Durée", selection: $viewModel.duree) {
+                                ForEach([7, 14, 30, 60, 90], id: \.self) { value in
+                                    Text("\(value) jours").tag(value)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+                    }
+
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 18) {
+                            Text("Heure de notification")
+                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+                            DatePicker("Heure", selection: $viewModel.heureNotification, displayedComponents: .hourAndMinute)
+                                .labelsHidden()
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+
+                    GlassCard {
+                        VStack {
+                            if viewModel.isLoading {
+                                HStack {
+                                    Spacer()
+                                    ProgressView("Création en cours…")
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .blue))
+                                    Spacer()
+                                }
+                                .padding(.vertical, 16)
+                            } else {
+                                Button(action: {
+                                    viewModel.createChallenge() { success in
+                                        if success {
+                                            challengeCreated = true
+                                            dismiss()
+                                        }
+                                    }
+                                }) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "flag.fill")
+                                        Text("Créer le défi")
+                                    }
+                                    .font(.system(.headline, design: .rounded).weight(.bold))
+                                    .padding(.vertical, 14)
+                                    .frame(maxWidth: .infinity)
+                                    .background(
+                                        LinearGradient(gradient: Gradient(colors: [
+                                            Color.blue.opacity(0.85),
+                                            Color.cyan.opacity(0.88)
+                                        ]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                                    )
+                                    .foregroundColor(.white)
+                                    .cornerRadius(12)
+                                    .shadow(color: Color.blue.opacity(0.17), radius: 7, x: 0, y: 3)
+                                }
+                                .disabled(!viewModel.isFormValid)
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
                 }
+                .padding(.horizontal, 16)
+                .padding(.top, 12)
+                .padding(.bottom, 32)
             }
         }
-        .navigationTitle("Nouveau défi")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .principal) {
+                Text("Nouveau défi")
+                    .font(.system(.title2, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+            }
+        }
     }
 }

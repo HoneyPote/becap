@@ -17,7 +17,7 @@ struct User: Identifiable, Codable {
     var joinedChallenges: [String]?
 }
 
-struct UserMedal: Codable, Identifiable {
+struct UserMedal: Codable, Identifiable, Equatable {
     var id: String { name }
     let name: String
     let description: String

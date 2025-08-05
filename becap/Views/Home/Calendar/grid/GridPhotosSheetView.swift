@@ -8,12 +8,15 @@ import SwiftUI
 
 struct GridPhotosSheetView: View {
     @ObservedObject private var viewModel: GridPhotosSheetViewModel
+    let getParticipant: (String) -> Participant?
     let onClose: () -> Void
-
     @State private var selectedPhoto: ChallengePhoto?
 
-    init(cell: CalendarDetailCell, onClose: @escaping () -> Void) {
+    init(cell: CalendarDetailCell,
+         getParticipant: @escaping (String) -> Participant?,
+         onClose: @escaping () -> Void) {
         self._viewModel = ObservedObject(wrappedValue: GridPhotosSheetViewModel(cell: cell))
+        self.getParticipant = getParticipant
         self.onClose = onClose
     }
 
@@ -33,10 +36,20 @@ struct GridPhotosSheetView: View {
                             .frame(width: 100, height: 100)
                             .clipped()
                             .cornerRadius(8)
-                            Text(photo.authorName)
-                                .font(.caption2)
-                                .foregroundColor(.white)
-                                .lineLimit(1)
+
+                            HStack(spacing: 4) {
+                                Text(photo.authorName)
+                                    .font(.caption2)
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+
+                                if let participant = getParticipant(photo.authorUid),
+                                   let latestMedal = participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
+                                    MedalIconView(iconName: latestMedal.iconName)
+                                        .frame(width: 26, height: 26)
+                                        .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)
+                                }
+                               }
                         }
                         .onTapGesture {
                             selectedPhoto = photo
@@ -44,19 +57,33 @@ struct GridPhotosSheetView: View {
                     }
                 }
                 .padding()
-                .navigationTitle(viewModel.formattedDate)
             }
             .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .toolbar {
+                // Bouton de fermeture à gauche
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Fermer") { onClose() }
+                    Button(action: onClose) {
+                        Image(systemName: "xmark")
+                            .foregroundColor(.white)
+                            .font(.title2.bold())
+                            .padding(8)
+                            .background(Color.black.opacity(0.22))
+                            .clipShape(Circle())
+                    }
+                }
+
+                // Titre custom au centre
+                ToolbarItem(placement: .principal) {
+                    Text(viewModel.formattedDate) // Ou ce que tu veux comme titre
+                        .font(.system(.title3, design: .rounded).weight(.bold))
+                        .foregroundColor(.white)
                 }
             }
         }
         .sheet(item: $selectedPhoto) { photo in
             photoDetailSheet(for: photo)
         }
-    }
+}
     @ViewBuilder
     private func photoDetailSheet(for photo: ChallengePhoto) -> some View {
         ZStack {

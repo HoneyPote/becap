@@ -11,36 +11,65 @@ struct HomeView: View {
     @StateObject var viewModel = HomeViewModel()
 
     @State private var showJoinView = false
+    @State private var showNewChallengeView = false
+    @State private var showCreationToast = false
 
     var body: some View {
         NavigationStack {
             ZStack {
                 LinearGradient.petrolToSky.ignoresSafeArea()
 
-                VStack(alignment: .leading) {
-                    Text("Liste des défis")
-                        .font(.largeTitle.bold())
+                VStack(alignment: .center) {
+                    Text("⛿ BE CAP ⛿")
+                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                        .textCase(.uppercase)
                         .foregroundColor(.white)
                         .padding(.top, 42)
                         .padding(.bottom, 12)
                         .padding(.horizontal, 24)
-
+                    
                     ScrollView {
-                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))]) {
-                            JoinButtonCell {
-                                showJoinView = true
+                        VStack(alignment: .leading, spacing: 0) {
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+                                JoinButtonCell {
+                                    showJoinView = true
+                                }
+                                NewChallengeCell {
+                                    showNewChallengeView = true
+                                }
                             }
-                            ForEach(viewModel.challenges) { challenge in
-                                DefiCell(
-                                    challenge: challenge,
-                                    onDelete: {
-                                        viewModel.confirmDelete(challenge)
+                            .padding(.horizontal)
+                                    HStack(spacing: 10) {
+                                        Image("list_white")
+                                            .resizable()
+                                            .scaledToFit()
+                                            .frame(height: 30)
+                                        Text("LISTE DES DEFIS")
+                                            .font(.system(.title, design: .rounded).weight(.heavy))
+                                            .textCase(.uppercase)
+                                            .foregroundColor(.white)
                                     }
-                                )
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.top, 34)
+                                    .padding(.bottom, 14)
+                                    .padding(.horizontal, 24)
+                                    .multilineTextAlignment(.center)
+                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+                                ForEach(viewModel.challenges) { challenge in
+                                    DefiCell(
+                                        challenge: challenge,
+                                        onDelete: {
+                                            viewModel.confirmDelete(challenge)
+                                        }
+                                    )
+                                }
                             }
+                            .padding(.horizontal)
                         }
-                        .padding()
+                        .padding(.top, 0)
+                        
                     }
+
                 }
 
                 if let error = viewModel.deleteChallengeError {
@@ -57,11 +86,30 @@ struct HomeView: View {
                 }
             }
         }
-        .refreshable {
+                .refreshable {
             viewModel.refreshChallenges()
         }
         .sheet(isPresented: $showJoinView) {
             JoinChallengeView()
+        }
+        .sheet(isPresented: $showNewChallengeView) {
+            NewChallengeView(challengeCreated:  $showCreationToast)
+        }
+        .overlay(alignment: .top) {
+            if showCreationToast {
+                ToastView(
+                    message: "Défi créé avec succès 🎉",
+                    type: .success
+                )
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                            withAnimation {
+                                showCreationToast = false
+                            }
+                        }
+                    }
+                    .padding(.bottom, 40)
+            }
         }
     }
 

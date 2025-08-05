@@ -6,6 +6,8 @@
 //
 
 import Foundation
+import OneSignalFramework
+import Firebase
 
 protocol AccountManagerProtocol {
     func login(email: String, password: String) async throws -> User?
@@ -31,18 +33,31 @@ class AccountManager: AccountManagerProtocol {
         userManager.saveUser(user: user)
         return user
     }
+
+
+
+    func updateOneSignalPlayerId(for userId: String) {
+        if let playerId = OneSignal.User.pushSubscription.id, !playerId.isEmpty {
+            Firestore.firestore().collection("users").document(userId).setData([
+                "onesignalPlayerId": playerId
+            ], merge: true)
+            print("✅ OneSignal playerId enregistré : \(playerId)")
+        } else {
+            print("❌ Pas de playerId OneSignal trouvé.")
+        }
+    }
 }
 
 extension AccountManager {
     func login(email: String, password: String) async throws -> User? {
         let firebaseUser = try await accountService.login(email: email, password: password)
-
+        updateOneSignalPlayerId(for: firebaseUser.uid)
         return try await updateCurrentUser(with: firebaseUser.uid)
     }
 
     func register(email: String, password: String, name: String) async throws -> User? {
         let firebaseUser = try await accountService.register(email: email, password: password, name: name)
-
+        updateOneSignalPlayerId(for: firebaseUser.uid)
         return try await updateCurrentUser(with: firebaseUser.uid)
     }
 
@@ -54,6 +69,7 @@ extension AccountManager {
 
     func fetchUser(uid: String) async throws -> User? {
         do {
+
             return try await accountService.fetchUserDocument(uid: uid).data(as: User.self)
         } catch {
             throw AccountError.fetchUserError(error.localizedDescription)

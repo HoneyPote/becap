@@ -1,150 +1,148 @@
-//
-//  CameraView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 15/07/2025.
-//
-
 import SwiftUI
 
 struct CameraView: View {
     @StateObject private var viewModel: CameraViewModel = CameraViewModel()
+    @State private var showCamera = false
 
-    @State private var showCamera: Bool = false
 
     var body: some View {
-        ScrollView(.vertical, showsIndicators: true) {
-            VStack(spacing: 24) {
-                header
-                infoCard
-                photoCard
-                uploadPhotoButton
+        NavigationView {
+            ScrollView {
+                VStack(spacing: 28) {
+                    headerSection
+
+                    GlassCard {
+                        pickerSection
+                    }
+
+                    GlassCard {
+                        photoSection
+                    }
+
+                    GlassCard {
+                        uploadSection
+                    }
+                }
+                .padding(.horizontal, 20)
+                .padding(.top, 32)
+                .padding(.bottom, 0)
             }
-            .frame(maxWidth: .infinity)
-            .padding([.horizontal, .bottom])
-            .padding(.top, 2)
+            .background(LinearGradient.petrolToSky.ignoresSafeArea())
+            .navigationBarHidden(true)
         }
-       // .scrollBounceBehavior(.basedOnSize, axes: [.vertical])
-        .background(LinearGradient.petrolToSky.ignoresSafeArea())
-        .navigationTitle("Prendre une photo")
         .sheet(isPresented: $showCamera) {
             CameraCaptureView(image: $viewModel.selectedImage)
         }
-        .overlay(content: {
+        .overlay(alignment: .top) {
             if viewModel.toast.isShown {
-                toastView
-            }
-        })
-    }
-
-    private var header: some View {
-        Text("Nouvelle photo")
-            .font(.largeTitle.bold())
-            .foregroundColor(.white)
-            .padding(.top, 12)
-            .shadow(radius: 8)
-    }
-
-    private var infoCard: some View {
-        GroupBox {
-            HStack(alignment: .center, spacing: 12) {
-                Text("Défi").font(.subheadline.bold())
-                Picker("Défi", selection: $viewModel.selectedChallenge) {
-                    ForEach(viewModel.challenges) { challenge in
-                        Text(challenge.title).tag(Optional(challenge))
-                    }
-                }
-                .pickerStyle(.menu)
-                .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
-            }
-        }
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.13), radius: 10, x: 0, y: 4)
-    }
-
-    @ViewBuilder
-    private var photoCard: some View {
-        GroupBox {
-            VStack(spacing: 18) {
-                if let image = viewModel.selectedImage {
-                    Image(uiImage: image)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(height: 210)
-                        .cornerRadius(18)
-                        .shadow(radius: 10)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.accentColor.opacity(0.4), lineWidth: 2)
-                        )
-                        .padding(.bottom, 2)
-                        .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
-                } else {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 18)
-                            .fill(Color.secondary.opacity(0.15))
-                            .frame(height: 130)
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 45))
-                            .foregroundColor(.gray.opacity(0.4))
-                    }
-                    .padding(.bottom, 2)
-                    .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
-                }
-
-                takePhotoButton
-
-                TextField("Description (optionnelle)", text: $viewModel.descriptionText)
-                    .textFieldStyle(.roundedBorder)
-            }
-            .padding(.horizontal, 4)
-        }
-        .background(.thinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        .shadow(color: Color.black.opacity(0.13), radius: 10, x: 0, y: 4)
-    }
-
-    @ViewBuilder
-    private var takePhotoButton: some View {
-        Button {
-            showCamera = true
-        } label: {
-            Label(viewModel.takePhotoButtonLabel, systemImage: "camera.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(
-                    AnyView(Color.clear.background(.thinMaterial))
+                ToastView(
+                    message: viewModel.toast.message,
+                    type: viewModel.toast.type
                 )
-                .foregroundColor(.accentColor)
-                .clipShape(RoundedRectangle(cornerRadius: 14))
-                .shadow(color: Color.black.opacity(0.11), radius: 7, x: 0, y: 3)
+            }
         }
     }
 
-    @ViewBuilder
-    private var uploadPhotoButton: some View {
+    private var headerSection: some View {
+        HStack {
+            Spacer()
+            Text("Nouvelle Photo")
+                .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                .foregroundColor(.white)
+                .padding(.horizontal, 24)
+            Spacer()
+        }
+    }
+
+    private var pickerSection: some View {
+        HStack(spacing: 12) {
+            Text("Défi:").font(.subheadline.bold())
+                .font(.system(.headline, design: .rounded).weight(.heavy))
+                .textCase(.uppercase)
+                .foregroundColor(.white)
+            Spacer()
+            Picker("", selection: $viewModel.selectedChallenge) {
+                ForEach(viewModel.challenges) { ch in
+                    Text(ch.title).tag(Optional(ch))
+                }
+            }
+            .pickerStyle(.segmented)
+            .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
+        }
+        .padding(4)
+    }
+
+    private var uploadSection: some View {
         Button {
             viewModel.uploadPhoto()
         } label: {
-            if viewModel.isUploadingPhoto {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-            } else {
-                Label("Enregistrer la photo", systemImage: "square.and.arrow.down.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Color.clear.background(.thinMaterial))
-                    .foregroundColor(.accentColor)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
-                    .shadow(color: Color.black.opacity(0.13), radius: 8, x: 0, y: 3)
+            HStack {
+                if viewModel.isUploadingPhoto {
+                    ProgressView().progressViewStyle(CircularProgressViewStyle())
+                } else {
+                    Image(systemName: "square.and.arrow.down.fill")
+                    Text("Enregistrer la photo")
+                        .font(.system(.headline, design: .rounded).weight(.heavy))
+                        .textCase(.uppercase)
+                        .foregroundColor(.white)
+
+                }
             }
+
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            .padding(.horizontal, 20 )
         }
-        .padding(.top, 2)
+        .buttonStyle(.plain)
+        .opacity(viewModel.isUploadingPhoto ? 0.8 : 1.0)
+        .padding(4)
     }
 
+    private var photoSection: some View {
+        VStack(spacing: 20) {
+            if let img = viewModel.selectedImage {
+                Image(uiImage: img)
+                    .resizable().scaledToFit()
+                    .frame(maxHeight: 200)
+                    .cornerRadius(14)
+                    .shadow(radius: 6)
+                    .overlay(RoundedRectangle(cornerRadius: 14)
+                        .stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
+                    .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 48))
+                        .foregroundColor(.white.opacity(0.6))
+                }
+                .frame(height: 170)
+            }
+
+            Button {
+                showCamera = true
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "camera")
+                        .font(.system(size: 23, weight: .medium))
+                        .foregroundColor(.white)
+                    Text("Prendre une photo")
+                        .font(.system(.body, design: .rounded).weight(.heavy))
+                        .textCase(.uppercase)
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(.thinMaterial)
+                .cornerRadius(14)
+                .shadow(color: Color.blue.opacity(0.38), radius: 10, x: 0, y: 3)
+            }
+
+            TextField("Description (optionnelle)", text: $viewModel.descriptionText)
+                .textFieldStyle(RoundedBorderTextFieldStyle())
+        }
+        .padding(4)
+    }
     private var toastView: some View {
         VStack {
             Spacer()
@@ -168,19 +166,6 @@ struct CameraView: View {
                 .padding(.trailing, 6)
                 Spacer()
             }
-            .padding(.bottom, 44)
         }
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-        .zIndex(10)
-    }
-}
-
-struct ShakeEffect: GeometryEffect {
-    var shakes: CGFloat = 0
-    var animatableData: CGFloat
-
-    func effectValue(size: CGSize) -> ProjectionTransform {
-        let translation = 10 * sin(animatableData * .pi * 2)
-        return ProjectionTransform(CGAffineTransform(translationX: translation, y: 0))
     }
 }

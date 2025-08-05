@@ -1,9 +1,3 @@
-//
-//  ParticipantMedalSection.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 26/07/2025.
-//
 import SwiftUI
 
 struct ParticipantMedalSection: View {
@@ -18,13 +12,14 @@ struct ParticipantMedalSection: View {
         let latestDate: Date
     }
 
+    // Nouveau: on ne touche plus à iconName, on affiche directement ce qu'il y a dans UserMedal
     private var groupedMedals: [MedalDisplayItem] {
         let grouped = Dictionary(grouping: medals, by: \.name)
         return grouped.map { (name, items) in
             MedalDisplayItem(
                 name: name,
                 description: items.first?.description ?? "",
-                iconName: iconName(for: name),
+                iconName: items.first?.iconName ?? "star.fill",
                 count: items.count,
                 latestDate: items.map(\.achievedDate).max() ?? Date()
             )
@@ -36,10 +31,11 @@ struct ParticipantMedalSection: View {
         VStack(alignment: .leading, spacing: 6) {
             ForEach(groupedMedals) { medal in
                 HStack {
-                    Image(systemName: medal.iconName)
-                        .foregroundColor(.yellow)
-                    Text(medal.count > 1 ? "×\(medal.count) \(medal.name) " : medal.name)
-                        .fontWeight(.medium)
+                    MedalIconView(iconName: medal.iconName)
+                        .frame(width: 36, height: 36)
+                    Text(medal.count > 1 ? "×\(medal.count) \(medal.name)" : medal.name)
+                        .font(.system(.body, design: .rounded).weight(.heavy))
+                        .foregroundColor(.white)
                     Spacer()
                     Text(shortDate(medal.latestDate))
                         .font(.caption)
@@ -49,20 +45,28 @@ struct ParticipantMedalSection: View {
         }
     }
 
-    private func iconName(for name: String) -> String {
-        switch name {
-        case "🔥 Streak 3": return "flame.fill"
-        case "🔥 Streak 7": return "flame.circle.fill"
-        case "🏁 Finisher": return "flag.checkered"
-        case "Motivation": return "star"
-        case "Double Beast": return "trophy.fill"
-        default: return "star.fill"
-        }
-    }
-
     private func shortDate(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.dateStyle = .short
         return formatter.string(from: date)
+    }
+}
+
+/// Ce View choisit l'image importée **ou** le SF Symbol automatiquement
+struct MedalIconView: View {
+    let iconName: String
+
+    var body: some View {
+        // Essaie de charger l'image importée (assets). Si elle existe, l'affiche, sinon passe sur SF Symbol.
+        if let uiImage = UIImage(named: iconName) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFit()
+        } else {
+            Image(systemName: iconName)
+                .resizable()
+                .scaledToFit()
+                .foregroundColor(.yellow)
+        }
     }
 }

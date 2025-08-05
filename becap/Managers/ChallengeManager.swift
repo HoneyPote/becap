@@ -49,10 +49,6 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     @Published private(set) var challenges: [Challenge] = []
     @Published private(set) var photos: [String: [ChallengePhoto]] = [:]
 
-//    @Published var participants: [String: [ParticipantProgress]] = [:] // TODO: Utile ?
-//    @Published var medals: [UserMedal] = [] // TODO: Utile ?
-//    @Published var selectedTab: Tabs = .challenge // TODO: Utile ?
-
     private var cancellables = Set<AnyCancellable>()
 
     private let challengeService: ChallengeService
@@ -337,11 +333,11 @@ extension ChallengeManager {
         let sortedCount = progress.validatedDays.count
         var medals: [UserMedal] = []
 
-        if sortedCount == 1 && !progress.medals.contains(where: { $0.name == "🟡 Premier jour" }) {
+        if sortedCount == 1 && !progress.medals.contains(where: { $0.name == "🚀 Premier jour" }) {
             print("🥇 Ajout médaille: Premier jour")
-            medals.append(UserMedal(name: "🟡 Premier jour",
+            medals.append(UserMedal(name: "🚀 Premier jour",
                                     description: "Première validation !",
-                                    iconName: "circle.fill",
+                                    iconName: "rocket-pencil",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
@@ -350,41 +346,66 @@ extension ChallengeManager {
             print("🥈 Ajout médaille: 3 jours")
             medals.append(UserMedal(name: "🔥 3 jours",
                                     description: "3 jours validés d'affilée",
-                                    iconName: "flame",
+                                    iconName: "apple",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 7 && !progress.medals.contains(where: { $0.name == "🔥 7 jours" }) {
-            medals.append(UserMedal(name: "🔥 7 jours",
+        if progress.currentStreak == 5 && !progress.medals.contains(where: { $0.name == "🥉 5 jours" }) {
+            medals.append(UserMedal(name: "🥉 5 jours",
+                                    description: "5 jours validés d'affilée",
+                                    iconName: "bronze",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 7 && !progress.medals.contains(where: { $0.name == "🎖️ 7 jours" }) {
+            medals.append(UserMedal(name: "🎖️ 7 jours",
                                     description: "7 jours validés d'affilée",
-                                    iconName: "flame.fill",
+                                    iconName: "green",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 8 && !progress.medals.contains(where: { $0.name == "🔥 8 jours" }) {
-            medals.append(UserMedal(name: "🔥 8 jours",
-                                    description: "8 jours validés d'affilée",
-                                    iconName: "flame.fill",
+        if progress.currentStreak == 10 && !progress.medals.contains(where: { $0.name == "🧨 10 jours" }) {
+            medals.append(UserMedal(name: "🧨 10 jours",
+                                    description: "10 jours validés d'affilée",
+                                    iconName: "apple",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 14 && !progress.medals.contains(where: { $0.name == "🧨 14 jours" }) {
-            medals.append(UserMedal(name: "🧨 14 jours",
+
+
+        if progress.currentStreak == 14 && !progress.medals.contains(where: { $0.name == "🥈 14 jours" }) {
+            medals.append(UserMedal(name: "🥈 14 jours",
                                     description: "14 jours de suite !",
-                                    iconName: "burst.fill",
+                                    iconName: "silver",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+        if progress.currentStreak == 21 && !progress.medals.contains(where: { $0.name == " 🥇21 jours" }) {
+            medals.append(UserMedal(name: "🥇21 jours",
+                                    description: "21 jours de suite !",
+                                    iconName: "gold",
+                                    achievedDate: Date(),
+                                    challengeId: challengeId))
+        }
+
+        if progress.currentStreak == 25 && !progress.medals.contains(where: { $0.name == " 25 jours" }) {
+            medals.append(UserMedal(name: "25 jours",
+                                    description: "21 jours de suite !",
+                                    iconName: "boxing",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
 
         if let challenge = challenges.first(where: { $0.id == challengeId }),
            sortedCount >= challenge.duration,
-           !progress.medals.contains(where: { $0.name == "🏁 Terminé" }) {
-            medals.append(UserMedal(name: "🏁 Terminé",
+           !progress.medals.contains(where: { $0.name == "🏁 🥇Terminé" }) {
+            medals.append(UserMedal(name: "🏁 🥇Terminé",
                                     description: "Défi complété",
-                                    iconName: "checkmark.seal",
+                                    iconName: "flag",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
@@ -441,13 +462,28 @@ extension ChallengeManager {
                              completion: ((Error?) -> Void)? = nil) {
         guard let challengeId = challenge.id else { return }
 
+        // Mise à jour locale dans la liste
         if let idx = self.challenges.firstIndex(where: { $0.id == challengeId }) {
             self.challenges[idx].notificationsConfig = config
         }
 
+        // Mise à jour Firestore via service
         challengeService.updateNotifications(for: challenge, config: config) { error in
+            if let error = error {
+                print("❌ Erreur lors de l’envoi vers Firestore : \(error)")
+            } else {
+                print("✅ Notifications mises à jour dans Firestore")
+            }
             completion?(error)
         }
+
+        // ✅ MAJ l’objet challenge pour l’appel à NotificationManager
+        var updatedChallenge = challenge
+        updatedChallenge.notificationsConfig = config
+
+        NotificationManager.shared.scheduleAllNotifications(for: updatedChallenge)
+
+        print("🛠 updateNotifications called with \(config.count) configs for challenge \(challenge.title)")
     }
 }
 

@@ -9,30 +9,23 @@ import SwiftUI
 
 struct MainTabView: View {
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
+    @State private var selectedIndex: Int = 0
 
     var body: some View {
-        Group {
-            TabView {
+        CustomTabView(tabs: TabType.allTabItems, selectedIndex: $selectedIndex) { index in
+            Group {
                 if viewModel.infosDoneFetching {
-                    HomeView()
-                        .tabItem {
-                            Label("Challenge", systemImage: "house.fill")
-                        }
-
-                    CameraView()
-                        .tabItem {
-                            Label("Photo", systemImage: "camera.fill")
-                        }
-
-                    SettingsView()
-                        .tabItem {
-                            Label("Settings", systemImage: "gearshape.fill")
-                        }
+                    switch TabType(rawValue: index) ?? .home {
+                    case .home:
+                        HomeView()
+                            .withTabBarInset()
+                    case .camera:
+                        CameraView()
+                    case .settings:
+                        SettingsView()
+                    }
                 } else {
                     ProgressView()
-                        .tabItem {
-                            Label("Challenge", systemImage: "hourglass")
-                        }
                 }
             }
         }
@@ -40,8 +33,8 @@ struct MainTabView: View {
             NotificationManager.shared.requestAuthorization()
         }
         .task {
-            viewModel.fetchInfos()
-        }
+                   viewModel.fetchInfos()
+               }
         .overlay {
             if let medal = viewModel.medal {
                 MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
@@ -56,11 +49,48 @@ extension LinearGradient {
     static var petrolToSky: LinearGradient {
         LinearGradient(
             gradient: Gradient(colors: [
-                Color(red: 36/255, green: 89/255, blue: 111/255),   // Bleu pétrole
-                Color(red: 116/255, green: 207/255, blue: 242/255)  // Bleu ciel
+                Color(hex: "#6190E8"),
+                Color(hex: "#A7BFE8"),
             ]),
             startPoint: .top,
             endPoint: .bottom
         )
+    }
+}
+
+
+
+import SwiftUI
+import Combine
+
+final class KeyboardResponder: ObservableObject {
+    @Published var keyboardHeight: CGFloat = 0
+    private var cancellableSet: Set<AnyCancellable> = []
+
+    init() {
+        let willShow = NotificationCenter.default
+            .publisher(for: UIResponder.keyboardWillShowNotification)
+            .compactMap { $0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect }
+            .map { $0.height }
+
+        let willHide = NotificationCenter.default
+            .publisher(for: UIResponder.keyboardWillHideNotification)
+            .map { _ in CGFloat(0) }
+
+        Publishers.Merge(willShow, willHide)
+            .receive(on: RunLoop.main)
+            .assign(to: \.keyboardHeight, on: self)
+            .store(in: &cancellableSet)
+    }
+}
+
+
+
+// Extension super pratique
+extension View {
+    func withTabBarInset(_ height: CGFloat = 72) -> some View {
+        self.safeAreaInset(edge: .bottom) {
+            Color.clear.frame(height: height)
+        }
     }
 }
