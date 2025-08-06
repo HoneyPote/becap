@@ -6,9 +6,10 @@
 //
 import SwiftUI
 
-import SwiftUI
 
 struct CalendarPhotoPagerView: View {
+    @StateObject private var viewModel = PhotoViewModel()
+    let challengeTitle: String
     let photos: [ChallengePhoto]
     let startIndex: Int
     let canDelete: Bool
@@ -19,6 +20,7 @@ struct CalendarPhotoPagerView: View {
     @State private var selection: Int
 
     init(
+        challengeTitle: String,
         photos: [ChallengePhoto],
         startIndex: Int = 0,
         canDelete: Bool,
@@ -26,6 +28,7 @@ struct CalendarPhotoPagerView: View {
         onDelete: @escaping (ChallengePhoto) -> Void,
         onClose: @escaping () -> Void
     ) {
+        self.challengeTitle = challengeTitle
         self.photos = photos
         self.startIndex = startIndex
         self.canDelete = canDelete
@@ -73,7 +76,7 @@ struct CalendarPhotoPagerView: View {
                         ForEach(photos.indices, id: \.self) { idx in
                             VStack(spacing: 12) {
                                 // Photo
-                                AsyncPhotoView(photo: photos[idx])
+                                AsyncPhotoPagerView(photo: photos[idx])
                                     .frame(maxHeight: 410)
                                     .padding(.top, 8)
 
@@ -90,7 +93,26 @@ struct CalendarPhotoPagerView: View {
                                         .foregroundColor(.white.opacity(0.85))
                                         .padding(.top, 2)
                                 }
-
+                                // --- Like section ---
+                                if let livePhoto = viewModel.currentPhoto, livePhoto.id == photos[idx].id {
+                                    LikeSection(
+                                        photo: livePhoto,
+                                        challengeId: livePhoto.challengeId ?? "",
+                                        likeAction: { userId in
+                                            // Passer par le viewModel pour gérer la notif !
+                                            viewModel.like(
+                                                photo: livePhoto,
+                                                userId: userId,
+                                                userName: UserManager.shared.currentUser?.name ?? "",
+                                                challengeTitle: challengeTitle
+                                            )
+                                        },
+                                        unlikeAction: { userId in
+                                            viewModel.unlike(photo: livePhoto, userId: userId)
+                                        },
+                                        getParticipant: getParticipant
+                                    )
+                                }
                                 // Date
                                 Text(photos[idx].date, style: .date)
                                     .font(.subheadline)
@@ -127,69 +149,25 @@ struct CalendarPhotoPagerView: View {
             }
             .padding(.top, 0) // <- Important : limite l'espace au-dessus du header
         }
+        .onAppear {
+                   listenToCurrentPhoto()
+               }
+               .onChange(of: selection) { _ in
+                   listenToCurrentPhoto()
+               }
     }
+
 
     private var currentPhoto: ChallengePhoto? {
         guard !photos.isEmpty, selection < photos.count else { return nil }
         return photos[selection]
     }
-}
 
-private struct AsyncPhotoView: View {
-    let photo: ChallengePhoto
-
-    var body: some View {
-        Group {
-            if let url = URL(string: photo.imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img
-                            .resizable()
-                            .scaledToFit()
-                            .cornerRadius(18)
-                            .shadow(radius: 18)
-                    case .failure:
-                        Image(systemName: "photo")
-                            .resizable()
-                            .scaledToFit()
-                            .frame(width: 120, height: 120)
-                            .foregroundColor(.gray)
-                    case .empty:
-                        ProgressView()
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-            } else {
-                Image(systemName: "photo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.gray)
-            }
-        }
-    }
-}
-
-private struct MedalsSection: View {
-    let medals: [UserMedal]
-
-    var body: some View {
-        if !medals.isEmpty {
-            VStack(spacing: 2) {
-                Text("Médailles obtenues par le joueur:")
-                    .font(.subheadline.weight(.medium))
-                    .foregroundColor(.white.opacity(0.83))
-                HStack(spacing: 6) {
-                    ForEach(medals, id: \.id) { medal in
-                        MedalIconView(iconName: medal.iconName)
-                            .frame(width: 28, height: 28)
-                            .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)
-                    }
-                }
-            }
-            .padding(.top, 4)
-        }
+    private func listenToCurrentPhoto() {
+        guard !photos.isEmpty, selection < photos.count,
+              let challengeId = photos[selection].challengeId,
+              let photoId = photos[selection].id
+        else { return }
+        viewModel.listenToPhotoRealtime(challengeId: challengeId, photoId: photoId)
     }
 }

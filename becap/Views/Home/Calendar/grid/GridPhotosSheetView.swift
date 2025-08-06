@@ -9,14 +9,18 @@ import SwiftUI
 struct GridPhotosSheetView: View {
     @ObservedObject private var viewModel: GridPhotosSheetViewModel
     let getParticipant: (String) -> Participant?
+    let challengeTitle: String
     let onClose: () -> Void
     @State private var selectedPhoto: ChallengePhoto?
+    @State private var pagerInfo: PagerInfo?
 
     init(cell: CalendarDetailCell,
          getParticipant: @escaping (String) -> Participant?,
+         challengeTitle: String,
          onClose: @escaping () -> Void) {
         self._viewModel = ObservedObject(wrappedValue: GridPhotosSheetViewModel(cell: cell))
         self.getParticipant = getParticipant
+        self.challengeTitle = challengeTitle
         self.onClose = onClose
     }
 
@@ -49,10 +53,17 @@ struct GridPhotosSheetView: View {
                                         .frame(width: 26, height: 26)
                                         .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)
                                 }
-                               }
+                            }
                         }
                         .onTapGesture {
-                            selectedPhoto = photo
+                            let photosSorted = viewModel.sortedPhotos.sorted(by: { $0.authorName.lowercased() < $1.authorName.lowercased() })
+                            if let idx = photosSorted.firstIndex(where: { $0.id == photo.id }) {
+                                pagerInfo = PagerInfo(
+                                    photos: photosSorted,
+                                    index: idx,
+                                    date: photo.date // ou la date du jour concerné
+                                )
+                            }
                         }
                     }
                 }
@@ -80,74 +91,16 @@ struct GridPhotosSheetView: View {
                 }
             }
         }
-        .sheet(item: $selectedPhoto) { photo in
-            photoDetailSheet(for: photo)
-        }
-}
-    @ViewBuilder
-    private func photoDetailSheet(for photo: ChallengePhoto) -> some View {
-        ZStack {
-            LinearGradient.petrolToSky.ignoresSafeArea()
-
-            GeometryReader { geometry in
-                let side = min(geometry.size.width, geometry.size.height) * 0.88
-
-                VStack {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 22)
-                            .fill(Color.white.opacity(0.07))
-                            .frame(width: side, height: side)
-
-                        AsyncImage(url: URL(string: photo.imageUrl)) { phase in
-                            switch phase {
-                            case .empty:
-                                ProgressView()
-                                    .scaleEffect(1.6)
-                            case .success(let image):
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .cornerRadius(22)
-                                    .shadow(radius: 22)
-                                    .transition(.opacity.combined(with: .scale))
-                            case .failure:
-                                Image(systemName: "photo")
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(width: side * 0.45, height: side * 0.45)
-                                    .foregroundColor(.gray)
-                                    .opacity(0.5)
-                            @unknown default:
-                                EmptyView()
-                            }
-                        }
-                        .frame(width: side, height: side)
-                    }
-
-                    .padding(.vertical, 20)
-                    .padding(.bottom, 28)
-                    Text(photo.authorName)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding(.top, 12)
-                    if let desc = photo.description, !desc.isEmpty {
-                        Text(desc)
-                            .font(.body)
-                            .foregroundColor(.white.opacity(0.85))
-                            .padding(.top, 2)
-                    }
-                    Spacer()
-                    Button("Fermer") { selectedPhoto = nil }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(.ultraThinMaterial)
-                        .cornerRadius(10)
-                        .padding(.bottom, 32)
-                }
-                .padding(.top, 80)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-            }
+        .sheet(item: $pagerInfo) { pager in
+            CalendarPhotoPagerView(
+                challengeTitle: challengeTitle,
+                photos: pager.photos,
+                startIndex: pager.index,
+                canDelete: false,
+                getParticipant: getParticipant,
+                onDelete: { _ in },
+                onClose: { pagerInfo = nil }
+            )
         }
     }
 }

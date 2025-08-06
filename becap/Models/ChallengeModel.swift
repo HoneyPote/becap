@@ -40,6 +40,8 @@ struct ChallengePhoto: Identifiable, Codable, Hashable {
     var date: Date                       // Date de prise ou de soumission
     var createdAt: Date                  // Date de création Firestore (souvent == date)
 
+    var likes: [String]? // <--- AJOUTE CE CHAMP ! (optional pour backward compatibilité)
+
     // Pour Hashable automatique
     static func == (lhs: ChallengePhoto, rhs: ChallengePhoto) -> Bool {
         lhs.id == rhs.id

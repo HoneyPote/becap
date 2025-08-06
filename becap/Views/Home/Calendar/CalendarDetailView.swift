@@ -64,6 +64,7 @@ struct CalendarDetailView: View {
             GridPhotosSheetView(
                 cell: cell,
                 getParticipant: { viewModel.participant(for: $0) },
+                challengeTitle: viewModel.challenge.title,
                 onClose: { selectedGridCell = nil }
             )
         }
@@ -153,6 +154,7 @@ struct CalendarDetailView: View {
     // --- SHEETS
     func photoPagerSheetView(info: PagerInfo) -> some View {
         CalendarPhotoPagerView(
+            challengeTitle: viewModel.challenge.title,
             photos: info.photos,
             startIndex: info.index,
             canDelete: viewModel.canDeletePhoto(photos: info.photos),

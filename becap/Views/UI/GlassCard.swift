@@ -55,3 +55,11 @@ extension Color {
         )
     }
 }
+
+
+extension Array {
+    func unique<T: Hashable>(by keyPath: KeyPath<Element, T>) -> [Element] {
+        var seen = Set<T>()
+        return filter { seen.insert($0[keyPath: keyPath]).inserted }
+    }
+}
