@@ -11,6 +11,7 @@ import FirebaseCore
 import OneSignalFramework
 import FirebaseFirestore
 class AppDelegate: NSObject, UIApplicationDelegate {
+    let pushObserver = PushObserver()
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         if FirebaseApp.app() == nil {
@@ -25,7 +26,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                      OneSignal.Notifications.requestPermission({ accepted in
                        print("User accepted notifications: \(accepted)")
                      }, fallbackToSettings: false)
-
+        OneSignal.User.pushSubscription.addObserver(pushObserver)
         if let playerId = OneSignal.User.pushSubscription.id {
             print("✅ playerId récupéré: \(playerId)")
 
@@ -46,7 +47,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         }
         return true
     }
-
 }
 
 @main
@@ -60,6 +60,60 @@ struct becap: App {
         WindowGroup {
             SplashScreenView()
                 .environmentObject(appState)
+        }
+    }
+}
+
+
+import Foundation
+import OneSignalFramework
+import FirebaseFirestore
+import OneSignalExtension
+
+//
+//class PushObserver: NSObject, OSPushSubscriptionObserver {
+//    func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
+//        guard let playerId = state.current.id else {
+//            print("⚠️ Aucun playerId détecté.")
+//            return
+//        }
+//
+//        print("🔄 Nouveau playerId détecté : \(playerId)")
+//
+//        if let userId = UserManager.shared.currentUser?.id {
+//            Firestore.firestore().collection("users").document(userId).updateData([
+//                "onesignalPlayerId": playerId
+//            ]) { error in
+//                if let error = error {
+//                    print("❌ Erreur Firestore : \(error)")
+//                } else {
+//                    print("✅ playerId mis à jour")
+//                }
+//            }
+//        }
+//    }
+//}
+
+
+class PushObserver: NSObject, OSPushSubscriptionObserver {
+    func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
+        guard let playerId = state.current.id else {
+            print("⚠️ Aucun playerId détecté.")
+            return
+        }
+
+        print("🔄 Nouveau playerId détecté : \(playerId)")
+
+        if let userId = UserManager.shared.currentUser?.id {
+            Firestore.firestore().collection("users").document(userId).updateData([
+                "onesignalPlayerId": playerId
+            ]) { error in
+                if let error = error {
+                    print("❌ Erreur Firestore : \(error)")
+                } else {
+                    print("✅ playerId mis à jour")
+                }
+            }
         }
     }
 }
