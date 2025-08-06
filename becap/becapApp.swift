@@ -7,7 +7,7 @@
 
 import SwiftUI
 import FirebaseCore
-import OneSignalFramework
+
 import OneSignalFramework
 import FirebaseFirestore
 class AppDelegate: NSObject, UIApplicationDelegate {
@@ -25,18 +25,28 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                      OneSignal.Notifications.requestPermission({ accepted in
                        print("User accepted notifications: \(accepted)")
                      }, fallbackToSettings: false)
+
+        if let playerId = OneSignal.User.pushSubscription.id {
+            print("✅ playerId récupéré: \(playerId)")
+
+            // 🔁 Update Firestore
+            if let currentUserId = UserManager.shared.currentUser?.id {
+                Firestore.firestore().collection("users").document(currentUserId).updateData([
+                    "onesignalPlayerId": playerId
+                ]) { error in
+                    if let error = error {
+                        print("❌ Erreur update playerId: \(error)")
+                    } else {
+                        print("✅ playerId mis à jour dans Firestore")
+                    }
+                }
+            }
+        } else {
+            print("⚠️ Aucun playerId dispo pour l’instant.")
+        }
         return true
     }
-//    func saveOneSignalPlayerIdForCurrentUser(currentUserId: String) {
-//        if let playerId = OneSignal.User.pushSubscription.id, !playerId.isEmpty {
-//            Firestore.firestore().collection("users").document(currentUserId).setData([
-//                "onesignalPlayerId": playerId
-//            ], merge: true)
-//            print("✅ OneSignal playerId enregistré : \(playerId)")
-//        } else {
-//            print("❌ Impossible de récupérer le playerId OneSignal.")
-//        }
-//    }
+
 }
 
 @main
