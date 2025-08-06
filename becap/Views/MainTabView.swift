@@ -63,28 +63,30 @@ extension LinearGradient {
 import SwiftUI
 import Combine
 
+import SwiftUI
+import Combine
+
 final class KeyboardResponder: ObservableObject {
     @Published var keyboardHeight: CGFloat = 0
-    private var cancellableSet: Set<AnyCancellable> = []
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
-        let willShow = NotificationCenter.default
-            .publisher(for: UIResponder.keyboardWillShowNotification)
+        let willShow = NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)
             .compactMap { $0.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect }
-            .map { $0.height }
+            .map { frame -> CGFloat in
+                guard let window = UIApplication.shared.windows.first else { return 0 }
+                return frame.height - window.safeAreaInsets.bottom
+            }
 
-        let willHide = NotificationCenter.default
-            .publisher(for: UIResponder.keyboardWillHideNotification)
+        let willHide = NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)
             .map { _ in CGFloat(0) }
 
         Publishers.Merge(willShow, willHide)
             .receive(on: RunLoop.main)
             .assign(to: \.keyboardHeight, on: self)
-            .store(in: &cancellableSet)
+            .store(in: &cancellables)
     }
 }
-
-
 
 // Extension super pratique
 extension View {

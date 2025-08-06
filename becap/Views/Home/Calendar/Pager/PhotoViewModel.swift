@@ -12,6 +12,44 @@ class PhotoViewModel: ObservableObject {
     @Published var currentPhoto: ChallengePhoto?
     private var photoListener: ListenerRegistration?
     let challengeService = ChallengeService.shared
+    @Published var comments: [PhotoCommentModel] = []
+
+    private var commentsListener: ListenerRegistration?
+
+    func listenToComments(challengeId: String, photoId: String) {
+        commentsListener?.remove()
+        commentsListener = challengeService.listenToComments(challengeId: challengeId, photoId: photoId) { [weak self] newComments in
+            DispatchQueue.main.async {
+                self?.comments = newComments
+            }
+        }
+    }
+
+    func addComment(_ content: String,
+                    challengeId: String,
+                    photoId: String,
+                    challengeTitle: String) {
+
+        guard let user = UserManager.shared.currentUser else { return }
+
+        // Ajouter le commentaire à Firestore
+        challengeService.addComment(to: challengeId, photoId: photoId, content: content, user: user)
+
+        // ⚠️ On veut éviter d’envoyer une notif à soi-même
+        guard let photoAuthorUid = currentPhoto?.authorUid,
+              photoAuthorUid != user.id else { return }
+
+        // Envoyer la notification OneSignal
+        Task {
+            await challengeService.sendCommentNotification(
+                to: photoAuthorUid,
+                from: user.name,
+                challengeTitle: challengeTitle,
+                commentText: content
+            )
+        }
+    }
+
 
       func listenToPhotoRealtime(challengeId: String, photoId: String) {
           photoListener?.remove()
@@ -27,10 +65,12 @@ class PhotoViewModel: ObservableObject {
 
       deinit {
           photoListener?.remove()
+          commentsListener?.remove()
       }
 
     func stopListening() {
         photoListener?.remove()
+        commentsListener?.remove()
     }
 
     func like(photo: ChallengePhoto, userId: String, userName: String, challengeTitle: String) {

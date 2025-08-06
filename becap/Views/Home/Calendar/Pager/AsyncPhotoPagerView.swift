@@ -18,7 +18,7 @@ import SwiftUI
                     case .success(let img):
                         img
                             .resizable()
-                            .scaledToFit()
+                            .scaledToFill()
                             .cornerRadius(18)
                             .shadow(radius: 18)
                     case .failure:
@@ -28,7 +28,12 @@ import SwiftUI
                             .frame(width: 120, height: 120)
                             .foregroundColor(.gray)
                     case .empty:
-                        ProgressView()
+                        ZStack {
+                            Color.black.opacity(0.2)
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     @unknown default:
                         EmptyView()
                     }

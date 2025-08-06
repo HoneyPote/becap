@@ -408,3 +408,86 @@ extension ChallengeService {
         }.resume()
     }
 }
+
+
+// MARK: - Comments
+
+extension ChallengeService {
+    func addComment(to challengeId: String, photoId: String, content: String, user: User, completion: ((Error?) -> Void)? = nil) {
+        let commentData: [String: Any] = [
+            "userId": user.id ?? "",
+            "userName": user.name,
+            "content": content,
+            "timestamp": Timestamp(date: Date())
+        ]
+
+        db.collection("challenges")
+            .document(challengeId)
+            .collection("photos")
+            .document(photoId)
+            .collection("comments")
+            .addDocument(data: commentData, completion: completion)
+    }
+
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration {
+        db.collection("challenges")
+            .document(challengeId)
+            .collection("photos")
+            .document(photoId)
+            .collection("comments")
+            .order(by: "timestamp")
+            .addSnapshotListener { snapshot, error in
+                guard let documents = snapshot?.documents else {
+                    onUpdate([])
+                    return
+                }
+
+                let comments = documents.compactMap { try? $0.data(as: PhotoCommentModel.self) }
+                onUpdate(comments)
+            }
+    }
+    func sendCommentNotification(to authorUid: String, from userName: String, challengeTitle: String, commentText: String) async {
+        // Va chercher le playerId OneSignal de l’auteur de la photo
+        let db = Firestore.firestore()
+        let snap = try? await db.collection("users").document(authorUid).getDocument()
+        guard let data = snap?.data(),
+              let playerId = data["onesignalPlayerId"] as? String,
+              !playerId.isEmpty else {
+            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
+            return
+        }
+
+        let url = URL(string: "https://onesignal.com/api/v1/notifications")!
+        let payload: [String: Any] = [
+            "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
+            "include_player_ids": [playerId],
+            "headings": [
+                "en": "Nouveau commentaire 💬",
+                "fr": "Nouveau commentaire 💬"
+            ],
+            "contents": [
+                "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
+                "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
+            ],
+            "ios_sound": "default"
+        ]
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Basic os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mxcvfhmnbcuijvwhdlo64mje7ovicdd6wbq36toy6lyley5gnfxdnz3wi2q3dzvehqlyjk5meujeni", forHTTPHeaderField: "Authorization") // ✅ Remplace si besoin
+        request.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
+
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            if let error = error {
+                print("❌ Push notification erreur : \(error)")
+            }
+            if let httpResponse = response as? HTTPURLResponse {
+                print("OneSignal status : \(httpResponse.statusCode)")
+            }
+            if let data = data, let body = String(data: data, encoding: .utf8) {
+                print("Réponse OneSignal : \(body)")
+            }
+        }.resume()
+    }
+}
