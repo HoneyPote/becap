@@ -91,14 +91,26 @@ struct CalendarDetailView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
-                    Button { showNotifSheet = true } label: {
+                    Button(action: {
+                        showNotifSheet = true
+                    }) {
                         GlassCircleIcon(systemName: "bell.fill")
                     }
 
-                    Button { showJoinSheet = true } label: {
+                    Button(action: {
+                        showJoinSheet = true
+                    }) {
                         GlassCircleIcon(systemName: "square.and.arrow.up.fill")
                     }
                 }
+                .sheet(isPresented: $showNotifSheet, onDismiss: {
+                                  viewModel.fetchInfos()
+                              }) {
+                                  NotificationSettingsView(challenge: viewModel.challenge)
+                              }
+                              .sheet(isPresented: $showJoinSheet) {
+                                  JoinChallengeView()
+                              }
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)

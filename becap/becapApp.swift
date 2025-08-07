@@ -27,28 +27,39 @@ class AppDelegate: NSObject, UIApplicationDelegate {
                        print("User accepted notifications: \(accepted)")
                      }, fallbackToSettings: false)
         OneSignal.User.pushSubscription.addObserver(pushObserver)
-        if let playerId = OneSignal.User.pushSubscription.id {
-            print("✅ playerId récupéré: \(playerId)")
+        // 🔄 Ajout de l'observer
+               OneSignal.User.pushSubscription.addObserver(pushObserver)
 
-            // 🔁 Update Firestore
-            if let currentUserId = UserManager.shared.currentUser?.id {
-                Firestore.firestore().collection("users").document(currentUserId).updateData([
-                    "onesignalPlayerId": playerId
-                ]) { error in
-                    if let error = error {
-                        print("❌ Erreur update playerId: \(error)")
-                    } else {
-                        print("✅ playerId mis à jour dans Firestore")
-                    }
-                }
-            }
-        } else {
-            print("⚠️ Aucun playerId dispo pour l’instant.")
-        }
-        return true
-    }
-}
+               // 🕒 Fallback : attendre 2s pour récupérer un éventuel playerId tardif
+               DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                   if let playerId = OneSignal.User.pushSubscription.id {
+                       print("✅ [Fallback] playerId OneSignal : \(playerId)")
+                       self.updateFirestoreWithPlayerId(playerId)
+                   } else {
+                       print("⚠️ [Fallback] Aucun playerId détecté après délai.")
+                   }
+               }
 
+               return true
+           }
+
+           private func updateFirestoreWithPlayerId(_ playerId: String) {
+               guard let userId = UserManager.shared.currentUser?.id else {
+                   print("⚠️ Aucun utilisateur connecté pour enregistrer le playerId")
+                   return
+               }
+
+               Firestore.firestore().collection("users").document(userId).updateData([
+                   "onesignalPlayerId": playerId
+               ]) { error in
+                   if let error = error {
+                       print("❌ Erreur Firestore : \(error)")
+                   } else {
+                       print("✅ Firestore mis à jour avec le playerId")
+                   }
+               }
+           }
+       }
 @main
 struct becap: App {
     // register app delegate for Firebase setup
