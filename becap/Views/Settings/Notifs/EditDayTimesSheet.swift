@@ -9,11 +9,13 @@ import SwiftUI
 
 struct EditDayTimesSheet: View {
     @State var times: [Date]
+
     var onUpdate: ([Date]) -> Void
     var onDone: () -> Void
     var onDuplicateToAllDays: (([Date]) -> Void)? = nil
     var onReset: (() -> Void)? = nil
 
+    // TODO: Découper
     var body: some View {
         Form {
             Section(header: Text("Up to 3 notifications")) {
@@ -41,6 +43,7 @@ struct EditDayTimesSheet: View {
                         }
                     }
                 }
+
                 if times.count < 3 {
                     Button {
                         let baseHours = [9, 13, 18]

@@ -32,6 +32,8 @@ protocol AccountServiceProtocol {
 }
 
 class AccountService: AccountServiceProtocol {
+    static let shared = AccountService()
+
     private let firebaseAuth: Auth
     private let firestoreDB: Firestore
 

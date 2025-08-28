@@ -1,3 +1,10 @@
+//
+//  CalendarDetailView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 19/07/2025.
+//
+
 import SwiftUI
 
 struct PagerInfo: Identifiable {
@@ -8,9 +15,9 @@ struct PagerInfo: Identifiable {
 }
 
 struct CalendarDetailView: View {
+    @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModel: CalendarDetailViewModel
-    @Environment(\.dismiss) private var dismiss
 
     @State private var selectedParticipant: Participant?
     @State private var selectedGridCell: CalendarDetailCell?
@@ -26,27 +33,28 @@ struct CalendarDetailView: View {
             LinearGradient.petrolToSky.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                headerView
-                filterView
+                header
+
+                Text(viewModel.challenge.title)
+                    .font(.system(.title2, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.8)
+                    .padding(.horizontal)
+                    .padding(.top, 6)
+                    .padding(.bottom, 10)
+
+                participantFilter
+                    .frame(height: 42)
+                    .padding(.horizontal, 14)
+                    .padding(.top, 8)
+                    .padding(.bottom, 10)
 
                 ScrollView {
                     VStack(spacing: 10) {
                         if viewModel.doneLoadingPhotos {
-                            ForEach(viewModel.buildDetailcells(for: selectedParticipant), id: \.self) { cell in
-                                CalendarCard {
-                                    CalendarDayButtonView(
-                                        cell: cell,
-                                        isEnabled: !cell.photos.isEmpty,
-                                        action: {
-                                            if selectedParticipant == nil {
-                                                selectedGridCell = cell
-                                            } else {
-                                                viewModel.detailButtonClicked(cell: cell)
-                                            }
-                                        }
-                                    )
-                                }
-                            }
+                            calendarCardList
                         } else {
                             ProgressView().padding()
                         }
@@ -58,22 +66,38 @@ struct CalendarDetailView: View {
             }
         }
         .sheet(item: $viewModel.selectedPagerInfo) { info in
-            photoPagerSheetView(info: info)
+            CalendarPhotoPagerView(photos: info.photos,
+                                   startIndex: info.index,
+                                   getParticipant: { viewModel.getParticipant(for: $0)},
+                                   onDelete: { photo in viewModel.deletePhoto(photo) },
+                                   onClose: { viewModel.selectedPagerInfo = nil })
         }
         .sheet(item: $selectedGridCell) { cell in
-            GridPhotosSheetView(
-                cell: cell,
-                getParticipant: { viewModel.participant(for: $0) },
-                challengeTitle: viewModel.challenge.title,
-                onClose: { selectedGridCell = nil }
-            )
+            GridPhotosSheetView(cell: cell,
+                                getParticipant: { viewModel.getParticipant(for: $0) },
+                                challengeTitle: viewModel.challenge.title,
+                                onClose: { selectedGridCell = nil })
         }
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
     }
 
-    private var headerView: some View {
+    private var calendarCardList: some View {
+        ForEach(viewModel.buildDetailcells(for: selectedParticipant), id: \.self) { cell in
+            CalendarCard {
+                CalendarDayButtonView(cell: cell,
+                                      action: { calendarDayButtonAction(for: cell) },
+                                      isEnabled: !cell.photos.isEmpty)
+            }
+        }
+    }
+
+    private func calendarDayButtonAction(for cell: CalendarDetailCell) {
+        selectedParticipant == nil ? selectedGridCell = cell : viewModel.detailButtonClicked(cell: cell)
+    }
+
+    private var header: some View {
         VStack(spacing: 6) {
             HStack {
                 Button(action: {
@@ -104,30 +128,20 @@ struct CalendarDetailView: View {
                     }
                 }
                 .sheet(isPresented: $showNotifSheet, onDismiss: {
-                                  viewModel.fetchInfos()
-                              }) {
-                                  NotificationSettingsView(challenge: viewModel.challenge)
-                              }
-                              .sheet(isPresented: $showJoinSheet) {
-                                  JoinChallengeView()
-                              }
+                    viewModel.fetchInfos()
+                }) {
+                    NotificationSettingsView(challenge: viewModel.challenge)
+                }
+                .sheet(isPresented: $showJoinSheet) {
+                    JoinChallengeView()
+                }
             }
             .padding(.horizontal, 14)
             .padding(.top, 12)
-
-            Text(viewModel.challenge.title)
-                .font(.system(.title2, design: .rounded).weight(.heavy))
-                .foregroundColor(.white)
-                .multilineTextAlignment(.center)
-                .lineLimit(2)
-                .minimumScaleFactor(0.8)
-                .padding(.horizontal)
-                .padding(.top, 6)
-                .padding(.bottom, 10)
         }
     }
 
-    private var filterView: some View {
+    private var participantFilter: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(.ultraThinMaterial)
@@ -145,109 +159,6 @@ struct CalendarDetailView: View {
             }
             .pickerStyle(.segmented)
             .padding(4)
-        }
-        .frame(height: 42)
-        .padding(.horizontal, 14)
-        .padding(.top, 8)
-        .padding(.bottom, 10)
-    }
-
-    func photoPagerSheetView(info: PagerInfo) -> some View {
-        CalendarPhotoPagerView(
-            challengeTitle: viewModel.challenge.title,
-            photos: info.photos,
-            startIndex: info.index,
-            canDelete: viewModel.canDeletePhoto(photos: info.photos),
-            getParticipant: { viewModel.participant(for: $0)},
-            onDelete: { photo in viewModel.deletePhoto(photo) },
-            onClose: { viewModel.selectedPagerInfo = nil }
-        )
-    }
-}
-
-struct CalendarDayButtonView: View {
-    let cell: CalendarDetailCell
-    var isEnabled: Bool
-    let action: () -> Void
-
-    var body: some View {
-        Button(action: {
-            if isEnabled { action() }
-        }) {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(cell.date, style: .date)
-                        .font(.system(.body, design: .rounded).weight(.medium))
-                        .foregroundColor(.white)
-
-                    if cell.isToday {
-                        Text("Aujourd’hui")
-                            .font(.caption2.weight(.semibold))
-                            .foregroundColor(.white)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .background(Color.green.opacity(0.85))
-                            .clipShape(Capsule())
-                    }
-                }
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Text("\(cell.photos.count) photo(s)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-
-                    Image(systemName: "chevron.right")
-                        .foregroundColor(.white.opacity(0.4))
-                        .font(.caption)
-                }
-            }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(cell.isToday ? Color.green.opacity(0.25) : Color.white.opacity(0.08))
-            )
-        }
-        .disabled(!isEnabled)
-    }
-}
-
-struct CalendarCard<Content: View>: View {
-    let content: Content
-    init(@ViewBuilder content: () -> Content) { self.content = content() }
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: Color.black.opacity(0.21), radius: 10, x: 0, y: 6)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.4), lineWidth: 0.7)
-                )
-            content
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 2)
-    }
-}
-
-struct GlassCircleIcon: View {
-    let systemName: String
-    var body: some View {
-        ZStack {
-            Circle()
-                .fill(.ultraThinMaterial)
-                .frame(width: 36, height: 36)
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.19), lineWidth: 0.7)
-                )
-                .shadow(color: Color.black.opacity(0.19), radius: 5, x: 0, y: 7)
-            Image(systemName: systemName)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.white)
         }
     }
 }

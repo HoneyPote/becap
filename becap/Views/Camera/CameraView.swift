@@ -1,3 +1,10 @@
+//
+//  CameraView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 15/07/2025.
+//
+
 import SwiftUI
 
 struct CameraView: View {
@@ -143,6 +150,7 @@ struct CameraView: View {
         }
         .padding(4)
     }
+    
     private var toastView: some View {
         VStack {
             Spacer()

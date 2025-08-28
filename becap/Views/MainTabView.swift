@@ -6,35 +6,35 @@
 //
 
 import SwiftUI
+import Combine
 
 struct MainTabView: View {
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
+
     @State private var selectedIndex: Int = 0
 
     var body: some View {
         CustomTabView(tabs: TabType.allTabItems, selectedIndex: $selectedIndex) { index in
-            Group {
-                if viewModel.infosDoneFetching {
-                    switch TabType(rawValue: index) ?? .home {
-                    case .home:
-                        HomeView()
-                            .withTabBarInset()
-                    case .camera:
-                        CameraView()
-                    case .settings:
-                        SettingsView()
-                    }
-                } else {
-                    ProgressView()
+            if viewModel.infosDoneFetching {
+                switch TabType(rawValue: index) ?? .home {
+                case .home:
+                    HomeView()
+                    //                        .withTabBarInset() // TODO: Utile ? Je vois pas de diff perso
+                case .camera:
+                    CameraView()
+                case .settings:
+                    SettingsView()
                 }
+            } else {
+                ProgressView()
             }
         }
         .onAppear {
             NotificationManager.shared.requestAuthorization()
         }
         .task {
-                   viewModel.fetchInfos()
-               }
+            viewModel.fetchInfos()
+        }
         .overlay {
             if let medal = viewModel.medal {
                 MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
@@ -48,23 +48,12 @@ struct MainTabView: View {
 extension LinearGradient {
     static var petrolToSky: LinearGradient {
         LinearGradient(
-            gradient: Gradient(colors: [
-                Color(hex: "#6190E8"),
-                Color(hex: "#A7BFE8"),
-            ]),
+            gradient: Gradient(colors: [Color(hex: "#6190E8"), Color(hex: "#A7BFE8")]),
             startPoint: .top,
             endPoint: .bottom
         )
     }
 }
-
-
-
-import SwiftUI
-import Combine
-
-import SwiftUI
-import Combine
 
 final class KeyboardResponder: ObservableObject {
     @Published var keyboardHeight: CGFloat = 0

@@ -6,10 +6,6 @@
 //
 
 import SwiftUI
-import FirebaseAuth
-import FirebaseFirestore
-
-import SwiftUI
 
 struct JoinChallengeView: View {
     @Environment(\.dismiss) private var dismiss
@@ -24,6 +20,7 @@ struct JoinChallengeView: View {
         NavigationView {
             ZStack {
                 LinearGradient.petrolToSky.ignoresSafeArea()
+
                 ScrollView {
                     VStack(spacing: 34) {
                         Text("Rejoindre un défi")
@@ -37,6 +34,7 @@ struct JoinChallengeView: View {
                         GlassCard {
                             joinByCodeSection
                         }
+
                         GlassCard {
                             shareExistingChallengeSection
                         }
@@ -71,10 +69,8 @@ struct JoinChallengeView: View {
         }
         .overlay(alignment: .bottom) {
             if showCreationToast {
-                ToastView(
-                    message: "Défi créé avec succès 🎉",
-                    type: .success
-                )
+                ToastView(message: "Défi créé avec succès 🎉",
+                          type: .success)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
                         withAnimation { showCreationToast = false }

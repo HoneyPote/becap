@@ -29,9 +29,13 @@ protocol ChallengeManagerProtocol {
     func joinChallenge(_ challenge: Challenge, userId: String) async throws
 
     // Photos
+    func sendPhotoAndNotify(image: UIImage, challenge: Challenge, descriptionText: String?) async throws
     func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String?) async throws
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto]
     func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws
+    func likePhoto(photo: ChallengePhoto) async throws
+    func unlikePhoto(photo: ChallengePhoto) async throws
+    func commentPhoto(photo: ChallengePhoto, content: String) async throws
 
     // Reward flow
     func createNewParticipantProgress(userId: String, challengeId: String) async throws
@@ -54,17 +58,20 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let challengeService: ChallengeService
     private let userManager: UserManager
     private let accountManager: AccountManager
+    private let notificationService: NotificationService
     private let rewardService: RewardService
     private let alertManager: GlobalAlertManager
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
          accountManager: AccountManager = AccountManager(),
+         notifificationService: NotificationService = NotificationService.shared,
          rewardService: RewardService = RewardService.shared,
          alertManager: GlobalAlertManager = GlobalAlertManager.shared) {
         self.userManager = userManager
         self.challengeService = challengeService
         self.accountManager = accountManager
+        self.notificationService = notifificationService
         self.rewardService = rewardService
         self.alertManager = alertManager
 
@@ -90,15 +97,15 @@ extension ChallengeManager {
 
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
     func fetchAndFilterChallenges() async throws {
-        guard let user = currentUser, let userId = user.id else { return }
+        guard let currentUser, let currentUserId = currentUser.id else { return }
 
         let filtered = try await fetchAllChallenges().filter { challenge in
-            challenge.creatorUID == userId || challenge.participantUids.contains(userId)
+            challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
         }
 
         await MainActor.run {
             self.challenges = filtered
-            print("✅ Défis filtrés pour \(user.name):", filtered.map(\.title))
+            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
         }
     }
 
@@ -199,12 +206,31 @@ extension ChallengeManager {
 
 // MARK: - Photos
 extension ChallengeManager {
+    func sendPhotoAndNotify(image: UIImage, challenge: Challenge, descriptionText: String?) async throws {
+        guard let currentUser, let currentUserId = currentUser.id, let challengeId = challenge.id else { return }
+
+        print("📤 Upload de la photo en cours...")
+        _ = try await uploadPhotoAsync(image: image,
+                                       challengeId: challengeId,
+                                       author: currentUser,
+                                       description: descriptionText)
+
+        print("✅ Upload réussi, mise à jour progression Firestore...")
+        try await updateParticipantProgress(for: challengeId, userId: currentUserId, date: Date())
+
+        // Envoyer notif
+        await notificationService.sendPhotoNotification(to: challenge.participantUids,
+                                                        authorName: currentUser.name,
+                                                        challengeTitle: challenge.title)
+    }
+
     /// Upload une photo dans Firebase Storage via `ChallengeService`
-    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
+    internal func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
         let photo = try await challengeService.uploadPhoto(image: image,
-                                                                  challengeId: challengeId,
-                                                                  author: author,
-                                                                  description: description)
+                                                           challengeId: challengeId,
+                                                           author: author,
+                                                           description: description)
+
         await MainActor.run {
             savePhoto(photo, to: challengeId)
         }
@@ -256,6 +282,81 @@ extension ChallengeManager {
             // 3. Mettre à jour le cache local
             self.photos[challengeId]?.removeAll { $0.id == photoId }
         }
+    }
+
+    func likePhoto(photo: ChallengePhoto) async throws {
+        guard let currentUser,
+              let currentUserId = currentUser.id,
+              let challengeId = photo.challengeId,
+              let photoId = photo.id else { return }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            challengeService.likePhoto(challengeId: challengeId, photoId: photoId, userId: currentUserId) { error in
+                if let error = error {
+                    print("❌ Like failed: \(error)")
+                    continuation.resume(throwing: error)
+                } else {
+                    print("✅ Photo likée !")
+                    continuation.resume()
+                }
+            }
+        }
+
+        let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
+
+        await self.notificationService.sendLikeNotification(to: photo.authorUid,
+                                                            from: currentUser.name,
+                                                            challengeTitle: challengeTitle)
+    }
+
+    func unlikePhoto(photo: ChallengePhoto) async throws {
+        guard let currentUser,
+              let currentUserId = currentUser.id,
+              let challengeId = photo.challengeId,
+              let photoId = photo.id else { return }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            challengeService.unlikePhoto(challengeId: challengeId, photoId: photoId, userId: currentUserId) {
+                error in
+                if let error = error {
+                    print("❌ Unliking photo failed: \(error)")
+                    continuation.resume(throwing: error)
+                } else {
+                    print("✅ Photo unliked !")
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    func commentPhoto(photo: ChallengePhoto, content: String) async throws {
+        guard let currentUser,
+              let currentUserId = currentUser.id,
+              let photoId = photo.id,
+              let challengeId = photo.challengeId else { return }
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            challengeService.addComment(photoId: photoId,
+                                        content: content,
+                                        challengeId: challengeId,
+                                        userId: currentUserId,
+                                        userName: currentUser.name) { error in
+                if let error = error {
+                    print("❌ Adding comment failed: \(error)")
+                    continuation.resume(throwing: error)
+                } else {
+                    print("✅ Comment added !")
+                    continuation.resume()
+                }
+            }
+        }
+
+        let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
+
+        await notificationService.sendCommentNotification(to: photo.authorUid,
+                                                          from: currentUser.name,
+                                                          challengeTitle: challengeTitle,
+                                                          commentText: content)
     }
 
     // Photos - Privates
@@ -466,6 +567,7 @@ extension ChallengeManager {
         if let idx = self.challenges.firstIndex(where: { $0.id == challengeId }) {
             self.challenges[idx].notificationsConfig = config
         }
+
 
         // Mise à jour Firestore via service
         challengeService.updateNotifications(for: challenge, config: config) { error in

@@ -21,7 +21,6 @@ class SettingsViewModel: ObservableObject {
          accountManager: AccountManagerProtocol = AccountManager()) {
         self.userManager = userManager
         self.accountManager = accountManager
-
         self.currentUser = userManager.currentUser
 
         observeCurrentUser()

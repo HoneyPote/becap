@@ -58,7 +58,7 @@ class NewChallengeViewModel: ObservableObject {
                 try await refreshUserMedals(userId: currentUserId)
 
                 await MainActor.run {
-//                    self.challengeManager.participants[newChallengeId] = [userProgress] // TODO: Utile ?
+                    //self.challengeManager.participants[newChallengeId] = [userProgress] // TODO: Utile ?
                     self.isLoading = false
                     completion(true)
                 }

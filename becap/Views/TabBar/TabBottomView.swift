@@ -1,6 +1,6 @@
 //
 //  TabBottomView.swift
-//  MyVin
+//  becap
 //
 //  Created by Adam Mabrouki on 28/03/2022.
 //
@@ -8,15 +8,17 @@
 import SwiftUI
 
 struct TabBottomView: View {
+    @Binding var selectedIndex: Int
+
     let tabbarItems: [TabItemData]
+
     var height: CGFloat = 70
     var width: CGFloat = UIScreen.main.bounds.width - 42
-    @Binding var selectedIndex: Int
-    
+
     var body: some View {
         HStack {
             Spacer()
-            
+
             ForEach(tabbarItems.indices, id: \.self) { index in
                 let item = tabbarItems[index]
                 Button {

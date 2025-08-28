@@ -4,11 +4,12 @@
 //
 //  Created by Adam Mabrouki on 06/08/2025.
 //
+
 import SwiftUI
 
+// TODO: Faire en sorte de ne rien calculer dans la vue. L'idéal est de ne pas avoir de vm juste pour cette section, voir pour utiliser vm de vue parent.
 struct LikeSection: View {
     let photo: ChallengePhoto
-    let challengeId: String
     let likeAction: (String) -> Void
     let unlikeAction: (String) -> Void
     let getParticipant: (String) -> Participant?

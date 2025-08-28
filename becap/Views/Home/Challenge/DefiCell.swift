@@ -12,28 +12,28 @@ struct DefiCell: View {
     let onDelete: () -> Void
 
     var body: some View {
-        NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                   .fill(Color(red: 0.98, green: 0.80, blue: 0.36))
-                                   .shadow(radius: 5, x: 0, y: 5)
-                VStack(spacing: 8) {
-                    Text(challenge.title)
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .multilineTextAlignment(.center)
-                        .lineLimit(2)
-                        .minimumScaleFactor(0.7)
-                    Text("\(challenge.participantUids.count) participant(s)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .padding(.vertical, 8)
-                .padding(.horizontal, 10)
+        ZStack {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(Color(red: 0.98, green: 0.80, blue: 0.36))
+                .shadow(radius: 5, x: 0, y: 5)
+
+            VStack(spacing: 8) {
+                Text(challenge.title)
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.7)
+
+                Text("\(challenge.participantUids.count) participant(s)")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.7))
             }
-            .frame(height: 100)
-            .contentShape(RoundedRectangle(cornerRadius: 18))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 10)
         }
+        .frame(height: 100)
+        .contentShape(RoundedRectangle(cornerRadius: 18))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
             Button(role: .destructive) {

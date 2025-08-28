@@ -5,15 +5,17 @@
 //  Created by Adam Mabrouki on 15/07/2025.
 //
 
-// ChallengeApp/Managers/NotificationManager.swift
-
 import Foundation
 import UserNotifications
 
 class NotificationManager {
     static let shared = NotificationManager()
 
-    private init() {}
+    private let notificationService: NotificationService
+
+    init(notificationService: NotificationService = NotificationService()) {
+        self.notificationService = notificationService
+    }
 
     func requestAuthorization(completion: ((Bool) -> Void)? = nil) {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
@@ -80,10 +82,16 @@ class NotificationManager {
 
     func removeNotifications(for challenge: Challenge) {
         guard let notificationsConfig = challenge.notificationsConfig else { return }
+
         let ids = notificationsConfig.flatMap { config in
             config.times.map { notificationID(for: challenge, dayIndex: config.dayIndex, time: $0) }
         }
         UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ids)
+    }
+
+    func setOneSignalPushId(to userId: String) {
+        notificationService.loginOneSignalUser(with: userId)
+        notificationService.setOneSignalPushId(to: userId)
     }
 
     // Privates

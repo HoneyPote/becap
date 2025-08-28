@@ -4,9 +4,10 @@
 //
 //  Created by Adam Mabrouki on 06/08/2025.
 //
+
 import SwiftUI
 
- struct MedalsSection: View {
+struct MedalsSection: View {
     let medals: [UserMedal]
 
     var uniqueMedals: [UserMedal] {

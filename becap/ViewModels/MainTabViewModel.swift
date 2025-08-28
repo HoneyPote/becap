@@ -13,13 +13,16 @@ class MainTabViewModel: ObservableObject {
     @Published var infosDoneFetching: Bool = false
 
     private let challengeManager: ChallengeManager
+    private let notificationManager: NotificationManager
     private let alertManager: GlobalAlertManager
 
     private var cancellables = Set<AnyCancellable>()
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         alertManager: GlobalAlertManager = .shared) {
+         notificationManager: NotificationManager = NotificationManager.shared,
+         alertManager: GlobalAlertManager = GlobalAlertManager.shared) {
         self.challengeManager = challengeManager
+        self.notificationManager = notificationManager
         self.alertManager = alertManager
 
         observeMedals()
@@ -30,6 +33,7 @@ class MainTabViewModel: ObservableObject {
             try await challengeManager.fetchAndFilterChallenges()
 
             await MainActor.run {
+                self.refreshPlayerId()
                 self.infosDoneFetching = true
             }
         }
@@ -37,6 +41,14 @@ class MainTabViewModel: ObservableObject {
 
     func dismissMedalPopup() {
         alertManager.dismiss()
+    }
+
+    // MARK: - Private functions
+
+    private func refreshPlayerId() {
+        guard let currentUser = challengeManager.currentUser, let userId = currentUser.id else { return }
+
+        notificationManager.setOneSignalPushId(to: userId)
     }
 }
 

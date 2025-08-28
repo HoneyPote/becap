@@ -14,7 +14,7 @@ enum ChallengeServiceError: Error {
     case invalidImageData(String)
 }
 
-protocol ChallengeServiceManager {
+protocol ChallengeServiceProtocol {
     // Challenges
     func fetchAllChallenges() async throws -> [Challenge]
     func addChallenge(_ challenge: Challenge) async throws -> Challenge?
@@ -24,6 +24,8 @@ protocol ChallengeServiceManager {
     // Photos
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -36,8 +38,9 @@ protocol ChallengeServiceManager {
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
 }
 
-final class ChallengeService: ChallengeServiceManager {
+final class ChallengeService: ChallengeServiceProtocol {
     static let shared = ChallengeService()
+
     private let db = Firestore.firestore()
     private let storage = Storage.storage()
     private let collection = "challenges"
@@ -136,7 +139,6 @@ extension ChallengeService {
 // MARK: - Photos
 extension ChallengeService {
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto {
-
         let resizedImage = image.resized(toMaxWidth: 720)
 
         guard let data = resizedImage.jpegData(compressionQuality: 0.6) else {
@@ -153,15 +155,13 @@ extension ChallengeService {
         let url = try await ref.downloadURL()
 
         // Create photo object
-        let photo = ChallengePhoto(
-            challengeId: challengeId,
-            authorUid: author.id ?? "",
-            authorName: author.name,
-            imageUrl: url.absoluteString,
-            description: description,
-            date: Date(),
-            createdAt: Date()
-        )
+        let photo = ChallengePhoto(challengeId: challengeId,
+                                   authorUid: author.id ?? "",
+                                   authorName: author.name,
+                                   imageUrl: url.absoluteString,
+                                   description: description,
+                                   date: Date(),
+                                   createdAt: Date())
 
         // Save in Firestore
         try savePhoto(photo, challengeId: challengeId)
@@ -294,6 +294,7 @@ extension ChallengeService {
             .document(challengeId)
             .collection("photos")
             .document(photoId)
+
         ref.updateData([
             "likes": FieldValue.arrayUnion([userId])
         ]) { error in
@@ -306,6 +307,7 @@ extension ChallengeService {
             .document(challengeId)
             .collection("photos")
             .document(photoId)
+
         ref.updateData([
             "likes": FieldValue.arrayRemove([userId])
         ]) { error in
@@ -315,97 +317,11 @@ extension ChallengeService {
 
     func listenToPhotoRealtime(challengeId: String, photoId: String, completion: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration {
         let ref = db.collection(collection).document(challengeId).collection("photos").document(photoId)
+
         return ref.addSnapshotListener { doc, _ in
             let photo = try? doc?.data(as: ChallengePhoto.self)
             completion(photo)
         }
-    }
-    func sendLikehNotification(to authorUid: String, from likerName: String, challengeTitle: String) async {
-        // 1. Récupère le playerId OneSignal de l’auteur
-        let db = Firestore.firestore()
-        let snap = try? await db.collection("users").document(authorUid).getDocument()
-        guard
-            let data = snap?.data(),
-            let playerId = data["onesignalPlayerId"] as? String,
-            !playerId.isEmpty
-        else {
-            print("❌ Aucun playerId trouvé pour l'auteur du like")
-            return
-        }
-
-        // 2. Prépare la payload OneSignal
-        let payload: [String: Any] = [
-            "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-            "include_player_ids": [playerId],
-            "headings": [
-                "fr": "Bien joué ! ta photo à du succés"
-            ],
-            "contents": [
-                "fr": "\(likerName) a liké ta photo dans \"\(challengeTitle)\"."
-            ],
-            "ios_sound": "default"
-        ]
-
-        // 3. Appel API OneSignal
-        var request = URLRequest(url: URL(string: "https://onesignal.com/api/v1/notifications")!)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Basic os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mxcvfhmnbcuijvwhdlo64mje7ovicdd6wbq36toy6lyley5gnfxdnz3wi2q3dzvehqlyjk5meujeni", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error { print("❌ Push notification error: \(error)") }
-            if let httpResponse = response as? HTTPURLResponse {
-                print("OneSignal notif status: \(httpResponse.statusCode)")
-            }
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                print("OneSignal response body: \(body)")
-            }
-        }.resume()
-    }
-    func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
-        // Va chercher le playerId OneSignal de l’auteur de la photo
-        let db = Firestore.firestore()
-        let snap = try? await db.collection("users").document(authorUid).getDocument()
-        guard let data = snap?.data(),
-              let playerId = data["onesignalPlayerId"] as? String,
-              !playerId.isEmpty else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
-        }
-
-        let url = URL(string: "https://onesignal.com/api/v1/notifications")!
-        let payload: [String: Any] = [
-            "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-            "include_player_ids": [playerId],
-            "headings": [
-                "en": "Nouvelle mention J’aime !",
-                "fr": "Nouvelle mention J’aime !"
-            ],
-            "contents": [
-                "en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
-                "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""
-            ],
-            "ios_sound": "default"
-        ]
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Basic os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mxcvfhmnbcuijvwhdlo64mje7ovicdd6wbq36toy6lyley5gnfxdnz3wi2q3dzvehqlyjk5meujeni", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("❌ Push notification error: \(error)")
-            }
-            if let httpResponse = response as? HTTPURLResponse {
-                print("OneSignal notif status: \(httpResponse.statusCode)")
-            }
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                print("OneSignal response body: \(body)")
-            }
-        }.resume()
     }
 }
 
@@ -413,20 +329,25 @@ extension ChallengeService {
 // MARK: - Comments
 
 extension ChallengeService {
-    func addComment(to challengeId: String, photoId: String, content: String, user: User, completion: ((Error?) -> Void)? = nil) {
-        let commentData: [String: Any] = [
-            "userId": user.id ?? "",
-            "userName": user.name,
-            "content": content,
-            "timestamp": Timestamp(date: Date())
-        ]
+    func addComment(photoId: String,
+                    content: String,
+                    challengeId: String,
+                    userId: String,
+                    userName: String,
+                    completion: ((Error?) -> Void)? = nil) {
+        let commentData: [String: Any] = ["userId": userId,
+                                          "userName": userName,
+                                          "content": content,
+                                          "timestamp": Timestamp(date: Date())]
 
         db.collection("challenges")
             .document(challengeId)
             .collection("photos")
             .document(photoId)
             .collection("comments")
-            .addDocument(data: commentData, completion: completion)
+            .addDocument(data: commentData) { error in
+                completion?(error)
+            }
     }
 
     func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration {
@@ -437,57 +358,22 @@ extension ChallengeService {
             .collection("comments")
             .order(by: "timestamp")
             .addSnapshotListener { snapshot, error in
-                guard let documents = snapshot?.documents else {
-                    onUpdate([])
-                    return
-                }
+                guard let documents = snapshot?.documents else { return onUpdate([]) }
 
                 let comments = documents.compactMap { try? $0.data(as: PhotoCommentModel.self) }
                 onUpdate(comments)
             }
     }
-    func sendCommentNotification(to authorUid: String, from userName: String, challengeTitle: String, commentText: String) async {
-        // Va chercher le playerId OneSignal de l’auteur de la photo
-        let db = Firestore.firestore()
-        let snap = try? await db.collection("users").document(authorUid).getDocument()
-        guard let data = snap?.data(),
-              let playerId = data["onesignalPlayerId"] as? String,
-              !playerId.isEmpty else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
-        }
 
-        let url = URL(string: "https://onesignal.com/api/v1/notifications")!
-        let payload: [String: Any] = [
-            "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
-            "include_player_ids": [playerId],
-            "headings": [
-                "en": "Nouveau commentaire 💬",
-                "fr": "Nouveau commentaire 💬"
-            ],
-            "contents": [
-                "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
-                "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
-            ],
-            "ios_sound": "default"
-        ]
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration {
+        db.collection("challenges")
+            .document(challengeId)
+            .collection("photos")
+            .document(photoId)
+            .addSnapshotListener { snapshot, error in
+                guard let updatedPhoto = try? snapshot?.data(as: ChallengePhoto.self) else { return onUpdate(nil) }
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Basic os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mxcvfhmnbcuijvwhdlo64mje7ovicdd6wbq36toy6lyley5gnfxdnz3wi2q3dzvehqlyjk5meujeni", forHTTPHeaderField: "Authorization") // ✅ Remplace si besoin
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
-
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("❌ Push notification erreur : \(error)")
+                onUpdate(updatedPhoto)
             }
-            if let httpResponse = response as? HTTPURLResponse {
-                print("OneSignal status : \(httpResponse.statusCode)")
-            }
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                print("Réponse OneSignal : \(body)")
-            }
-        }.resume()
     }
 }

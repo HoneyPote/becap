@@ -4,13 +4,16 @@
 //
 //  Created by Adam Mabrouki on 03/08/2025.
 //
+
 import SwiftUI
 
 struct GlassCard<Content: View>: View {
     let content: Content
+
     init(@ViewBuilder content: () -> Content) {
         self.content = content()
     }
+
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -18,6 +21,27 @@ struct GlassCard<Content: View>: View {
                 .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 5)
             content
                 .padding(20)
+        }
+    }
+}
+
+struct GlassCircleIcon: View {
+    let systemName: String
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .frame(width: 36, height: 36)
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.19), lineWidth: 0.7)
+                )
+                .shadow(color: Color.black.opacity(0.19), radius: 5, x: 0, y: 7)
+
+            Image(systemName: systemName)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
         }
     }
 }
@@ -55,7 +79,6 @@ extension Color {
         )
     }
 }
-
 
 extension Array {
     func unique<T: Hashable>(by keyPath: KeyPath<Element, T>) -> [Element] {

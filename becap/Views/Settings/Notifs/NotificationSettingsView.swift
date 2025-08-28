@@ -1,3 +1,10 @@
+//
+//  NotificationSettingsView.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 19/07/2025.
+//
+
 import SwiftUI
 
 struct NotificationSettingsView: View {
@@ -8,6 +15,7 @@ struct NotificationSettingsView: View {
         _viewModel = StateObject(wrappedValue: NotificationSettingsViewModel(currentChallenge: challenge))
     }
 
+    // TODO: Découper davantage
     var body: some View {
         ZStack {
             LinearGradient.petrolToSky.ignoresSafeArea()
@@ -87,7 +95,6 @@ struct NotificationSettingsView: View {
     }
 
     // MARK: - CARD PAR JOUR
-    @ViewBuilder
     private func notificationDayCard(for day: Int) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -110,16 +117,11 @@ struct NotificationSettingsView: View {
 
             ForEach(viewModel.notificationConfig[day].times, id: \.self) { time in
                 HStack {
-                    DatePicker(
-                        "",
-                        selection: Binding(
-                            get: { time },
-                            set: { newValue in
-                                viewModel.updateTime(for: day, oldTime: time, newTime: newValue)
-                            }
-                        ),
-                        displayedComponents: .hourAndMinute
-                    )
+                    DatePicker("",
+                               selection: Binding(get: { time },
+                                                  set: { newValue in
+                        viewModel.updateTime(for: day, oldTime: time, newTime: newValue)}),
+                               displayedComponents: .hourAndMinute)
                     .labelsHidden()
                     .colorScheme(.dark)
 
@@ -153,6 +155,7 @@ struct NotificationSettingsView: View {
         .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 3)
     }
 }
+
 extension Date: Identifiable {
     public var id: String {
         ISO8601DateFormatter().string(from: self)

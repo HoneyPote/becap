@@ -11,8 +11,10 @@ struct NewChallengeView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var viewModel = NewChallengeViewModel()
+
     @Binding var challengeCreated: Bool
 
+    // TODO: Découper, trop complexe
     var body: some View {
         ZStack {
             LinearGradient.petrolToSky.ignoresSafeArea()

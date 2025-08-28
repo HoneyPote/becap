@@ -40,42 +40,35 @@ class CalendarDetailViewModel: ObservableObject {
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
-    var challenge: Challenge
-    private  var challengeId: String?
+    let challenge: Challenge
 
     init(accountManager: AccountManager = AccountManager(),
-             challengeManager: ChallengeManager = ChallengeManager.shared,
-             challenge: Challenge) {
-            self.accountManager = accountManager
-            self.challengeManager = challengeManager
-            self.challenge = challenge
-            self.challengeId = challenge.id
-        }
+         challengeManager: ChallengeManager = ChallengeManager.shared,
+         challenge: Challenge) {
+        self.accountManager = accountManager
+        self.challengeManager = challengeManager
+        self.challenge = challenge
+    }
 
     func fetchInfos() {
         self.doneLoadingPhotos = false
 
         Task {
-            guard let challenge = challengeManager.challenges.first(where: { $0.id == challengeId }) else { return }
-
-                     self.challenge = challenge
             async let photosTask = try fetchPhotos()
             async let allParticipants = try buildParticipants()
 
             let (photos, participants) = try await (photosTask, allParticipants)
 
             await MainActor.run {
-                self.participants = participants
                 self.updatePhotos(photos)
+                self.participants = participants
                 self.doneLoadingPhotos = true
             }
         }
     }
 
     func canDeletePhoto(photos: [ChallengePhoto]) -> Bool {
-        guard let currentUser = challengeManager.currentUser,
-              let currentUserId = currentUser.id
-        else { return false }
+        guard let currentUser = challengeManager.currentUser, let currentUserId = currentUser.id else { return false }
 
         return photos.first?.authorUid == currentUserId
     }
@@ -88,12 +81,12 @@ class CalendarDetailViewModel: ObservableObject {
 
     func buildDetailcells(for selectedParticipant: Participant? = nil) -> [CalendarDetailCell] {
         return (0..<challenge.duration).compactMap { day in
-            guard let date = Calendar.current.date(byAdding: .day, value: day, to: challenge.startDate)
-            else { return nil }
+            guard let date = Calendar.current.date(byAdding: .day, value: day, to: challenge.startDate) else {
+                return nil
+            }
 
             let photos = allPhotos.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-                && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
+                Calendar.current.isDate($0.date, inSameDayAs: date) && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
             }
             let isToday = Calendar.current.isDateInToday(date)
 
@@ -102,7 +95,7 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func deletePhoto(_ photo: ChallengePhoto) {
-        guard let challengeId = challenge.id else { return }
+        guard let challengeId = photo.challengeId else { return }
 
         Task {
             do {
@@ -127,10 +120,14 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
+    func getParticipant(for uid: String) -> Participant? {
+        participants.first(where: { $0.id == uid })
+    }
+
     // MARK: - Private functions
 
     private func buildParticipants() async throws -> [Participant] {
-        var allParticipantsNamesAndMedals: [Participant] = []
+        var allParticipants: [Participant] = []
 
         for participantUid in challenge.participantUids {
             guard let currentUser = challengeManager.currentUser,
@@ -138,9 +135,10 @@ class CalendarDetailViewModel: ObservableObject {
 
             let participantName = currentUser.id == user.id ? "Moi" : user.name
 
-            allParticipantsNamesAndMedals.append(Participant(id: participantUid, name: participantName, medals: user.medals ?? []))
+            allParticipants.append(Participant(id: participantUid, name: participantName, medals: user.medals ?? []))
         }
-        return allParticipantsNamesAndMedals
+
+        return allParticipants
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {
@@ -155,12 +153,5 @@ class CalendarDetailViewModel: ObservableObject {
 
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
-    }
-}
-
-// CalendarDetailViewModel.swift
-extension CalendarDetailViewModel {
-    func participant(for uid: String) -> Participant? {
-        participants.first(where: { $0.id == uid })
     }
 }

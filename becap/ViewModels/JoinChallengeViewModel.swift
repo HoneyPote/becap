@@ -50,15 +50,15 @@ class JoinChallengeViewModel: ObservableObject {
         }
 
         Task {
-            guard let challenge = try await challengeManager.fetchAllChallenges().first(where: { $0.code == code })
+            guard let challengeToJoin = try await challengeManager.fetchAllChallenges().first(where: { $0.code == code })
             else {
                 alert(title: "Défi introuvable", message: "Vérifie que le code est correct.")
                 isJoining = false
                 return
             }
 
-            if !challenge.participantUids.contains(currentUserId) {
-                var updatedChallenge = challenge
+            if !challengeToJoin.participantUids.contains(currentUserId) {
+                var updatedChallenge = challengeToJoin
                 updatedChallenge.participantUids.append(currentUserId)
 
                 try await challengeManager.joinChallenge(updatedChallenge, userId: currentUserId)

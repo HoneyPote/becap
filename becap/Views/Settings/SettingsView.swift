@@ -126,14 +126,14 @@ struct SettingsView: View {
                     .padding(.vertical, 6)
             }
             //TODO: passer le challengeID et appeller la vue notif
-//            NavigationLink(destination: NotificationSettingsView()) {
-//                Label("Créer un nouveau défi", systemImage: "bell.fill")
-//                    .font(.system(size: 17, weight: .medium))
-//                    .foregroundColor(.white)
-//                    .padding(10)
-//                    .background(Circle().fill(.ultraThinMaterial))
-//                    .shadow(radius: 4)
-//            }
+            //            NavigationLink(destination: NotificationSettingsView()) {
+            //                Label("Créer un nouveau défi", systemImage: "bell.fill")
+            //                    .font(.system(size: 17, weight: .medium))
+            //                    .foregroundColor(.white)
+            //                    .padding(10)
+            //                    .background(Circle().fill(.ultraThinMaterial))
+            //                    .shadow(radius: 4)
+            //            }
             Button(role: .destructive) {
                 showingLogoutAlert = true
             } label: {

@@ -35,9 +35,9 @@ class NotificationSettingsViewModel: ObservableObject {
         let dayDate = calendar.date(byAdding: .day, value: day, to: today)!
 
         let combinedDate = calendar.date(bySettingHour: calendar.component(.hour, from: timeToAdd),
-                                          minute: calendar.component(.minute, from: timeToAdd),
-                                          second: 0,
-                                          of: dayDate)!
+                                         minute: calendar.component(.minute, from: timeToAdd),
+                                         second: 0,
+                                         of: dayDate)!
 
         if combinedDate < Date() {
             // Déplace dans le futur
@@ -76,6 +76,5 @@ class NotificationSettingsViewModel: ObservableObject {
 
     func updateNotificationConfig() {
         challengeManager.updateNotifications(for: currentChallenge, config: updatedConfig)
-       
     }
 }

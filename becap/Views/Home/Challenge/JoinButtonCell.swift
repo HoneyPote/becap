@@ -1,6 +1,9 @@
-
-// JoinButtonCell.swift
-// becap
+//
+//  JoinButtonCell.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 18/07/2025.
+//
 
 import SwiftUI
 
@@ -11,8 +14,8 @@ struct JoinButtonCell: View {
         Button(action: onTap) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                   .fill(Color(red: 0.55, green: 0.82, blue: 0.61))
-                                   .shadow(radius: 1, x: 0, y: 5)
+                    .fill(Color(red: 0.55, green: 0.82, blue: 0.61))
+                    .shadow(radius: 1, x: 0, y: 5)
                 VStack(spacing: 8) {
                     Image(systemName: "plus")
                         .font(.system(size: 26, weight: .bold))

@@ -14,8 +14,8 @@ struct NewChallengeCell: View {
         Button(action: onTap) {
             ZStack {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                   .fill(Color(red: 1.0, green: 0.71, blue: 0.81))
-                                   .shadow(radius: 1, x: 0, y: 4)
+                    .fill(Color(red: 1.0, green: 0.71, blue: 0.81))
+                    .shadow(radius: 1, x: 0, y: 4)
 
                 VStack(spacing: 8) {
                     Image(systemName: "plus")
@@ -28,8 +28,6 @@ struct NewChallengeCell: View {
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.8)
-
-
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 10)

@@ -1,31 +1,24 @@
+//
+//  ParticipantMedalSection.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 20/07/2025.
+//
+
 import SwiftUI
 
+struct MedalDisplayItem: Identifiable {
+    let id = UUID()
+    let name: String
+    let description: String
+    let iconName: String
+    let count: Int
+    let latestDate: Date
+}
+
+// TODO: Trop de calculs
 struct ParticipantMedalSection: View {
     let medals: [UserMedal]
-
-    struct MedalDisplayItem: Identifiable {
-        let id = UUID()
-        let name: String
-        let description: String
-        let iconName: String
-        let count: Int
-        let latestDate: Date
-    }
-
-    // Nouveau: on ne touche plus à iconName, on affiche directement ce qu'il y a dans UserMedal
-    private var groupedMedals: [MedalDisplayItem] {
-        let grouped = Dictionary(grouping: medals, by: \.name)
-        return grouped.map { (name, items) in
-            MedalDisplayItem(
-                name: name,
-                description: items.first?.description ?? "",
-                iconName: items.first?.iconName ?? "star.fill",
-                count: items.count,
-                latestDate: items.map(\.achievedDate).max() ?? Date()
-            )
-        }
-        .sorted { $0.latestDate > $1.latestDate }
-    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -43,6 +36,20 @@ struct ParticipantMedalSection: View {
                 }
             }
         }
+    }
+
+    // Nouveau: on ne touche plus à iconName, on affiche directement ce qu'il y a dans UserMedal
+    private var groupedMedals: [MedalDisplayItem] {
+        let grouped = Dictionary(grouping: medals, by: \.name)
+
+        return grouped.map { (name, items) in
+            MedalDisplayItem(name: name,
+                             description: items.first?.description ?? "",
+                             iconName: items.first?.iconName ?? "star.fill",
+                             count: items.count,
+                             latestDate: items.map(\.achievedDate).max() ?? Date())
+        }
+        .sorted { $0.latestDate > $1.latestDate }
     }
 
     private func shortDate(_ date: Date) -> String {

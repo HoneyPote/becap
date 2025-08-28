@@ -63,6 +63,7 @@ struct MedalPopupView: View {
         }
     }
 
+    // TODO: Mettre ces méthode dans un vm
     private func playSound() {
         guard let url = Bundle.main.url(forResource: "success", withExtension: "mp3") else { return }
         do {

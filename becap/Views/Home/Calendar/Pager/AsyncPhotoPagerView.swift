@@ -7,7 +7,7 @@
 
 import SwiftUI
 
- struct AsyncPhotoPagerView: View {
+struct AsyncPhotoPagerView: View {
     let photo: ChallengePhoto
 
     var body: some View {

@@ -19,10 +19,11 @@ class GridPhotosSheetViewModel: ObservableObject {
         cell.photos.sorted { $0.authorName.lowercased() < $1.authorName.lowercased() }
     }
 
-    /// Titre du jour, formaté lisiblement
     var formattedDate: String {
-        let df = DateFormatter()
-        df.dateStyle = .full
-        return df.string(from: cell.date)
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .full
+        dateFormatter.locale = Locale(identifier: "fr_FR")
+
+        return dateFormatter.string(from: cell.date)
     }
 }
