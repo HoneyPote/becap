@@ -24,8 +24,8 @@ protocol ChallengeServiceProtocol {
     // Photos
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void)
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void)
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -279,8 +279,8 @@ extension UIImage {
     func resized(toMaxWidth width: CGFloat) -> UIImage {
         let aspectRatio = size.height / size.width
         let newSize = CGSize(width: width, height: width * aspectRatio)
-
         let renderer = UIGraphicsImageRenderer(size: newSize)
+
         return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
         }
@@ -295,9 +295,7 @@ extension ChallengeService {
             .collection("photos")
             .document(photoId)
 
-        ref.updateData([
-            "likes": FieldValue.arrayUnion([userId])
-        ]) { error in
+        ref.updateData(["likes": FieldValue.arrayUnion([userId])]) { error in
             completion?(error)
         }
     }
@@ -308,23 +306,20 @@ extension ChallengeService {
             .collection("photos")
             .document(photoId)
 
-        ref.updateData([
-            "likes": FieldValue.arrayRemove([userId])
-        ]) { error in
+        ref.updateData(["likes": FieldValue.arrayRemove([userId])]) { error in
             completion?(error)
         }
     }
 
-    func listenToPhotoRealtime(challengeId: String, photoId: String, completion: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration {
+    func listenToPhotoRealtime(challengeId: String, photoId: String, completion: ((ChallengePhoto?) -> Void)? = nil) -> ListenerRegistration {
         let ref = db.collection(collection).document(challengeId).collection("photos").document(photoId)
 
         return ref.addSnapshotListener { doc, _ in
             let photo = try? doc?.data(as: ChallengePhoto.self)
-            completion(photo)
+            completion?(photo)
         }
     }
 }
-
 
 // MARK: - Comments
 
@@ -350,7 +345,7 @@ extension ChallengeService {
             }
     }
 
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration {
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) {
         db.collection("challenges")
             .document(challengeId)
             .collection("photos")
@@ -365,7 +360,7 @@ extension ChallengeService {
             }
     }
 
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration {
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) {
         db.collection("challenges")
             .document(challengeId)
             .collection("photos")

@@ -30,7 +30,6 @@ protocol ChallengeManagerProtocol {
 
     // Photos
     func sendPhotoAndNotify(image: UIImage, challenge: Challenge, descriptionText: String?) async throws
-    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String?) async throws
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto]
     func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws
     func likePhoto(photo: ChallengePhoto) async throws
@@ -225,7 +224,7 @@ extension ChallengeManager {
     }
 
     /// Upload une photo dans Firebase Storage via `ChallengeService`
-    internal func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
+    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
         let photo = try await challengeService.uploadPhoto(image: image,
                                                            challengeId: challengeId,
                                                            author: author,
@@ -292,7 +291,7 @@ extension ChallengeManager {
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             challengeService.likePhoto(challengeId: challengeId, photoId: photoId, userId: currentUserId) { error in
-                if let error = error {
+                if let error {
                     print("❌ Like failed: \(error)")
                     continuation.resume(throwing: error)
                 } else {
@@ -307,6 +306,13 @@ extension ChallengeManager {
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
                                                             from: currentUser.name,
                                                             challengeTitle: challengeTitle)
+
+//        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ChallengePhoto, Error>) in
+//            _ = challengeService.listenToPhotoRealtime(challengeId: challengeId, photoId: photoId) {
+//                newPhoto in
+//                continuation.resume(returning: photo)
+//            }
+//        }
     }
 
     func unlikePhoto(photo: ChallengePhoto) async throws {
@@ -318,7 +324,7 @@ extension ChallengeManager {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             challengeService.unlikePhoto(challengeId: challengeId, photoId: photoId, userId: currentUserId) {
                 error in
-                if let error = error {
+                if let error {
                     print("❌ Unliking photo failed: \(error)")
                     continuation.resume(throwing: error)
                 } else {
@@ -327,6 +333,13 @@ extension ChallengeManager {
                 }
             }
         }
+//
+//        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ChallengePhoto, Error>) in
+//            _ = challengeService.listenToPhotoRealtime(challengeId: challengeId, photoId: photoId) {
+//                newPhoto in
+//                continuation.resume(returning: photo)
+//            }
+//        }
     }
 
     func commentPhoto(photo: ChallengePhoto, content: String) async throws {

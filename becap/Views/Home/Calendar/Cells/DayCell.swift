@@ -10,14 +10,14 @@ import UIKit
 
 enum Haptics {
     static func lightTap() {
-        let g = UIImpactFeedbackGenerator(style: .light)
-        g.prepare()
-        g.impactOccurred(intensity: 0.8)
+        let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
+        feedbackGenerator.prepare()
+        feedbackGenerator.impactOccurred(intensity: 0.8)
     }
 }
 
- struct DayCell: View {
-
+// TODO: Beaucoup de calcul et de variable stockées dans la vue, à voir si besoin de passer par petit VM
+struct DayCell: View {
     let date: Date
     let photoCount: Int
     let isToday: Bool
@@ -26,9 +26,15 @@ enum Haptics {
     let tap: () -> Void
     let calendar = Calendar.current
 
+    var photoCountIsNil: Bool {
+        photoCount == 0
+    }
+
     var body: some View {
         Button {
-            if photoCount > 0 { Haptics.lightTap() }
+            if !photoCountIsNil {
+                Haptics.lightTap()
+            }
             tap()
         } label: {
             ZStack {
@@ -44,19 +50,19 @@ enum Haptics {
                         .stroke(Color.white.opacity(0.9), lineWidth: 1.2)
                 }
 
-                VStack(spacing: 0) {
-                    Spacer(minLength: 0)
+                VStack(spacing: .zero) {
+                    Spacer()
                     Text("\(calendar.component(.day, from: date))")
                         .font(.system(size: 16, weight: .semibold, design: .rounded))
                         .foregroundColor(isToday ? .black : (isWithinChallenge ? .white : .white.opacity(0.45)))
-                    Spacer(minLength: 0)
+                    Spacer()
                 }
                 .padding(.bottom, -12)
             }
             .frame(height: 42)
             .opacity(isWithinChallenge ? 1.0 : 0.38)
             .overlay(alignment: .topTrailing) {
-                if photoCount > 0 {
+                if !photoCountIsNil {
                     HStack(spacing: 4) {
                         Image(systemName: "camera.fill")
                             .font(.system(size: 9, weight: .bold))

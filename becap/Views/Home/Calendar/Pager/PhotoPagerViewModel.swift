@@ -6,32 +6,130 @@
 //
 
 import Foundation
-import Combine
-import Firebase
+
+final class PhotoStore: ObservableObject {
+    static let shared = PhotoStore()
+
+    private var cache: [String: PhotoViewModel] = [:]
+
+    func getViewModel(for photo: ChallengePhoto) -> PhotoViewModel {
+        let key = makeKey(for: photo)
+
+        if let existing = cache[key] {
+            return existing
+        } else {
+            let vm = PhotoViewModel(photo: photo)
+            cache[key] = vm
+            return vm
+        }
+    }
+
+    private func makeKey(for photo: ChallengePhoto) -> String {
+        return "\(photo.authorUid)_\(photo.date.timeIntervalSince1970)"
+    }
+}
+
+final class PhotoViewModel: ObservableObject, Identifiable {
+    @Published var likes: [String]
+    @Published var comments: [PhotoCommentModel] = []
+
+    let photo: ChallengePhoto
+
+    private let challengeService: ChallengeServiceProtocol
+    private let challengeManager: ChallengeManagerProtocol
+
+    var photoFormattedDate: String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "EEEE d MMMM 'à' HH:mm"
+        dateFormatter.locale = Locale(identifier: "fr_FR")
+
+        return dateFormatter.string(from: photo.date)
+    }
+
+    init(photo: ChallengePhoto,
+         challengeService: ChallengeServiceProtocol = ChallengeService.shared,
+         challengeManager: ChallengeManagerProtocol = ChallengeManager.shared) {
+        self.photo = photo
+        self.likes = photo.likes ?? []
+        self.challengeService = challengeService
+        self.challengeManager = challengeManager
+
+        self.listenToPost()
+    }
+
+    func like() {
+        guard let currentUserId = challengeManager.currentUser?.id, !likes.contains(currentUserId) else { return }
+
+        likes.append(currentUserId)
+
+        Task {
+            try await challengeManager.likePhoto(photo: photo)
+        }
+    }
+
+    func unlike() {
+        guard let currentUserId = challengeManager.currentUser?.id, likes.contains(currentUserId) else { return }
+
+        likes.removeAll { $0 == currentUserId }
+
+        Task {
+            try await challengeManager.unlikePhoto(photo: photo)
+        }
+    }
+
+    func addComment(photo: ChallengePhoto, content: String) {
+        let trimmedComment = content.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedComment.isEmpty else { return }
+
+        Task {
+            try await challengeManager.commentPhoto(photo: photo, content: trimmedComment)
+        }
+    }
+
+    func listenToPost() {
+        guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
+
+        listenToLikes(photoId: photoId, challengeId: challengeId)
+        listenToComments(photoId: photoId, challengeId: challengeId)
+    }
+
+    private func listenToLikes(photoId: String, challengeId: String) {
+        challengeService.listenToPhoto(challengeId: challengeId, photoId: photoId) { [weak self] updated in
+            guard let updated else { return }
+
+            self?.likes = updated.likes ?? []
+        }
+    }
+
+    private func listenToComments(photoId: String, challengeId: String) {
+        challengeService.listenToComments(challengeId: challengeId, photoId: photoId) { [weak self] updated in
+            self?.comments = updated
+        }
+    }
+}
+
 
 class PhotoPagerViewModel: ObservableObject {
-    @Published var currentPhoto: ChallengePhoto
-    @Published var comments: [PhotoCommentModel] = []
-    @Published var selectedPhotoIndex: Int {
+    @Published var photoViewModels: [PhotoViewModel]
+    @Published var selectedPhotoVM: PhotoViewModel
+    @Published var selectedIndex: Int {
         didSet {
-            listenCurrentPhoto()
+            selectedPhotoVM = photoViewModels[selectedIndex]
         }
     }
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
 
-    let allPhotos: [ChallengePhoto]
+    var photoFormattedDate: String {
+        selectedPhotoVM.photoFormattedDate
+    }
 
-    private var photoListener: ListenerRegistration?
-    private var commentsListener: ListenerRegistration?
+    var canDeletePhoto: Bool {
+        guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
-    var photoFormatedDate: String {
-        let dayTimeFormatter = DateFormatter()
-        dayTimeFormatter.dateFormat = "EEEE d MMMM 'à' HH:mm"
-        dayTimeFormatter.locale = Locale(identifier: "fr_FR")
-
-        return dayTimeFormatter.string(from: currentPhoto.date)
+        return selectedPhotoVM.photo.authorUid == currentUserId
     }
 
     init(challengeService: ChallengeServiceProtocol = ChallengeService.shared,
@@ -40,75 +138,35 @@ class PhotoPagerViewModel: ObservableObject {
          selectedPhotoIndex: Int = 0) {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
-        self.allPhotos = photos
-        self.selectedPhotoIndex = selectedPhotoIndex
-        self.currentPhoto = allPhotos[selectedPhotoIndex]
+
+        // Créé un cache de l'ensemble des VM pour chaque photo et évite de les récréer à chaque ouverture de la pagerView
+        let photoViewModels = photos.map { PhotoStore.shared.getViewModel(for: $0) }
+        self.selectedIndex = selectedPhotoIndex
+        self.selectedPhotoVM = photoViewModels[selectedPhotoIndex]
+        self.photoViewModels = photoViewModels
     }
 
-    func listenCurrentPhoto() {
-        guard !allPhotos.isEmpty,
-              selectedPhotoIndex < allPhotos.count,
-              let challengeId = allPhotos[selectedPhotoIndex].challengeId,
-              let photoId = allPhotos[selectedPhotoIndex].id else { return }
-
-        listenToPhotoRealtime(challengeId: challengeId, photoId: photoId)
-        listenToComments(challengeId: challengeId, photoId: photoId)
+    func likeAction() {
+        selectedPhotoVM.like()
+        // Force reload de la vue -> obligatoire car selectedPhotoVM.like() n'est pas observé par la vue
+        reloadView()
     }
 
-    func canDeletePhoto() -> Bool {
-        guard let currentUserId = challengeManager.currentUser?.id else { return false }
-
-        return currentPhoto.authorUid == currentUserId
+    func unlikeAction() {
+        selectedPhotoVM.unlike()
+        // Force reload de la vue -> obligatoire car selectedPhotoVM.unlike() n'est pas observé par la vue
+        reloadView()
     }
 
-    func listenToPhotoRealtime(challengeId: String, photoId: String) {
-        photoListener?.remove()
-        photoListener = challengeService.listenToPhoto(challengeId: challengeId, photoId: photoId) { [weak self] updatedPhoto in
-            guard let updatedPhoto else { return }
+    func buildCommentFormattedDate(date: Date) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "dd/MM 'à' HH:mm"
+        dateFormatter.locale = Locale(identifier: "fr_FR")
 
-            DispatchQueue.main.async {
-                self?.currentPhoto = updatedPhoto
-            }
-        }
+        return dateFormatter.string(from: date)
     }
 
-    func listenToComments(challengeId: String, photoId: String) {
-        commentsListener?.remove()
-        commentsListener = challengeService.listenToComments(challengeId: challengeId, photoId: photoId) { [weak self] newComments in
-            DispatchQueue.main.async {
-                self?.comments = newComments
-            }
-        }
-    }
-
-    func addComment(content: String) {
-        let trimmedComment = content.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmedComment.isEmpty else { return }
-
-        Task {
-            try await challengeManager.commentPhoto(photo: currentPhoto, content: trimmedComment)
-        }
-    }
-
-    func like() {
-        Task {
-            try await challengeManager.likePhoto(photo: currentPhoto)
-        }
-    }
-
-    func unlike() {
-        Task {
-            try await challengeManager.unlikePhoto(photo: currentPhoto)
-        }
-    }
-
-    deinit {
-        stopListening()
-    }
-
-    private func stopListening() {
-        photoListener?.remove()
-        commentsListener?.remove()
+    private func reloadView() {
+        objectWillChange.send()
     }
 }

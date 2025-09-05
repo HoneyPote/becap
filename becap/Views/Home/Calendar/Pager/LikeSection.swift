@@ -9,7 +9,7 @@ import SwiftUI
 
 // TODO: Faire en sorte de ne rien calculer dans la vue. L'idéal est de ne pas avoir de vm juste pour cette section, voir pour utiliser vm de vue parent.
 struct LikeSection: View {
-    let photo: ChallengePhoto
+    var photoLikes: [String]
     let likeAction: (String) -> Void
     let unlikeAction: (String) -> Void
     let getParticipant: (String) -> Participant?
@@ -19,12 +19,12 @@ struct LikeSection: View {
     }
 
     var alreadyLiked: Bool {
-        guard let uid = currentUserId else { return false }
-        return photo.likes?.contains(uid) ?? false
+        guard let uid = currentUserId, !photoLikes.isEmpty else { return false }
+        return photoLikes.contains(uid) ? true : false
     }
 
     var likeCount: Int {
-        photo.likes?.count ?? 0
+        photoLikes.count
     }
 
     var body: some View {
@@ -43,8 +43,8 @@ struct LikeSection: View {
                     .foregroundColor(.white.opacity(0.82))
                     .font(.subheadline.bold())
             }
-            if let likes = photo.likes, !likes.isEmpty {
-                let names = likes.compactMap { getParticipant($0)?.name }
+            if !photoLikes.isEmpty {
+                let names = photoLikes.compactMap { getParticipant($0)?.name }
                 if !names.isEmpty {
                     Text("Aimé par : \(names.joined(separator: ", "))")
                         .foregroundColor(.white.opacity(0.7))

@@ -7,20 +7,21 @@
 
 import SwiftUI
 
- struct GridPhotosInline: View {
+// TODO: Découper vue
+struct GridPhotosInline: View {
     let cell: CalendarDetailCell
     let challengeTitle: String
     let getParticipant: (String) -> Participant?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
 
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+
     private var photosSorted: [ChallengePhoto] {
         cell.photos.sorted {
             $0.authorName.localizedCaseInsensitiveCompare($1.authorName) == .orderedAscending
         }
     }
-
-    private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
 
     var body: some View {
         VStack(spacing: 10) {
@@ -42,19 +43,18 @@ import SwiftUI
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(Array(photosSorted.enumerated()), id: \.offset) { (idx, photo) in
+                        // TODO: Bouton certainement pas nécessaire, VSTack avec onTapAction() plutôt
                         Button {
                             onOpenPager(PagerInfo(photos: photosSorted, index: idx, date: photo.date))
                         } label: {
                             VStack(spacing: 2) {
-                                AsyncImage(url: URL(string: photo.imageUrl)) { image in
-                                    image.resizable().scaledToFill()
-                                } placeholder: {
-                                    ProgressView()
+                                if let url = URL(string: photo.imageUrl) {
+                                    AsyncCachedImage(url: url)
+                                        .frame(height: 100)
+                                        .frame(maxWidth: .infinity)
+                                        .clipped()
+                                        .cornerRadius(8)
                                 }
-                                .frame(height: 100)
-                                .frame(maxWidth: .infinity)
-                                .clipped()
-                                .cornerRadius(8)
 
                                 HStack(spacing: 4) {
                                     Text(photo.authorName)
@@ -62,8 +62,8 @@ import SwiftUI
                                         .foregroundColor(.white)
                                         .lineLimit(1)
 
-                                    if let p = getParticipant(photo.authorUid),
-                                       let latest = p.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
+                                    if let participant = getParticipant(photo.authorUid),
+                                       let latest = participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
                                         MedalIconView(iconName: latest.iconName)
                                             .frame(width: 20, height: 20)
                                             .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)

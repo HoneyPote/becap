@@ -39,6 +39,13 @@ class MainTabViewModel: ObservableObject {
         }
     }
 
+    // TODO: Voir pour intégrer un loader personnalisé ici et dans le reste de l'app
+    func onChangeOfScenePhase(_ newPhase: ScenePhase) {
+        if newPhase == .active {
+            fetchInfos()
+        }
+    }
+
     func dismissMedalPopup() {
         alertManager.dismiss()
     }

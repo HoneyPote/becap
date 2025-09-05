@@ -9,11 +9,11 @@ import SwiftUI
 import AVFoundation
 
 struct MedalPopupView: View {
-    let medal: UserMedal
-    let onDismiss: () -> Void
-
     @State private var animate = false
     @State private var player: AVAudioPlayer?
+
+    let medal: UserMedal
+    let onDismiss: () -> Void
 
     var body: some View {
         ZStack {

@@ -11,6 +11,8 @@ import Combine
 struct MainTabView: View {
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
 
+    @Environment(\.scenePhase) private var scenePhase
+
     @State private var selectedIndex: Int = 0
 
     var body: some View {
@@ -19,7 +21,7 @@ struct MainTabView: View {
                 switch TabType(rawValue: index) ?? .home {
                 case .home:
                     HomeView()
-                    //                        .withTabBarInset() // TODO: Utile ? Je vois pas de diff perso
+//                        .withTabBarInset() // TODO: Utile ? Je vois pas de diff perso
                 case .camera:
                     CameraView()
                 case .settings:
@@ -35,6 +37,9 @@ struct MainTabView: View {
         .task {
             viewModel.fetchInfos()
         }
+        .onChange(of: scenePhase) { newPhase in
+            viewModel.onChangeOfScenePhase(newPhase)
+        }
         .overlay {
             if let medal = viewModel.medal {
                 MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
@@ -47,11 +52,9 @@ struct MainTabView: View {
 
 extension LinearGradient {
     static var petrolToSky: LinearGradient {
-        LinearGradient(
-            gradient: Gradient(colors: [Color(hex: "#6190E8"), Color(hex: "#A7BFE8")]),
-            startPoint: .top,
-            endPoint: .bottom
-        )
+        LinearGradient(gradient: Gradient(colors: [Color(hex: "#6190E8"), Color(hex: "#A7BFE8")]),
+                       startPoint: .top,
+                       endPoint: .bottom)
     }
 }
 

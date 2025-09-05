@@ -4,15 +4,10 @@
 //
 //  Created by Adam Mabrouki on 19/07/2025.
 //
-//
-//  CalendarDetailView.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 19/07/2025.
-//
 
 import SwiftUI
 
+// TODO: Stocker ça autre part, sont également utilisées dans CalendarMonthGrid.swift
 // MARK: - Day helpers (normalize to day precision everywhere)
 private let CAL = Calendar.current
 private func startOfDay(_ d: Date) -> Date { CAL.startOfDay(for: d) }
@@ -26,6 +21,7 @@ struct PagerInfo: Identifiable {
     let date: Date
 }
 
+// TODO: Mettre dans VM ce qui doit être dans VM
 // MARK: - Main View
 struct CalendarDetailView: View {
     @Environment(\.dismiss) private var dismiss
@@ -82,37 +78,18 @@ struct CalendarDetailView: View {
                         }
 
                     BubbleOverlay {
-                        GridPhotosInline(
-                            cell: cell,
-                            challengeTitle: viewModel.challenge.title,
-                            getParticipant: { viewModel.getParticipant(for: $0) },
-                            onClose: {
-                                withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
-                                    selectedGridCell = nil
-                                }
-                            },
-                            onOpenPager: { info in
-                                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                                    selectedGridCell = nil
-                                }
-                                DispatchQueue.main.async {
-                                    pagerInfo = info
-                                }
-                            }
-                        )
+                        buildGridPhotos(cell: cell)
                     }
                     .transition(.scale.combined(with: .opacity))
                 }
             }
         }
         .sheet(item: $pagerInfo) { info in
-            CalendarPhotoPagerView(
-                photos: info.photos,
-                startIndex: info.index,
-                getParticipant: { viewModel.getParticipant(for: $0) },
-                onDelete: { _ in },
-                onClose: { pagerInfo = nil }
-            )
+            CalendarPhotoPagerView(photos: info.photos,
+                                   startIndex: info.index,
+                                   getParticipant: { viewModel.getParticipant(for: $0) },
+                                   onDelete: { _ in },
+                                   onClose: { pagerInfo = nil })
         }
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
@@ -125,9 +102,11 @@ struct CalendarDetailView: View {
         let photoCountByDay: [Date: Int] = {
             var map: [Date: Int] = [:]
             map.reserveCapacity(cells.count)
-            for c in cells {
-                map[startOfDay(c.date)] = c.photos.count
+
+            for cell in cells {
+                map[startOfDay(cell.date)] = cell.photos.count
             }
+
             return map
         }()
 
@@ -138,6 +117,7 @@ struct CalendarDetailView: View {
             photoCountByDay: photoCountByDay,
             onSelectDate: { date in
                 let day = startOfDay(date)
+
                 if let cell = cells.first(where: { sameDay($0.date, day) }),
                    !cell.photos.isEmpty {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
@@ -153,29 +133,24 @@ struct CalendarDetailView: View {
     private var header: some View {
         VStack(spacing: 6) {
             HStack {
-                Button(action: { dismiss() }) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(12)
-                        .background(.ultraThinMaterial)
-                        .clipShape(Circle())
-                        .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
-                }
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+                    .onTapGesture { dismiss() }
 
                 Spacer()
 
                 HStack(spacing: 12) {
-                    Button(action: { showNotifSheet = true }) {
-                        GlassCircleIcon(systemName: "bell.fill")
-                    }
-                    Button(action: { showJoinSheet = true }) {
-                        GlassCircleIcon(systemName: "square.and.arrow.up.fill")
-                    }
+                    GlassCircleIcon(systemName: "bell.fill")
+                        .onTapGesture { showNotifSheet = true }
+                    GlassCircleIcon(systemName: "square.and.arrow.up.fill")
+                        .onTapGesture { showJoinSheet = true }
                 }
-                .sheet(isPresented: $showNotifSheet, onDismiss: {
-                    viewModel.fetchInfos()
-                }) {
+                .sheet(isPresented: $showNotifSheet, onDismiss: { viewModel.fetchInfos() }) {
                     NotificationSettingsView(challenge: viewModel.challenge)
                 }
                 .sheet(isPresented: $showJoinSheet) {
@@ -187,7 +162,6 @@ struct CalendarDetailView: View {
         }
     }
 
-    // MARK: - Participant filter
     private var participantFilter: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -208,5 +182,23 @@ struct CalendarDetailView: View {
             .padding(4)
         }
     }
-}
 
+    private func buildGridPhotos(cell: CalendarDetailCell) -> some View {
+        GridPhotosInline(cell: cell,
+                         challengeTitle: viewModel.challenge.title,
+                         getParticipant: { viewModel.getParticipant(for: $0) },
+                         onClose: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                selectedGridCell = nil
+            }
+        },
+                         onOpenPager: { info in
+            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                selectedGridCell = nil
+            }
+            DispatchQueue.main.async {
+                pagerInfo = info
+            }
+        })
+    }
+}

@@ -7,45 +7,68 @@
 
 import SwiftUI
 
-struct AsyncPhotoPagerView: View {
-    let photo: ChallengePhoto
+final class ImageCache {
+    static let shared = ImageCache()
+    private init() {}
+
+    private let cache = NSCache<NSString, UIImage>()
+
+    func image(forKey key: String) -> UIImage? {
+        cache.object(forKey: key as NSString)
+    }
+
+    func insert(_ image: UIImage, forKey key: String) {
+        cache.setObject(image, forKey: key as NSString)
+    }
+}
+
+struct AsyncCachedImage: View {
+    let url: URL
+
+    @State private var uiImage: UIImage?
+    @State private var isLoading = false
 
     var body: some View {
         Group {
-            if let url = URL(string: photo.imageUrl) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let img):
-                        img
-                            .resizable()
-                            .scaledToFill()
-                            .cornerRadius(18)
-                            .shadow(radius: 18)
-                    case .failure:
+            if let uiImage = uiImage {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .cornerRadius(18)
+                    .shadow(radius: 18)
+            } else if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            } else {
+                Color.gray.opacity(0.3)
+                    .overlay {
                         Image(systemName: "photo")
                             .resizable()
                             .scaledToFit()
                             .frame(width: 120, height: 120)
                             .foregroundColor(.gray)
-                    case .empty:
-                        ZStack {
-                            Color.black.opacity(0.2)
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    @unknown default:
-                        EmptyView()
                     }
-                }
-            } else {
-                Image(systemName: "photo")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 120, height: 120)
-                    .foregroundColor(.gray)
+                    .onAppear { loadImage() }
             }
         }
     }
-}
 
+    private func loadImage() {
+        guard !isLoading else { return }
+        if let cached = ImageCache.shared.image(forKey: url.absoluteString) {
+            self.uiImage = cached
+            return
+        }
+
+        isLoading = true
+        URLSession.shared.dataTask(with: url) { data, _, _ in
+            defer { isLoading = false }
+            if let data = data, let img = UIImage(data: data) {
+                ImageCache.shared.insert(img, forKey: url.absoluteString)
+                DispatchQueue.main.async {
+                    self.uiImage = img
+                }
+            }
+        }.resume()
+    }
+}

@@ -9,8 +9,8 @@ import SwiftUI
 
 struct CameraView: View {
     @StateObject private var viewModel: CameraViewModel = CameraViewModel()
-    @State private var showCamera = false
 
+    @State private var showCamera = false
 
     var body: some View {
         NavigationView {
@@ -32,7 +32,7 @@ struct CameraView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 32)
-                .padding(.bottom, 0)
+                .padding(.bottom, 70 + 16)
             }
             .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .navigationBarHidden(true)
@@ -42,10 +42,8 @@ struct CameraView: View {
         }
         .overlay(alignment: .top) {
             if viewModel.toast.isShown {
-                ToastView(
-                    message: viewModel.toast.message,
-                    type: viewModel.toast.type
-                )
+                ToastView(message: viewModel.toast.message,
+                          type: viewModel.toast.type)
             }
         }
     }
@@ -56,7 +54,7 @@ struct CameraView: View {
             Text("Nouvelle Photo")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
-                .padding(.horizontal, 24)
+                .padding(.horizontal, 20)
             Spacer()
         }
     }
@@ -95,7 +93,6 @@ struct CameraView: View {
 
                 }
             }
-
             .padding(.top, 8)
             .padding(.bottom, 8)
             .padding(.horizontal, 20 )

@@ -6,12 +6,11 @@
 //
 
 import SwiftUI
-// MARK: - Bubble overlay + inline grid
- struct BubbleOverlay<Content: View>: View {
+struct BubbleOverlay<Content: View>: View {
     @ViewBuilder var content: Content
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: .zero) {
             Triangle()
                 .fill(.ultraThinMaterial)
                 .frame(width: 18, height: 10)
@@ -33,13 +32,15 @@ import SwiftUI
     }
 }
 
- struct Triangle: Shape {
+struct Triangle: Shape {
     func path(in rect: CGRect) -> Path {
-        var p = Path()
-        p.move(to: CGPoint(x: rect.midX, y: rect.minY))
-        p.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
-        p.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
-        p.closeSubpath()
-        return p
+        var path = Path()
+
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addLine(to: CGPoint(x: rect.maxX, y: rect.maxY))
+        path.addLine(to: CGPoint(x: rect.minX, y: rect.maxY))
+        path.closeSubpath()
+
+        return path
     }
 }

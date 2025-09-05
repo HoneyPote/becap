@@ -19,14 +19,14 @@ struct SettingsView: View {
                 LinearGradient.petrolToSky.ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 24) {
-                        Text("Paramètres")
-                            .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                            .foregroundColor(.white)
-                            .shadow(color: .black.opacity(0.28), radius: 7, x: 0, y: 3)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 32)
-                            .padding(.horizontal, 24)
-                            .padding(.bottom, 10)
+                        HStack {
+                            Spacer()
+                            Text("Paramètres")
+                                .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                                .foregroundColor(.white)
+                                .padding(.horizontal, 20)
+                            Spacer()
+                        }
 
                         if let currentUser = viewModel.currentUser {
                             GlassCard {
@@ -46,6 +46,7 @@ struct SettingsView: View {
                         .padding(.horizontal)
                     }
                     .padding(.vertical)
+                    .padding(.bottom, 70 + 16)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
