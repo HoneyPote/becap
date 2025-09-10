@@ -1,3 +1,4 @@
+//
 //  ChallengeManager.swift
 //  becap
 //
@@ -6,15 +7,6 @@
 
 import SwiftUI
 import Combine
-import FirebaseFirestore
-import FirebaseStorage
-import FirebaseAuth
-
-enum Tabs: Hashable {
-    case challenge
-    case camera
-    case settings
-}
 
 protocol ChallengeManagerProtocol {
     var currentUser: User? { get }
@@ -25,13 +17,13 @@ protocol ChallengeManagerProtocol {
     func createChallenge(_ challenge: Challenge) async throws -> Challenge?
     func fetchAllChallenges() async throws -> [Challenge]
     func fetchAndFilterChallenges() async throws
-    func deleteChallenge(_ challenge: Challenge, completion: @escaping (Bool) -> Void)
+    func deleteChallenge(_ challengeId: String) async throws
     func joinChallenge(_ challenge: Challenge, userId: String) async throws
 
     // Photos
     func sendPhotoAndNotify(image: UIImage, challenge: Challenge, descriptionText: String?) async throws
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto]
-    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws
+    func deletePhoto(_ photo: ChallengePhoto) async throws
     func likePhoto(photo: ChallengePhoto) async throws
     func unlikePhoto(photo: ChallengePhoto) async throws
     func commentPhoto(photo: ChallengePhoto, content: String) async throws
@@ -108,72 +100,12 @@ extension ChallengeManager {
         }
     }
 
-    // TODO: Lier proprement au service
-    /// Supprime un challenge (et toutes ses photos associées) côté Firestore & Storage
-    func deleteChallenge(_ challenge: Challenge, completion: @escaping (Bool) -> Void) {
-        guard let challengeId = challenge.id else {
-            completion(false)
-            return
-        }
-        let db = Firestore.firestore()
-        let storage = Storage.storage()
-        let group = DispatchGroup()
-        var overallSuccess = true
+    func deleteChallenge(_ challengeId: String) async throws {
+        try await challengeService.deleteChallenge(challengeId: challengeId)
 
-        // 1. Supprimer toutes les photos du challenge dans Storage
-        let photosToDelete = self.photos[challengeId] ?? []
-        for photo in photosToDelete {
-            group.enter()
-            let ref = storage.reference(forURL: photo.imageUrl)
-            ref.delete { error in
-                if let error = error {
-                    print("Erreur lors de la suppression d’une photo Storage: \(error)")
-                    overallSuccess = false
-                }
-                group.leave()
-            }
-        }
-
-        // 2. Supprimer toutes les photos du challenge dans Firestore (collection "photos" du challenge)
-        group.enter()
-        db.collection("challenges").document(challengeId).collection("photos")
-            .getDocuments { snapshot, error in
-                if let docs = snapshot?.documents {
-                    let deleteGroup = DispatchGroup()
-                    for doc in docs {
-                        deleteGroup.enter()
-                        doc.reference.delete { err in
-                            if let err = err {
-                                print("Erreur lors de la suppression d’une photo Firestore: \(err)")
-                                overallSuccess = false
-                            }
-                            deleteGroup.leave()
-                        }
-                    }
-                    deleteGroup.notify(queue: .main) {
-                        group.leave()
-                    }
-                } else {
-                    group.leave()
-                }
-            }
-
-        // 3. Supprimer le document Challenge principal
-        group.enter()
-        db.collection("challenges").document(challengeId).delete { err in
-            if let err = err {
-                print("Erreur lors de la suppression du challenge: \(err)")
-                overallSuccess = false
-            }
-            group.leave()
-        }
-
-        // 4. Finaliser la suppression
-        group.notify(queue: .main) {
-            // Mets à jour le cache local
+        await MainActor.run {
             self.challenges.removeAll { $0.id == challengeId }
             self.photos[challengeId] = nil
-            completion(overallSuccess)
         }
     }
 
@@ -239,48 +171,14 @@ extension ChallengeManager {
         return try await challengeService.fetchPhotos(for: challengeId)
     }
 
-    /// Supprime une photo dans la sous-collection "photos" du challenge (Firestore + Storage) + met à jour le cache local.
-    // TODO: Ne plus passer challengeId en paramètre et récupérer cette valeur à travers photo.challengeId lorsque toutes les photos auront un challengeId assigné
-    // TODO: Lier proprement au service
-    func deletePhotos(_ photosToDelete: [ChallengePhoto], challengeId: String) async throws {
-        let db = Firestore.firestore()
-        let storage = Storage.storage()
+    func deletePhoto(_ photo: ChallengePhoto) async throws {
+        guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
 
-        for photo in photosToDelete {
-            guard let photoId = photo.id else {
-                throw NSError(domain: "Invalid photo data", code: 400)
-            }
+        try await challengeService.deletePhoto(photo)
 
-            // 1. Supprimer du Storage
-            if !photo.imageUrl.isEmpty {
-                let ref = storage.reference(forURL: photo.imageUrl)
-                try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                    ref.delete { error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume()
-                        }
-                    }
-                }
-            }
-
-            // 2. Supprimer de Firestore
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                db.collection("challenges").document(challengeId)
-                    .collection("photos").document(photoId)
-                    .delete { error in
-                        if let error = error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume()
-                        }
-                    }
-            }
-
-            // 3. Mettre à jour le cache local
-            self.photos[challengeId]?.removeAll { $0.id == photoId }
-        }
+        // Mise à jour du cache local
+        ImageCache.shared.delete(forKey: photo.imageUrl)
+        self.photos[challengeId]?.removeAll { $0.id == photoId }
     }
 
     func likePhoto(photo: ChallengePhoto) async throws {
@@ -306,13 +204,6 @@ extension ChallengeManager {
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
                                                             from: currentUser.name,
                                                             challengeTitle: challengeTitle)
-
-//        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ChallengePhoto, Error>) in
-//            _ = challengeService.listenToPhotoRealtime(challengeId: challengeId, photoId: photoId) {
-//                newPhoto in
-//                continuation.resume(returning: photo)
-//            }
-//        }
     }
 
     func unlikePhoto(photo: ChallengePhoto) async throws {
@@ -333,13 +224,6 @@ extension ChallengeManager {
                 }
             }
         }
-//
-//        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<ChallengePhoto, Error>) in
-//            _ = challengeService.listenToPhotoRealtime(challengeId: challengeId, photoId: photoId) {
-//                newPhoto in
-//                continuation.resume(returning: photo)
-//            }
-//        }
     }
 
     func commentPhoto(photo: ChallengePhoto, content: String) async throws {

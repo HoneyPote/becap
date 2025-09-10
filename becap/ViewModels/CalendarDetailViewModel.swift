@@ -94,30 +94,8 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    func deletePhoto(_ photo: ChallengePhoto) {
-        guard let challengeId = photo.challengeId else { return }
-
-        Task {
-            do {
-                try await challengeManager.deletePhotos([photo], challengeId: challengeId)
-
-                await MainActor.run {
-                    self.allPhotos.removeAll(where: { $0.id == photo.id })
-
-                    if let pager = self.selectedPagerInfo {
-                        let pagerPhotos = pager.photos.filter { $0.id != photo.id }
-                        if pagerPhotos.isEmpty {
-                            self.selectedPagerInfo = nil
-                        } else {
-                            let newIndex = min(pager.index, pagerPhotos.count-1)
-                            self.selectedPagerInfo = PagerInfo(photos: pagerPhotos, index: newIndex, date: pager.date)
-                        }
-                    }
-                }
-            } catch let error {
-                print("Impossible de supprimer la photo. Error : \(error)")
-            }
-        }
+    func deletePhoto(_ photoId: String) {
+        self.allPhotos.removeAll(where: { $0.id == photoId })
     }
 
     func getParticipant(for uid: String) -> Participant? {

@@ -13,20 +13,31 @@ final class ImageCache {
 
     private let cache = NSCache<NSString, UIImage>()
 
-    func image(forKey key: String) -> UIImage? {
+    func getImage(forKey key: String) -> UIImage? {
         cache.object(forKey: key as NSString)
     }
 
     func insert(_ image: UIImage, forKey key: String) {
         cache.setObject(image, forKey: key as NSString)
     }
+
+    func delete(forKey key: String) {
+        cache.removeObject(forKey: key as NSString)
+    }
 }
 
 struct AsyncCachedImage: View {
-    let url: URL
-
     @State private var uiImage: UIImage?
     @State private var isLoading = false
+
+    let url: URL
+
+    private let imageCache: ImageCache
+
+    init(url: URL, imageCache: ImageCache = ImageCache.shared) {
+        self.url = url
+        self.imageCache = imageCache
+    }
 
     var body: some View {
         Group {
@@ -55,7 +66,8 @@ struct AsyncCachedImage: View {
 
     private func loadImage() {
         guard !isLoading else { return }
-        if let cached = ImageCache.shared.image(forKey: url.absoluteString) {
+
+        if let cached = imageCache.getImage(forKey: url.absoluteString) {
             self.uiImage = cached
             return
         }
@@ -63,10 +75,12 @@ struct AsyncCachedImage: View {
         isLoading = true
         URLSession.shared.dataTask(with: url) { data, _, _ in
             defer { isLoading = false }
-            if let data = data, let img = UIImage(data: data) {
-                ImageCache.shared.insert(img, forKey: url.absoluteString)
+
+            if let data, let image = UIImage(data: data) {
+                imageCache.insert(image, forKey: url.absoluteString)
+
                 DispatchQueue.main.async {
-                    self.uiImage = img
+                    self.uiImage = image
                 }
             }
         }.resume()

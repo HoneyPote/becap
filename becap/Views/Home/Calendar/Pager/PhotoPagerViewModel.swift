@@ -54,7 +54,7 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
 
-        self.listenToPost()
+        listenToPost()
     }
 
     func like() {
@@ -87,7 +87,7 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         }
     }
 
-    func listenToPost() {
+    private func listenToPost() {
         guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
 
         listenToLikes(photoId: photoId, challengeId: challengeId)
@@ -108,7 +108,6 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         }
     }
 }
-
 
 class PhotoPagerViewModel: ObservableObject {
     @Published var photoViewModels: [PhotoViewModel]
@@ -144,6 +143,35 @@ class PhotoPagerViewModel: ObservableObject {
         self.selectedIndex = selectedPhotoIndex
         self.selectedPhotoVM = photoViewModels[selectedPhotoIndex]
         self.photoViewModels = photoViewModels
+    }
+
+    func deletePhoto(isDeleted: @escaping (Bool, ChallengePhoto?) -> Void) {
+        let deletedPhoto = selectedPhotoVM.photo
+
+        Task {
+            do {
+                try await challengeManager.deletePhoto(deletedPhoto)
+
+                await MainActor.run {
+                    self.photoViewModels.removeAll(where: { $0.photo.id == deletedPhoto.id })
+
+                    if !self.photoViewModels.isEmpty {
+                        if selectedIndex > 0 {
+                            self.selectedIndex = selectedIndex - 1
+                        } else {
+                            self.selectedIndex = 0
+                        }
+                    }
+
+                    isDeleted(true, deletedPhoto)
+                }
+            } catch let error {
+                await MainActor.run {
+                    print("Impossible de supprimer la photo. Error : \(error)")
+                    isDeleted(false, nil)
+                }
+            }
+        }
     }
 
     func likeAction() {

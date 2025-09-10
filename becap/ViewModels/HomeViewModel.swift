@@ -38,17 +38,22 @@ class HomeViewModel: ObservableObject {
     }
 
     func performDelete() {
-        guard let challenge = challengeToDelete else { return }
+        guard let challenge = challengeToDelete, let challengeId = challenge.id else { return }
 
-        challengeManager.deleteChallenge(challenge) { [weak self] success in
-            guard let self else { return }
+        Task {
+            do {
+                try await challengeManager.deleteChallenge(challengeId)
 
-            DispatchQueue.main.async {
-                if !success {
-                    self.deleteChallengeError = "Erreur lors de la suppression du défi."
+                await MainActor.run {
+                    self.challengeToDelete = nil
+                    self.showDeleteAlert = false
                 }
-                self.challengeToDelete = nil
-                self.showDeleteAlert = false
+            } catch {
+                await MainActor.run {
+                    self.deleteChallengeError = "Erreur lors de la suppression du défi."
+                    self.challengeToDelete = nil
+                    self.showDeleteAlert = false
+                }
             }
         }
     }

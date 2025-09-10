@@ -88,7 +88,7 @@ struct CalendarDetailView: View {
             CalendarPhotoPagerView(photos: info.photos,
                                    startIndex: info.index,
                                    getParticipant: { viewModel.getParticipant(for: $0) },
-                                   onDelete: { _ in },
+                                   onDelete: { viewModel.deletePhoto($0) },
                                    onClose: { pagerInfo = nil })
         }
         .onAppear { viewModel.fetchInfos() }

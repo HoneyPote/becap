@@ -83,5 +83,4 @@ extension AccountService {
             FirestoreUserKeys.createdAt: FieldValue.serverTimestamp()
         ])
     }
-
 }

@@ -17,17 +17,18 @@ struct CalendarPhotoPagerView: View {
     @State private var commentSectionIsShown: Bool = false
 
     let getParticipant: (String) -> Participant?
-    let onDelete: (ChallengePhoto) -> Void
+    let onDelete: (String) -> Void
     let onClose: () -> Void
 
     init(photos: [ChallengePhoto],
          startIndex: Int = 0,
          getParticipant: @escaping (String) -> Participant?,
-         onDelete: @escaping (ChallengePhoto) -> Void,
+         onDelete: @escaping (String) -> Void,
          onClose: @escaping () -> Void) {
         self.getParticipant = getParticipant
         self.onDelete = onDelete
         self.onClose = onClose
+
         _viewModel = StateObject(wrappedValue: PhotoPagerViewModel(photos: photos, selectedPhotoIndex: startIndex))
     }
 
@@ -141,7 +142,11 @@ struct CalendarPhotoPagerView: View {
 
             if viewModel.canDeletePhoto {
                 Button(role: .destructive) {
-                    onDelete(viewModel.selectedPhotoVM.photo)
+                    viewModel.deletePhoto() { isDeleted, deletedPhoto in
+                        guard isDeleted, let deletedPhotoId = deletedPhoto?.id else { return }
+
+                        onDelete(deletedPhotoId)
+                    }
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
