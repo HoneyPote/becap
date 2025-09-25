@@ -101,7 +101,6 @@ class NewChallengeViewModel: ObservableObject {
                          startDate: Date(),
                          creatorUID: userId,
                          participantUids: [userId],
-                         status: "active",
                          notificationsConfig: config,
                          code: code)
     }

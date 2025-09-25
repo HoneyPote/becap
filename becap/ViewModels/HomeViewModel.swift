@@ -76,7 +76,12 @@ extension HomeViewModel {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
             .sink { [weak self] challenges in
-                self?.challenges = challenges
+                self?.challenges = challenges.sorted(by: {
+                    // Ordre du tri : les actifs en premiers et date de création de la plus récente avant
+                    guard $0.status == $1.status else { return $0.status == .active && $1.status == .finished }
+
+                    return $0.startDate > $1.startDate
+                })
             }
             .store(in: &cancellables)
     }

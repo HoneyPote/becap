@@ -67,8 +67,8 @@ struct CameraView: View {
                 .foregroundColor(.white)
             Spacer()
             Picker("", selection: $viewModel.selectedChallenge) {
-                ForEach(viewModel.challenges) { ch in
-                    Text(ch.title).tag(Optional(ch))
+                ForEach(viewModel.challenges) { challenge in
+                    Text(challenge.title).tag(Optional(challenge))
                 }
             }
             .pickerStyle(.segmented)
@@ -124,23 +124,20 @@ struct CameraView: View {
                 .frame(height: 170)
             }
 
-            Button {
-                showCamera = true
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "camera")
-                        .font(.system(size: 23, weight: .medium))
-                        .foregroundColor(.white)
-                    Text("Prendre une photo")
-                        .font(.system(.body, design: .rounded).weight(.heavy))
-                        .textCase(.uppercase)
-                        .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .background(.thinMaterial)
-                .cornerRadius(14)
-                .shadow(color: Color.blue.opacity(0.38), radius: 10, x: 0, y: 3)
+            HStack(spacing: 10) {
+                Image(systemName: "camera")
+                    .font(.system(size: 23, weight: .medium))
+                    .foregroundColor(.white)
+                Text("Prendre une photo")
+                    .font(.system(.body, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+                    .foregroundColor(.white)
             }
+            .frame(maxWidth: .infinity, minHeight: 44)
+            .background(.thinMaterial)
+            .cornerRadius(14)
+            .shadow(color: Color.blue.opacity(0.38), radius: 10, x: 0, y: 3)
+            .onTapGesture { showCamera = true }
 
             TextField("Description (optionnelle)", text: $viewModel.descriptionText)
                 .textFieldStyle(RoundedBorderTextFieldStyle())

@@ -19,7 +19,9 @@ struct GridPhotosInline: View {
 
     private var photosSorted: [ChallengePhoto] {
         cell.photos.sorted {
-            $0.authorName.localizedCaseInsensitiveCompare($1.authorName) == .orderedAscending
+            guard $0.authorName != $1.authorName else { return $0.date > $1.date }
+
+            return $0.authorName.localizedCaseInsensitiveCompare($1.authorName) == .orderedAscending
         }
     }
 

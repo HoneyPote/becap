@@ -50,8 +50,8 @@ struct CalendarMonthGrid: View {
                         WeekdayHeader()
                         
                         LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 6) {
-                            ForEach(0..<month.leadingEmpty, id: \.self) { _ in
-                                Color.clear.frame(height: 42)
+                            ForEach(0..<month.leadingEmpty, id: \.self) { i in
+                                Color.clear.frame(height: 42).id("empty-\(i)")
                             }
                             
                             ForEach(0..<month.dayCount, id: \.self) { i in
@@ -60,15 +60,11 @@ struct CalendarMonthGrid: View {
                                 let count = photoCountByDay[day] ?? 0
                                 let isSel = selectedDate.map { sameDay($0, day) } ?? false
                                 
-                                DayCell(
-                                    date: day,
-                                    photoCount: count,
-                                    isToday: cal.isDateInToday(day),
-                                    isWithinChallenge: month.validDays.contains(day),
-                                    isSelected: isSel
-                                ) {
-                                    onSelectDate(day)
-                                }
+                                DayCell(date: day,
+                                        photoCount: count,
+                                        isToday: cal.isDateInToday(day),
+                                        isWithinChallenge: month.validDays.contains(day),
+                                        isSelected: isSel) { onSelectDate(day) }
                             }
                         }
                         .padding(.horizontal, 2)

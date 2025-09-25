@@ -39,11 +39,7 @@ struct DayCell: View {
         } label: {
             ZStack {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                    .fill(
-                        isToday
-                        ? Color.green.opacity(0.85)
-                        : Color.white.opacity(isWithinChallenge ? 0.08 : 0.03)
-                    )
+                    .fill(isToday ? Color.green.opacity(0.85) : Color.white.opacity(isWithinChallenge ? 0.08 : 0.03))
 
                 if isSelected {
                     RoundedRectangle(cornerRadius: 8, style: .continuous)

@@ -109,9 +109,12 @@ extension CameraViewModel {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
             .sink { [weak self] challenges in
-                self?.challenges = challenges
-                if !challenges.isEmpty, let first = challenges.first {
-                    self?.selectedChallenge = first
+                guard let self else { return }
+
+                self.challenges = challenges.filter { $0.status == .active }
+
+                if !self.challenges.isEmpty, let first = self.challenges.first {
+                    self.selectedChallenge = first
                 }
             }
             .store(in: &cancellables)

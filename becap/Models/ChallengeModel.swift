@@ -8,6 +8,11 @@
 import Foundation
 import FirebaseFirestore
 
+enum ChallengeStatus: String {
+    case active = "En cours"
+    case finished = "Termniné"
+}
+
 struct Challenge: Identifiable, Codable, Hashable {
     @DocumentID var id: String?
     var title: String
@@ -15,9 +20,17 @@ struct Challenge: Identifiable, Codable, Hashable {
     var startDate: Date
     var creatorUID: String
     var participantUids: [String]
-    var status: String // "active", "finished"
     var notificationsConfig: [ChallengeNotification]?
-    var code: String? // <- Ajouté ici
+    var code: String?
+
+    var endDate: Date {
+        Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
+    }
+
+    var status: ChallengeStatus {
+        Date() > endDate ? .finished : .active
+    }
+
 
     // Hashable synthétique via les propriétés, mais tu peux aussi customiser si besoin :
     func hash(into hasher: inout Hasher) {

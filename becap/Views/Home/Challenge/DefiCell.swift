@@ -28,6 +28,16 @@ struct DefiCell: View {
                 Text("\(challenge.participantUids.count) participant(s)")
                     .font(.caption)
                     .foregroundColor(.white.opacity(0.7))
+
+                HStack {
+                    Text(challenge.status.rawValue)
+                        .font(.caption.bold())
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity)
+                .background(challenge.status == .active
+                            ? Color(red: 0.55, green: 0.82, blue: 0.61)
+                            : Color(red: 1.0, green: 0.71, blue: 0.81))
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 10)

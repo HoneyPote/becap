@@ -41,18 +41,23 @@ struct CalendarDetailView: View {
         ZStack {
             LinearGradient.petrolToSky.ignoresSafeArea()
 
-            VStack(spacing: 0) {
+            VStack(spacing: 10) {
                 header
 
                 Text(viewModel.challenge.title)
-                    .font(.system(.title2, design: .rounded).weight(.heavy))
+                    .font(.system(.title, design: .rounded).weight(.heavy))
                     .foregroundColor(.white)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.8)
                     .padding(.horizontal)
                     .padding(.top, 6)
-                    .padding(.bottom, 10)
+
+                Text(viewModel.challenge.status.rawValue)
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .foregroundColor(viewModel.challenge.status == .active
+                                     ? Color(red: 0.55, green: 0.82, blue: 0.61)
+                                     : Color(red: 1.0, green: 0.71, blue: 0.81))
 
                 participantFilter
                     .frame(height: 42)
