@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+// MARK: - Day helpers (normalize to day precision everywhere)
+private let CAL = Calendar.current
+private func startOfDay(_ d: Date) -> Date { CAL.startOfDay(for: d) }
+private func sameDay(_ a: Date, _ b: Date) -> Bool { CAL.isDate(a, equalTo: b, toGranularity: .day) }
+
 // MARK: - Pager model
 struct PagerInfo: Identifiable {
     let id = UUID()
@@ -59,8 +64,8 @@ struct CalendarDetailView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 10)
 
-                // Linear day list for the full challenge duration
-                dayList
+                // Apple-style month grid adapted to challenge length
+                monthGrid
 
                 Spacer(minLength: 0)
             }
@@ -95,19 +100,37 @@ struct CalendarDetailView: View {
         .navigationBarHidden(true)
     }
 
-    // MARK: - Day List (linear, no month sections)
-    private var dayList: some View {
+    // MARK: - Month Grid (w/ precomputed counts)
+    private var monthGrid: some View {
         let cells = viewModel.buildDetailcells(for: selectedParticipant)
+        let photoCountByDay: [Date: Int] = {
+            var map: [Date: Int] = [:]
+            map.reserveCapacity(cells.count)
 
-        return CalendarDaysList(
-            cells: cells,
-            selectedCell: selectedGridCell,
-            onSelect: { cell in
-                withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                    selectedGridCell = cell
+            for cell in cells {
+                map[startOfDay(cell.date)] = cell.photos.count
+            }
+
+            return map
+        }()
+
+        return CalendarMonthGrid(
+            startDate: viewModel.challenge.startDate,
+            days: viewModel.challenge.duration,
+            selectedDate: selectedGridCell?.date,
+            photoCountByDay: photoCountByDay,
+            onSelectDate: { date in
+                let day = startOfDay(date)
+
+                if let cell = cells.first(where: { sameDay($0.date, day) }),
+                   !cell.photos.isEmpty {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                        selectedGridCell = cell
+                    }
                 }
             }
         )
+        .padding(.horizontal, 14)
     }
 
     // MARK: - Header
