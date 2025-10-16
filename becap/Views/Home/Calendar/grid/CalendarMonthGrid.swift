@@ -53,6 +53,8 @@ struct CalendarMonthGrid: View {
         self.trailingEmpty = remainder == 0 ? 0 : (7 - remainder)
     }
 
+    private let cellHeight: CGFloat = 54
+
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 16) {
@@ -61,9 +63,9 @@ struct CalendarMonthGrid: View {
 
                     WeekdayHeader()
 
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 6) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
                         ForEach(0..<leadingEmpty, id: \.self) { index in
-                            Color.clear.frame(height: 42).id("leading-\(index)")
+                            Color.clear.frame(height: cellHeight).id("leading-\(index)")
                         }
 
                         ForEach(dayItems) { item in
@@ -88,7 +90,7 @@ struct CalendarMonthGrid: View {
                         }
 
                         ForEach(0..<trailingEmpty, id: \.self) { index in
-                            Color.clear.frame(height: 42).id("trailing-\(index)")
+                            Color.clear.frame(height: cellHeight).id("trailing-\(index)")
                         }
                     }
                     .padding(.horizontal, 2)
