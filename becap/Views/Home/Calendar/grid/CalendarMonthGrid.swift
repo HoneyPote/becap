@@ -1,138 +1,131 @@
 //
-//  CalendarMonthGrid.swift
+//  CalendarDaysList.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 04/09/2025.
+//  Updated by ChatGPT on 13/06/2024.
 //
 
 import SwiftUI
 
-// MARK: - Day helpers (normalize to day precision everywhere)
-private let CAL = Calendar.current
-private func startOfDay(_ d: Date) -> Date { CAL.startOfDay(for: d) }
-private func sameDay(_ a: Date, _ b: Date) -> Bool { CAL.isDate(a, equalTo: b, toGranularity: .day) }
+struct CalendarDaysList: View {
+    let cells: [CalendarDetailCell]
+    let selectedCell: CalendarDetailCell?
+    let onSelect: (CalendarDetailCell) -> Void
 
-// TODO: Voir pour travailler avec VM + découper vue
-// MARK: - Month Grid (Apple-like, cached months)
-struct CalendarMonthGrid: View {
-    let startDate: Date
-    let days: Int
-    let selectedDate: Date?
-    let photoCountByDay: [Date: Int]
-    let onSelectDate: (Date) -> Void
-    
-    private let cal = Calendar.current
-    private let months: [MonthBlock]   // cached at init
-    
-    init(startDate: Date,
-         days: Int,
-         selectedDate: Date?,
-         photoCountByDay: [Date: Int],
-         onSelectDate: @escaping (Date) -> Void) {
-        self.startDate = startDate
-        self.days = days
-        self.selectedDate = selectedDate
-        self.photoCountByDay = photoCountByDay
-        self.onSelectDate = onSelectDate
-        self.months = CalendarMonthGrid.buildMonthsStatic(startDate: startDate, days: days)
-    }
-    
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(months, id: \.self.startOfMonth) { month in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(month.title)
-                            .font(.system(.title3, design: .rounded).weight(.bold))
-                            .foregroundColor(.white)
-                            .padding(.leading, 6)
-                        
-                        WeekdayHeader()
-                        
-                        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 7), spacing: 6) {
-                            ForEach(0..<month.leadingEmpty, id: \.self) { i in
-                                Color.clear.frame(height: 42).id("empty-\(i)")
-                            }
-                            
-                            ForEach(0..<month.dayCount, id: \.self) { i in
-                                let date = cal.date(byAdding: .day, value: i, to: month.startOfMonth)!
-                                let day = startOfDay(date)
-                                let count = photoCountByDay[day] ?? 0
-                                let isSel = selectedDate.map { sameDay($0, day) } ?? false
-                                
-                                DayCell(date: day,
-                                        photoCount: count,
-                                        isToday: cal.isDateInToday(day),
-                                        isWithinChallenge: month.validDays.contains(day),
-                                        isSelected: isSel) { onSelectDate(day) }
-                            }
-                        }
-                        .padding(.horizontal, 2)
-                    }
-                    .padding(.vertical, 6)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .fill(Color.white.opacity(0.06))
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
-                    )
+            LazyVStack(spacing: 12) {
+                ForEach(Array(cells.enumerated()), id: \.element.id) { index, cell in
+                    CalendarDayRow(dayNumber: index + 1,
+                                   cell: cell,
+                                   isSelected: selectedCell?.id == cell.id,
+                                   onTap: { onSelect(cell) })
                 }
             }
             .padding(.vertical, 6)
+            .padding(.horizontal, 14)
         }
-    }
-    
-    // Build month blocks once (static)
-    private static func buildMonthsStatic(startDate: Date, days: Int) -> [MonthBlock] {
-        let cal = Calendar.current
-        let sDay = cal.startOfDay(for: startDate)
-        let endDate = cal.date(byAdding: .day, value: max(0, days - 1), to: sDay)!
-        var blocks: [MonthBlock] = []
-        
-        var cursor = cal.date(from: cal.dateComponents([.year, .month], from: sDay))!
-        let endCursor = cal.date(from: cal.dateComponents([.year, .month], from: endDate))!
-        
-        while cursor <= endCursor {
-            let startOfThisMonth = cursor
-            let dayCount = cal.range(of: .day, in: .month, for: startOfThisMonth)?.count ?? 30
-            
-            let weekday = cal.component(.weekday, from: startOfThisMonth)
-            let firstWeekday = cal.firstWeekday
-            let leading = ((weekday - firstWeekday) + 7) % 7
-            
-            var valid: [Date] = []
-            valid.reserveCapacity(dayCount)
-            for d in 0..<dayCount {
-                let date = cal.date(byAdding: .day, value: d, to: startOfThisMonth)!
-                let day = cal.startOfDay(for: date)
-                if day >= sDay && day <= endDate { valid.append(day) }
-            }
-            
-            let df = DateFormatter()
-            df.locale = .current
-            df.setLocalizedDateFormatFromTemplate("MMMM yyyy")
-            let title = df.string(from: startOfThisMonth).capitalized
-            
-            blocks.append(MonthBlock(
-                startOfMonth: startOfThisMonth,
-                title: title,
-                dayCount: dayCount,
-                leadingEmpty: leading,
-                validDays: valid
-            ))
-            cursor = cal.date(byAdding: .month, value: 1, to: startOfThisMonth)!
-        }
-        return blocks
-    }
-    
-    private struct MonthBlock: Hashable {
-        let startOfMonth: Date
-        let title: String
-        let dayCount: Int
-        let leadingEmpty: Int
-        let validDays: [Date]
     }
 }
 
+private struct CalendarDayRow: View {
+    let dayNumber: Int
+    let cell: CalendarDetailCell
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    private var hasPhotos: Bool { !cell.photos.isEmpty }
+
+    var body: some View {
+        Button {
+            if hasPhotos {
+                onTap()
+            }
+        } label: {
+            HStack(spacing: 12) {
+                DayNumberBadge(dayNumber: dayNumber, isToday: cell.isToday)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Jour \(dayNumber)")
+                        .font(.system(size: 18, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+
+                    Text(Self.dateFormatter.string(from: cell.date).capitalized)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.7))
+                }
+
+                Spacer(minLength: 12)
+
+                if cell.isToday {
+                    Text("Aujourd'hui")
+                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.green.opacity(0.9))
+                        .clipShape(Capsule())
+                }
+
+                if hasPhotos {
+                    Label("\(cell.photos.count)", systemImage: "camera.fill")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                } else {
+                    Text("Aucune photo")
+                        .font(.system(size: 12, weight: .medium, design: .rounded))
+                        .foregroundColor(Color.white.opacity(0.5))
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(background)
+            .overlay(border)
+        }
+        .buttonStyle(.plain)
+        .opacity(hasPhotos ? 1.0 : 0.6)
+    }
+
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(
+                cell.isToday
+                ? Color.white.opacity(0.2)
+                : Color.white.opacity(0.08)
+            )
+    }
+
+    private var border: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(isSelected ? Color.white.opacity(0.9) : Color.white.opacity(0.18), lineWidth: isSelected ? 1.4 : 0.7)
+    }
+
+    private struct DayNumberBadge: View {
+        let dayNumber: Int
+        let isToday: Bool
+
+        var body: some View {
+            ZStack {
+                Circle()
+                    .fill(isToday ? Color.green.opacity(0.9) : Color.white.opacity(0.12))
+                    .frame(width: 42, height: 42)
+
+                Text("\(dayNumber)")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(isToday ? .black : .white)
+            }
+        }
+    }
+
+    private static let dateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale.current
+        formatter.setLocalizedDateFormatFromTemplate("EEEE d MMMM")
+        return formatter
+    }()
+}
