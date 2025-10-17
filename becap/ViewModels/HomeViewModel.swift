@@ -12,6 +12,7 @@ class HomeViewModel: ObservableObject {
     @Published var showDeleteAlert = false
     @Published var deleteChallengeError: String?
     @Published var challenges: [Challenge] = []
+    @Published var premiumChallenges: [PremiumChallenge] = PremiumChallenge.sampleData
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -22,6 +23,18 @@ class HomeViewModel: ObservableObject {
         self.challengeManager = challengeManager
 
         observeChallengesChanges()
+    }
+
+    func unlockPremiumChallenge(_ challenge: PremiumChallenge) {
+        guard let index = premiumChallenges.firstIndex(where: { $0.id == challenge.id }) else { return }
+
+        premiumChallenges[index].isUnlocked = true
+    }
+
+    func lockPremiumChallenge(_ challenge: PremiumChallenge) {
+        guard let index = premiumChallenges.firstIndex(where: { $0.id == challenge.id }) else { return }
+
+        premiumChallenges[index].isUnlocked = false
     }
 
     func onAppearDeleteChallengeError() {

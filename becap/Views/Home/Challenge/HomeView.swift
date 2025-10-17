@@ -14,6 +14,10 @@ struct HomeView: View {
     @State private var showJoinView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
+    @State private var selectedPremiumChallenge: PremiumChallenge?
+    @State private var infoPremiumChallenge: PremiumChallenge?
+    @State private var showPaymentSheet = false
+    @State private var showUnlockToast = false
 
     var body: some View {
         NavigationStack {
@@ -31,6 +35,8 @@ struct HomeView: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: .zero) {
+                            premiumChallengesSection
+
                             joinCreateChallengeSection
 
                             challengeListSection
@@ -61,7 +67,65 @@ struct HomeView: View {
                 challengeCreatedToast
                     .padding(.bottom, 40)
             }
+
+            if showUnlockToast {
+                premiumChallengeUnlockedToast
+                    .padding(.top, 32)
+            }
         }
+        .overlay {
+            if let infoPremiumChallenge {
+                ZStack {
+                    Color.black.opacity(0.45)
+                        .ignoresSafeArea()
+                        .transition(.opacity)
+
+                    PremiumChallengeInfoBubble(
+                        challenge: infoPremiumChallenge,
+                        onClose: { withAnimation(.spring()) { self.infoPremiumChallenge = nil } }
+                    )
+                    .transition(.scale(scale: 0.95).combined(with: .opacity))
+                }
+            }
+        }
+        .sheet(isPresented: $showPaymentSheet) {
+            if let challenge = selectedPremiumChallenge {
+                PremiumPaymentOptionsView(
+                    challenge: challenge,
+                    onPayment: { method in
+                        Task { await handlePaymentSuccess(for: challenge, method: method) }
+                    },
+                    onCancel: { dismissPaymentSheet() }
+                )
+            }
+        }
+    }
+
+    private var premiumChallengesSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(spacing: 10) {
+                Image(systemName: "lock.rectangle.on.rectangle")
+                    .font(.title2)
+                    .foregroundColor(.white)
+                Text("Challenges Premium")
+                    .font(.system(.title2, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+                    .textCase(.uppercase)
+            }
+            .padding(.vertical, 18)
+            .padding(.horizontal, 4)
+
+            VStack(spacing: 14) {
+                ForEach(viewModel.premiumChallenges, id: \.id) { premium in
+                    PremiumChallengeCell(
+                        challenge: premium,
+                        onUnlockTapped: { presentPaymentSheet(for: premium) },
+                        onInfoTapped: { presentInfoBubble(for: premium) }
+                    )
+                }
+            }
+        }
+        .padding(.bottom, 12)
     }
 
     private var joinCreateChallengeSection: some View {
@@ -116,6 +180,15 @@ struct HomeView: View {
             }
     }
 
+    private var premiumChallengeUnlockedToast: some View {
+        ToastView(message: "Challenge premium débloqué ✨", type: .success)
+            .onAppear {
+                DispatchQueue.main.asyncAfter(deadline: .now() + 2.2) {
+                    withAnimation { showUnlockToast = false }
+                }
+            }
+    }
+
     private var deleteChallengeConfirmationAlert: some View {
         Group {
             Button("Delete", role: .destructive) {
@@ -157,5 +230,36 @@ struct HomeView: View {
         .onAppear { viewModel.onAppearDeleteChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .zIndex(10)
+    }
+}
+
+// MARK: - Premium helpers
+extension HomeView {
+    private func presentPaymentSheet(for challenge: PremiumChallenge) {
+        selectedPremiumChallenge = challenge
+        showPaymentSheet = true
+    }
+
+    private func presentInfoBubble(for challenge: PremiumChallenge) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.82, blendDuration: 0.15)) {
+            infoPremiumChallenge = challenge
+        }
+    }
+
+    private func handlePaymentSuccess(for challenge: PremiumChallenge, method _: PremiumPaymentOptionsView.PaymentMethod) async {
+        try? await Task.sleep(nanoseconds: 350_000_000)
+
+        await MainActor.run {
+            viewModel.unlockPremiumChallenge(challenge)
+            showUnlockToast = true
+            dismissPaymentSheet()
+        }
+    }
+
+    private func dismissPaymentSheet() {
+        withAnimation { showPaymentSheet = false }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            selectedPremiumChallenge = nil
+        }
     }
 }
