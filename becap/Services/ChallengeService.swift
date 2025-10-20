@@ -8,6 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
+import FirebaseAuth
 
 enum ChallengeServiceError: Error {
     case invalidImageData(String)
@@ -308,16 +309,6 @@ extension ChallengeService {
         }
     }
 
-    // TODO: Utile ?
-    //    func addMedal(for challengeId: String, userId: String, medal: UserMedal, completion: ((Error?) -> Void)? = nil) {
-    //        let ref = firestoreDB.collection(collection).document(challengeId).collection(collecParticipants).document(userId)
-    //        ref.updateData([
-    //            "medals": FieldValue.arrayUnion([try! Firestore.Encoder().encode(medal)])
-    //        ]) { error in
-    //            completion?(error)
-    //        }
-    //    }
-
     func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
         return try firestoreDB
             .collection(collecChallenges)
@@ -453,15 +444,35 @@ extension ChallengeService {
     }
 }
 
-// TODO: Pas ici
-extension UIImage {
-    func resized(toMaxWidth width: CGFloat) -> UIImage {
-        let aspectRatio = size.height / size.width
-        let newSize = CGSize(width: width, height: width * aspectRatio)
-        let renderer = UIGraphicsImageRenderer(size: newSize)
+import FirebaseAuth
 
-        return renderer.image { _ in
-            self.draw(in: CGRect(origin: .zero, size: newSize))
+extension ChallengeService {
+    /// Upload un nouvel avatar et met à jour le profil utilisateur (champ `photoURL`)
+    /// - Paramètre previousURL: l’ancienne URL (pour supprimer l’ancien fichier si tu veux)
+    func updateUserAvatar(data: Data, previousURL: String? = nil) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        // 1) Chemin unique pour éviter le cache client
+        let filename = UUID().uuidString + ".jpg"
+        let ref = firebaseStorage.reference()
+            .child("avatars/\(uid)/\(filename)")
+
+        // 2) Upload
+        _ = try await ref.putDataAsync(data, metadata: nil)
+
+        // 3) URL publique
+        let url = try await ref.downloadURL()
+
+        // 4) Sauvegarde Firestore
+        try await firestoreDB.collection("users")
+            .document(uid)
+            .updateData(["photoURL": url.absoluteString])
+
+        // 5) (Optionnel) Supprimer l’ancien fichier pour éviter d’encombrer le bucket
+        if let prev = previousURL, let prevRef = try? Storage.storage().reference(forURL: prev) {
+            try? await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+                prevRef.delete { _ in c.resume() } // on ignore l’erreur si le fichier n’existe plus
+            }
         }
     }
 }

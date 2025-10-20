@@ -15,6 +15,7 @@ struct User: Identifiable, Codable {
     var photoURL: String?
     var medals: [UserMedal]?
     var joinedChallenges: [String]?
+
 }
 
 struct UserMedal: Codable, Identifiable, Equatable {

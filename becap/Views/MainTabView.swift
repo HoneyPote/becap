@@ -21,7 +21,6 @@ struct MainTabView: View {
                 switch TabType(rawValue: index) ?? .home {
                 case .home:
                     HomeView()
-//                        .withTabBarInset() // TODO: Utile ? Je vois pas de diff perso
                 case .camera:
                     CameraView()
                 case .settings:
@@ -85,6 +84,17 @@ extension View {
     func withTabBarInset(_ height: CGFloat = 72) -> some View {
         self.safeAreaInset(edge: .bottom) {
             Color.clear.frame(height: height)
+        }
+    }
+}
+extension UIImage {
+    func resized(toMaxWidth width: CGFloat) -> UIImage {
+        let aspectRatio = size.height / size.width
+        let newSize = CGSize(width: width, height: width * aspectRatio)
+        let renderer = UIGraphicsImageRenderer(size: newSize)
+
+        return renderer.image { _ in
+            self.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
 }
