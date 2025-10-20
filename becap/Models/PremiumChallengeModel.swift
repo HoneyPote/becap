@@ -59,3 +59,15 @@ extension PremiumChallenge {
             media: .text("Découvre des prompts photo originaux et des astuces pour jouer avec la lumière, les textures et les couleurs."))
     ]
 }
+extension PremiumChallenge.MediaType: Hashable {
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .text(let value):
+            hasher.combine("text")
+            hasher.combine(value)
+        case .video(let url):
+            hasher.combine("video")
+            hasher.combine(url.absoluteString) // use absoluteString for hashing
+        }
+    }
+}
