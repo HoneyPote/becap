@@ -73,20 +73,25 @@ struct CalendarMonthGrid: View {
                             let count = photoCountByDay[day] ?? 0
                             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
 
-                            DayCell(date: day,
-                                    photoCount: count,
-                                    isToday: calendar.isDateInToday(day),
-                                    isWithinChallenge: true,
-                                    isSelected: isSelected) {
+                            DayCell(
+                                date: day,
+                                dayNumber: item.dayNumber,               // ⬅️ passe le n° de défi
+                                photoCount: count,
+                                isToday: calendar.isDateInToday(day),
+                                isWithinChallenge: true,
+                                isSelected: isSelected
+                            ) {
                                 onSelectDate(day)
                             }
-                            .overlay(alignment: .bottom) {
-                                Text("Jour \(item.dayNumber)")
-                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.55))
-                                    .padding(.bottom, 2)
-                                    .allowsHitTesting(false)
-                            }
+
+
+                             .overlay(alignment: .bottom) {
+                                 Text("Jour")
+                                     .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                     .foregroundColor(.white.opacity(0.55))
+                                     .padding(.bottom, 2)
+                                     .allowsHitTesting(false)
+                             }
                         }
 
                         ForEach(0..<trailingEmpty, id: \.self) { index in
@@ -148,3 +153,4 @@ struct CalendarMonthGrid: View {
         var id: Int { dayNumber }
     }
 }
+

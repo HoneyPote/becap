@@ -88,3 +88,46 @@ extension View {
         }
     }
 }
+
+import SwiftUI
+
+struct PetrolSkyHeroBackground: View {
+    var imageName: String = "bg_mountain"     // your asset name
+    var imageOpacity: CGFloat = 0.9           // image strength
+    var bottomVignette: CGFloat = 0.30        // darken bottom for cards/tab
+
+    var body: some View {
+        GeometryReader { geo in
+            ZStack {
+                // Base gradient
+                LinearGradient(
+                    gradient: Gradient(colors: [Color(hex: "#6190E8"), Color(hex: "#A7BFE8")]),
+                    startPoint: .top, endPoint: .bottom
+                )
+                .ignoresSafeArea()
+
+                // Image: scaledToFit (so no crop/zoom), anchored at bottom
+                VStack(spacing: 0) {
+                    Spacer()
+                    Image(imageName)
+                        .resizable()
+                        .scaledToFit()                 // <- prevents zoom/crop
+                        .frame(width: geo.size.width)  // fit by width
+                        .opacity(imageOpacity)
+                        .blendMode(.multiply)          // merges nicely with gradient
+                        .accessibilityHidden(true)
+                }
+                .ignoresSafeArea(edges: .bottom)
+
+                // Very soft haze at top + vignette at bottom for contrast
+                LinearGradient(colors: [Color.white.opacity(0.06), .clear],
+                               startPoint: .top, endPoint: .center)
+                .ignoresSafeArea()
+
+                LinearGradient(colors: [.clear, Color.black.opacity(bottomVignette)],
+                               startPoint: .center, endPoint: .bottom)
+                .ignoresSafeArea()
+            }
+        }
+    }
+}

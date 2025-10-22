@@ -16,47 +16,48 @@ enum Haptics {
     }
 }
 
-// TODO: Beaucoup de calcul et de variable stockées dans la vue, à voir si besoin de passer par petit VM
+
 struct DayCell: View {
     let date: Date
+    let dayNumber: Int          // ⬅️ nouveau : n° du jour de défi
     let photoCount: Int
     let isToday: Bool
     let isWithinChallenge: Bool
     let isSelected: Bool
     let tap: () -> Void
-    let calendar = Calendar.current
 
-    var photoCountIsNil: Bool {
-        photoCount == 0
-    }
+    private var photoCountIsNil: Bool { photoCount == 0 }
 
     var body: some View {
         Button {
-            if !photoCountIsNil {
-                Haptics.lightTap()
-            }
+            if !photoCountIsNil { Haptics.lightTap() }
             tap()
         } label: {
             ZStack {
+                // fond
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
-                    .fill(isToday ? Color.green.opacity(0.85) : Color.white.opacity(isWithinChallenge ? 0.08 : 0.03))
+                    .fill(isToday ? Color.green.opacity(0.85)
+                                  : Color.white.opacity(isWithinChallenge ? 0.08 : 0.03))
 
+                // anneau sélection
                 if isSelected {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(Color.white.opacity(0.9), lineWidth: 1.4)
                 }
 
-                VStack(spacing: .zero) {
-                    Spacer()
-                    Text("\(calendar.component(.day, from: date))")
+                // *** AU CENTRE: numéro DU DÉFI ***
+                VStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text("\(dayNumber)") // <-- au lieu du jour du mois
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundColor(isToday ? .black : (isWithinChallenge ? .white : .white.opacity(0.45)))
-                    Spacer()
+                    Spacer(minLength: 0)
                 }
                 .padding(.bottom, -8)
             }
             .frame(height: 54)
             .opacity(isWithinChallenge ? 1.0 : 0.38)
+            // badge photos en haut-droite
             .overlay(alignment: .topTrailing) {
                 if !photoCountIsNil {
                     HStack(spacing: 4) {
