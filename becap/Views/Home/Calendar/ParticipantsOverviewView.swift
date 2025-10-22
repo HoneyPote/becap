@@ -12,7 +12,7 @@ struct ParticipantsOverviewView: View {
     let photos: [ChallengePhoto]
     let progresses: [ParticipantProgress]
 
-    private struct ParticipantStats {
+     struct ParticipantStats {
         let photosCount: Int
         let likesCount: Int
         let streak: Int
