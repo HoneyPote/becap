@@ -7,8 +7,9 @@
 
 import Foundation
 import Combine
+import FirebaseAuth
 
-class SettingsViewModel: ObservableObject {
+final class SettingsViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var signoutError: String? = nil
 
@@ -26,11 +27,44 @@ class SettingsViewModel: ObservableObject {
         observeCurrentUser()
     }
 
+    // MARK: - Avatar
+
+    /// Upload l’avatar, met à jour Firestore via le service,
+    /// puis recharge l’utilisateur pour refléter immédiatement la nouvelle URL.
+    func updateAvatar(data: Data) async throws {
+           let previous = currentUser?.photoURL
+           try await ChallengeService.shared.updateUserAvatar(data: data, previousURL: previous)
+
+           // Re-fetch user pour pousser la nouvelle photoURL dans UserManager
+           if let uid = Auth.auth().currentUser?.uid {
+               try await accountManager.updateCurrentUser(with: uid)
+               // Grâce à ton observeCurrentUser(), SettingsView sera rafraîchie
+           }
+       }
+
+    /// Recharge l’utilisateur depuis la source de vérité (Firestore via AccountManager)
+    @MainActor
+    func reloadUser() async {
+        guard let uid = userManager.currentUser?.id else { return }
+        do {
+            // Cette méthode existe déjà dans ton projet (utilisée depuis ChallengeManager)
+            _ = try await accountManager.updateCurrentUser(with: uid)
+
+            // AccountManager met à jour UserManager.shared.currentUser.
+            // Grâce à observeCurrentUser(), currentUser sera rafraîchi automatiquement.
+            // On peut toutefois resynchroniser tout de suite :
+            self.currentUser = userManager.currentUser
+        } catch {
+            print("❌ reloadUser error: \(error)")
+        }
+    }
+
+    // MARK: - Auth
+
     func signOut() {
         Task {
             do {
                 try accountManager.signOut()
-
                 await MainActor.run {
                     AppState.shared.sessionID = UUID()
                     AppState.shared.isLoggedIn = false

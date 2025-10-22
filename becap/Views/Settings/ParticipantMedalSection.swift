@@ -17,6 +17,7 @@ struct MedalDisplayItem: Identifiable {
 }
 
 // TODO: Trop de calculs
+// mdr ba t'as cas pas calculer enfoiré
 struct ParticipantMedalSection: View {
     let medals: [UserMedal]
 

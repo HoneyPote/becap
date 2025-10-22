@@ -445,16 +445,6 @@ extension ChallengeManager {
 
         return streak
     }
-
-    // TODO: Utile ?
-    /// Ajoute une médaille à un utilisateur pour un défi donné (dans le cache local)
-    //    func addMedal(_ medal: UserMedal, to userId: String, for challengeId: String) {
-    //        if var progresses = participants[challengeId],
-    //           let idx = progresses.firstIndex(where: { $0.id == userId }) {
-    //            progresses[idx].medals.append(medal)
-    //            participants[challengeId] = progresses
-    //        }
-    //    }
 }
 
 // MARK: - Notifications
