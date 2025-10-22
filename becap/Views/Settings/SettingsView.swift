@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import FirebaseStorage
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
@@ -229,26 +230,87 @@ private struct AvatarEditor: View {
 private struct AvatarCircle: View {
     let avatarUrl: String?
 
+    @State private var resolvedURL: URL?
+    @State private var isResolving = false
+
     var body: some View {
         Group {
-            if let urlStr = avatarUrl, let url = URL(string: urlStr) {
-                AsyncImage(url: url) { phase in
+            if let resolvedURL {
+                AsyncImage(url: resolvedURL) { phase in
                     switch phase {
                     case .empty:
-                        Color.white.opacity(0.08).overlay(PlaceholderIcon())
+                        loadingPlaceholder
                     case .success(let image):
                         image.resizable().scaledToFill()
                     case .failure:
-                        Color.white.opacity(0.08).overlay(PlaceholderIcon())
+                        fallbackPlaceholder
                     @unknown default:
-                        Color.white.opacity(0.08).overlay(PlaceholderIcon())
+                        fallbackPlaceholder
                     }
                 }
+            } else if isResolving {
+                loadingPlaceholder
             } else {
-                Color.white.opacity(0.08).overlay(PlaceholderIcon())
+                fallbackPlaceholder
             }
         }
         .clipShape(Circle())
+        .task(id: avatarUrl) {
+            await resolveURL()
+        }
+    }
+
+    private var loadingPlaceholder: some View {
+        Color.white.opacity(0.08)
+            .overlay(ProgressView().progressViewStyle(.circular))
+    }
+
+    private var fallbackPlaceholder: some View {
+        Color.white.opacity(0.08).overlay(PlaceholderIcon())
+    }
+
+    private func resolveURL() async {
+        let currentValue = avatarUrl ?? ""
+
+        let shouldSkip = await MainActor.run { () -> Bool in
+            if let resolvedURL, resolvedURL.absoluteString == currentValue {
+                return true
+            }
+            resolvedURL = nil
+            isResolving = true
+            return false
+        }
+
+        if shouldSkip { return }
+
+        guard !currentValue.isEmpty else {
+            await MainActor.run {
+                isResolving = false
+            }
+            return
+        }
+
+        if let url = URL(string: currentValue), url.scheme?.lowercased() != "gs" {
+            await MainActor.run {
+                resolvedURL = url
+                isResolving = false
+            }
+            return
+        }
+
+        do {
+            let reference = try Storage.storage().reference(forURL: currentValue)
+            let downloadURL = try await reference.downloadURL()
+            await MainActor.run {
+                resolvedURL = downloadURL
+                isResolving = false
+            }
+        } catch {
+            await MainActor.run {
+                isResolving = false
+            }
+            print("⚠️ Unable to resolve avatar URL: \(error.localizedDescription)")
+        }
     }
 
     private struct PlaceholderIcon: View {
