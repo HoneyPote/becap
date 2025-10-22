@@ -138,20 +138,34 @@ struct NotificationSettingsView: View {
                 Spacer()
 
                 Button(action: { viewModel.duplicateDay(day) }) {
-                    Label("", systemImage: "arrow.triangle.2.circlepath")
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color(red: 250/255, green: 223/255, blue: 86/255))
-                        .padding(10)
-                        .background(Color.white.opacity(0.18))
-                        .clipShape(Circle())
-                        .overlay(
-                            Circle().stroke(Color.white.opacity(0.25), lineWidth: 1)
-                        )
-                        .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 6)
+                    HStack(spacing: 8) {
+                        Image(systemName: "arrow.triangle.2.circlepath")
+                            .font(.system(size: 15, weight: .bold, design: .rounded))
+                        Text("Appliquer à tous les jours")
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    }
+                    .foregroundColor(Color(red: 247/255, green: 255/255, blue: 210/255))
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 16)
+                    .background(
+                        Capsule()
+                            .fill(
+                                LinearGradient(
+                                    colors: [Color(red: 64/255, green: 118/255, blue: 196/255).opacity(0.72),
+                                             Color(red: 101/255, green: 176/255, blue: 243/255).opacity(0.68)],
+                                    startPoint: .leading,
+                                    endPoint: .trailing
+                                )
+                            )
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 6)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dupliquer les rappels de ce jour")
+                .accessibilityLabel("Appliquer ces rappels à tous les jours")
             }
 
             VStack(alignment: .leading, spacing: 12) {
