@@ -292,6 +292,16 @@ extension ChallengeService {
         }
     }
 
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ParticipantProgress.self) }
+    }
+
     func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
         let ref = firestoreDB
             .collection(collecChallenges)

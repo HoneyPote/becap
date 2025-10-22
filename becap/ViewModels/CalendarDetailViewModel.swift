@@ -11,6 +11,7 @@ struct Participant: Hashable {
     let id: String
     let name: String
     var medals: [UserMedal]
+    var photoURL: String?
 
     static func ==(lhs: Participant, rhs: Participant) -> Bool {
         lhs.id == rhs.id && lhs.name == rhs.name
@@ -36,6 +37,7 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var doneLoadingPhotos: Bool = false
     @Published var selectedPagerInfo: PagerInfo?
     @Published var participants: [Participant] = []
+    @Published var participantProgresses: [ParticipantProgress] = []
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -56,12 +58,14 @@ class CalendarDetailViewModel: ObservableObject {
         Task {
             async let photosTask = try fetchPhotos()
             async let allParticipants = try buildParticipants()
+            async let progressesTask = try fetchParticipantProgresses()
 
-            let (photos, participants) = try await (photosTask, allParticipants)
+            let (photos, participants, progresses) = try await (photosTask, allParticipants, progressesTask)
 
             await MainActor.run {
                 self.updatePhotos(photos)
                 self.participants = participants
+                self.participantProgresses = progresses
                 self.doneLoadingPhotos = true
             }
         }
@@ -113,10 +117,21 @@ class CalendarDetailViewModel: ObservableObject {
 
             let participantName = currentUser.id == user.id ? "Moi" : user.name
 
-            allParticipants.append(Participant(id: participantUid, name: participantName, medals: user.medals ?? []))
+            allParticipants.append(
+                Participant(id: participantUid,
+                            name: participantName,
+                            medals: user.medals ?? [],
+                            photoURL: user.photoURL)
+            )
         }
 
         return allParticipants
+    }
+
+    private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
+        guard let challengeId = challenge.id else { return [] }
+
+        return try await challengeManager.fetchParticipantsProgress(for: challengeId)
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {

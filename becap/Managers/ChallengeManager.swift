@@ -275,6 +275,10 @@ extension ChallengeManager {
         try setUserProgress(userId: userId, challengeId: challengeId, progress: userProgress)
     }
 
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        return try await challengeService.fetchParticipantsProgress(for: challengeId)
+    }
+
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws {
         do {
             print("📥 updateProgress lancé pour userId=\(userId), challengeId=\(challengeId)")
