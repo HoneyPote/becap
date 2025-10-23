@@ -19,7 +19,7 @@ struct ParticipantsOverviewView: View {
 
     @State private var showingChat = false
 
-    private struct ParticipantStats {
+     struct ParticipantStats {
         let photosCount: Int
         let likesCount: Int
         let streak: Int

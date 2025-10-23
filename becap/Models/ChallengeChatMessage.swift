@@ -6,10 +6,9 @@
 //
 
 import Foundation
-import FirebaseFirestoreSwift
 
 struct ChallengeChatMessage: Identifiable, Codable, Hashable {
-    @DocumentID var documentId: String?
+    var documentId: String?
     var challengeId: String
     var senderId: String
     var senderName: String
