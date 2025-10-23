@@ -15,6 +15,8 @@ struct JoinChallengeView: View {
 
     @State private var isCodeCopied = false
     @State private var showCreationToast = false
+    @State private var isShareSheetPresented = false
+    @State private var shareItems: [Any] = []
 
     var body: some View {
         NavigationView {
@@ -77,6 +79,11 @@ struct JoinChallengeView: View {
                     }
                 }
                 .padding(.bottom, 40)
+            }
+        }
+        .sheet(isPresented: $isShareSheetPresented) {
+            if !shareItems.isEmpty {
+                ShareSheet(activityItems: shareItems)
             }
         }
     }
@@ -187,18 +194,34 @@ struct JoinChallengeView: View {
             }
             .padding(.vertical, 2)
             Spacer()
-            Button(action: {
-                UIPasteboard.general.string = challenge.code
-                withAnimation { isCodeCopied = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                    withAnimation { isCodeCopied = false }
+            HStack(spacing: 10) {
+                Button(action: {
+                    UIPasteboard.general.string = challenge.code
+                    withAnimation { isCodeCopied = true }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                        withAnimation { isCodeCopied = false }
+                    }
+                }) {
+                    Image(systemName: "doc.on.doc.fill")
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Circle().fill(.ultraThinMaterial))
+                        .shadow(radius: 4)
                 }
-            }) {
-                Image(systemName: "doc.on.doc.fill")
-                    .foregroundColor(.white)
-                    .padding(8)
-                    .background(Circle().fill(.ultraThinMaterial))
-                    .shadow(radius: 4)
+                .accessibilityLabel("Copier le code du défi")
+
+                Button(action: {
+                    guard let items = viewModel.shareItems(for: challenge) else { return }
+                    shareItems = items
+                    isShareSheetPresented = true
+                }) {
+                    Image(systemName: "square.and.arrow.up")
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Circle().fill(.ultraThinMaterial))
+                        .shadow(radius: 4)
+                }
+                .accessibilityLabel("Partager le défi")
             }
         }
         .padding(.vertical, 6)

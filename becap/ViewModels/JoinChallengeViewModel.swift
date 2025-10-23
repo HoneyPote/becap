@@ -23,6 +23,7 @@ class JoinChallengeViewModel: ObservableObject {
 
     private let currentUser: User?
     private let challengeManager: ChallengeManager
+    private let deepLinkHost = "becap.app"
 
     init(userManager: UserManagerProtocol = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
@@ -30,6 +31,30 @@ class JoinChallengeViewModel: ObservableObject {
         self.challengeManager = challengeManager
 
         observeChallengesChanges()
+    }
+
+    func shareItems(for challenge: Challenge) -> [Any]? {
+        let code = challenge.code ?? ""
+        let linkURL = deepLinkURL(for: challenge, code: code)
+
+        guard !code.isEmpty || linkURL != nil else { return nil }
+
+        var message = "Je t'invite à rejoindre mon défi \"\(challenge.title)\" sur Becap !"
+
+        if let linkURL {
+            message += "\n\nClique sur ce lien pour nous rejoindre directement : \(linkURL.absoluteString)"
+        }
+
+        if !code.isEmpty {
+            message += "\nCode du défi : \(code)"
+        }
+
+        var items: [Any] = [message]
+        if let linkURL {
+            items.append(linkURL)
+        }
+
+        return items
     }
 
     // TODO: Supprimer participantUids et récupérer collection participant
@@ -89,6 +114,25 @@ class JoinChallengeViewModel: ObservableObject {
 
 // MARK: - Observers
 extension JoinChallengeViewModel {
+    private func deepLinkURL(for challenge: Challenge, code: String) -> URL? {
+        var components = URLComponents()
+        components.scheme = "https"
+        components.host = deepLinkHost
+        components.path = "/join"
+
+        var queryItems: [URLQueryItem] = []
+        if !code.isEmpty {
+            queryItems.append(URLQueryItem(name: "code", value: code))
+        }
+
+        if let id = challenge.id {
+            queryItems.append(URLQueryItem(name: "challengeId", value: id))
+        }
+
+        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        return components.url
+    }
+
     private func observeChallengesChanges() {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
