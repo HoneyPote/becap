@@ -23,7 +23,8 @@ class JoinChallengeViewModel: ObservableObject {
 
     private let currentUser: User?
     private let challengeManager: ChallengeManager
-    private let deepLinkHost = "becap.app"
+    private let deepLinkScheme = "becap"
+    private let deepLinkHost = "join"
 
     init(userManager: UserManagerProtocol = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
@@ -116,9 +117,9 @@ class JoinChallengeViewModel: ObservableObject {
 extension JoinChallengeViewModel {
     private func deepLinkURL(for challenge: Challenge, code: String) -> URL? {
         var components = URLComponents()
-        components.scheme = "https"
+        components.scheme = deepLinkScheme
         components.host = deepLinkHost
-        components.path = "/join"
+        components.path = ""
 
         var queryItems: [URLQueryItem] = []
         if !code.isEmpty {
