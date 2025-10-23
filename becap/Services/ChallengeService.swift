@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import FirebaseFirestoreSwift
 import FirebaseStorage
 
 enum ChallengeServiceError: Error {
@@ -35,6 +36,10 @@ protocol ChallengeServiceProtocol {
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+
+    // Chat
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
+    func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws
 }
 
 final class ChallengeService: ChallengeServiceProtocol {
@@ -46,6 +51,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecPhotos = "photos"
     private let collecParticipants = "participants"
     private let collecComments = "comments"
+    private let collecChat = "chatMessages"
 
     private init() {}
 }
@@ -264,6 +270,28 @@ extension ChallengeService {
     }
 }
 
+// MARK: - Chat
+extension ChallengeService {
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage] {
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .order(by: "createdAt", descending: false)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
+    }
+
+    func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws {
+        try firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .addDocument(from: message)
+    }
+}
+
 // MARK: - Reward flow
 extension ChallengeService {
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
@@ -290,6 +318,16 @@ extension ChallengeService {
 
             completion(progresses)
         }
+    }
+
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ParticipantProgress.self) }
     }
 
     func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
