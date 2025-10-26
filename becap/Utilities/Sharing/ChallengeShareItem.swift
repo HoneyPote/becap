@@ -25,7 +25,7 @@ final class ChallengeShareItem: NSObject, UIActivityItemSource {
         message
     }
 
-    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String? {
+    func activityViewController(_ activityViewController: UIActivityViewController, subjectForActivityType activityType: UIActivity.ActivityType?) -> String {
         "Rejoins \"\(challengeTitle)\" sur Becap"
     }
 

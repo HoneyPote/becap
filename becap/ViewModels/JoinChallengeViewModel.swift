@@ -38,41 +38,53 @@ class JoinChallengeViewModel: ObservableObject {
         let code = challenge.code ?? ""
         let linkURL = deepLinkURL(for: challenge, code: code)
 
-        guard !code.isEmpty || linkURL != nil else { return nil }
-
-        var messageComponents: [String] = [
+        // — Message
+        var parts: [String] = [
             "✨ Découvre \"\(challenge.title)\" sur Becap",
             "",
             "Un calendrier collaboratif pour garder le cap ensemble et célébrer vos réussites quotidiennes."
         ]
+        if let linkURL { parts += ["", "➡️ Accès direct : \(linkURL.absoluteString)"] }
 
-        if let linkURL {
-            messageComponents.append(contentsOf: [
-                "",
-                "➡️ Accès direct : \(linkURL.absoluteString)"
-            ])
-        }
-
-        if !code.isEmpty {
-            messageComponents.append("🔐 Code d'accès : \(code)")
-        }
-
-        messageComponents.append(contentsOf: [
-            "",
-            "Becap – Le rendez-vous collectif de 20h00."
-        ])
-
-        let message = messageComponents.joined(separator: "\n")
+        let message = parts.joined(separator: "\n")
 
         #if canImport(UIKit)
-        let previewImage = ChallengeSharePreviewBuilder.makePreviewImage(for: challenge, code: code)
-        let shareItem = ChallengeShareItem(challenge: challenge,
-                                           message: message,
-                                           linkURL: linkURL,
-                                           previewImage: previewImage)
-        return [shareItem]
+        var items: [Any] = []
+
+        // 1) Charger l’asset
+        if let img = UIImage(named: "epicPic") {
+            // 2) L’exporter en JPEG vers un fichier temporaire (meilleure compatibilité)
+            let tmpURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent("becap-share-epic.jpg")
+
+            if let data = img.jpegData(compressionQuality: 0.92) {
+                do {
+                    try data.write(to: tmpURL, options: .atomic)
+                    // IMPORTANT : mettre l’image/fichier en premier pour que certaines apps
+                    // l’utilisent comme média et prennent le message comme légende
+                    items.append(tmpURL)
+                } catch {
+                    print("⚠️ Impossible d’écrire l’image temporaire :", error)
+                    // fallback : partager tout de même l’image en mémoire si le fichier échoue
+                    items.append(img)
+                }
+            } else {
+                // fallback : pas de JPEG ? on partage l’image brute
+                items.append(img)
+            }
+        } else {
+            print("⚠️ UIImage(named: \"epicPic\") est nil — vérifie l’asset & Target Membership")
+        }
+
+        // 3) Ajouter le message (légende/texte)
+        items.append(message)
+
+        // 4) Ajouter le lien deep-link si dispo
+        if let linkURL { items.append(linkURL) }
+
+        return items.isEmpty ? nil : items
         #else
-        return [message]
+        return [message, linkURL as Any].compactMap { $0 }
         #endif
     }
 
