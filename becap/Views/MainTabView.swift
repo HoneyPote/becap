@@ -57,12 +57,18 @@ struct MainTabView: View {
         // ⬇️ AJOUT: écoute du code de deep link et ouverture de la feuille
         .onChange(of: deepLinkRouter.pendingJoinCode) { code in
             guard let code else { return }
+            guard deepLinkRouter.pendingCalendarChallengeId == nil else { return }
+
             deepLinkCode = code
             // (Optionnel) se placer sur l’onglet Home si tu veux forcer le contexte
             // selectedIndex = 0
             showJoinSheet = true
             // Consommer l’événement
             DispatchQueue.main.async { deepLinkRouter.pendingJoinCode = nil }
+        }
+        .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
+            guard id != nil else { return }
+            selectedIndex = 0
         }
         .sheet(isPresented: $showJoinSheet) {
             JoinChallengeView(prefilledCode: deepLinkCode)

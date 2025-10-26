@@ -50,12 +50,7 @@ class JoinChallengeViewModel: ObservableObject {
             message += "\nCode du défi : \(code)"
         }
 
-        var items: [Any] = [message]
-        if let linkURL {
-            items.append(linkURL)
-        }
-
-        return items
+        return [message]
     }
 
     // TODO: Supprimer participantUids et récupérer collection participant

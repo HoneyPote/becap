@@ -80,6 +80,7 @@ import SwiftUI
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingJoinCode: String? = nil
     @Published var showJoinSheet: Bool = false
+    @Published var pendingCalendarChallengeId: String? = nil
 
     // Appelle ceci depuis .onOpenURL
     func handle(url: URL) {
@@ -88,9 +89,19 @@ final class DeepLinkRouter: ObservableObject {
         if comps.scheme?.lowercased() == "becap",
            comps.host?.lowercased() == "join" {
             let code = comps.queryItems?.first(where: { $0.name == "code" })?.value
+            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
             DispatchQueue.main.async {
-                self.pendingJoinCode = code
-                self.showJoinSheet = true
+                if let challengeId, !challengeId.isEmpty {
+                    self.pendingCalendarChallengeId = challengeId
+                    self.showJoinSheet = false
+                }
+
+                if let code, !code.isEmpty {
+                    self.pendingJoinCode = code
+                    if challengeId == nil {
+                        self.showJoinSheet = true
+                    }
+                }
             }
         }
     }
@@ -98,5 +109,9 @@ final class DeepLinkRouter: ObservableObject {
     func clearJoin() {
         pendingJoinCode = nil
         showJoinSheet = false
+    }
+
+    func clearChallengeNavigation() {
+        pendingCalendarChallengeId = nil
     }
 }
