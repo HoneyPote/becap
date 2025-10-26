@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var navigateToDeepLinkedChallenge = false
     @State private var deepLinkJoinCode: String?
     @State private var hasPresentedJoinForDeepLink = false
+    @State private var isResolvingDeepLink = false
+    @State private var hasLoadedChallengesForPendingDeepLink = false
 
     var body: some View {
         NavigationStack {
@@ -71,21 +73,30 @@ struct HomeView: View {
         .onAppear {
             hasPresentedJoinForDeepLink = false
             if let challengeId = deepLinkRouter.pendingCalendarChallengeId {
-                attemptNavigationToChallenge(withId: challengeId)
+                beginResolvingDeepLink(for: challengeId)
             }
         }
         .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { challengeId in
             guard let challengeId else {
                 hasPresentedJoinForDeepLink = false
+                isResolvingDeepLink = false
+                hasLoadedChallengesForPendingDeepLink = false
                 return
             }
 
             hasPresentedJoinForDeepLink = false
-            attemptNavigationToChallenge(withId: challengeId)
+            beginResolvingDeepLink(for: challengeId)
         }
         .onChange(of: viewModel.challenges) { _ in
-            if let challengeId = deepLinkRouter.pendingCalendarChallengeId {
-                attemptNavigationToChallenge(withId: challengeId)
+            guard isResolvingDeepLink,
+                  let challengeId = deepLinkRouter.pendingCalendarChallengeId else { return }
+
+            hasLoadedChallengesForPendingDeepLink = true
+            attemptNavigationToChallenge(withId: challengeId, allowJoinFallback: true)
+        }
+        .onChange(of: showJoinView) { isPresented in
+            if !isPresented {
+                isResolvingDeepLink = false
             }
         }
     }
@@ -207,16 +218,30 @@ extension HomeView {
         }
     }
 
-    private func attemptNavigationToChallenge(withId challengeId: String) {
+    private func beginResolvingDeepLink(for challengeId: String) {
+        isResolvingDeepLink = true
+        hasLoadedChallengesForPendingDeepLink = viewModel.challenges.contains(where: { $0.id == challengeId })
+        attemptNavigationToChallenge(withId: challengeId, allowJoinFallback: hasLoadedChallengesForPendingDeepLink)
+
+        if !hasLoadedChallengesForPendingDeepLink {
+            viewModel.refreshChallenges()
+        }
+    }
+
+    private func attemptNavigationToChallenge(withId challengeId: String, allowJoinFallback: Bool) {
         if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
             deepLinkedChallenge = challenge
             navigateToDeepLinkedChallenge = true
             hasPresentedJoinForDeepLink = false
             deepLinkJoinCode = nil
 
+            isResolvingDeepLink = false
+
             deepLinkRouter.clearChallengeNavigation()
             deepLinkRouter.clearJoin()
-        } else if let code = deepLinkRouter.pendingJoinCode, !hasPresentedJoinForDeepLink {
+        } else if allowJoinFallback,
+                  let code = deepLinkRouter.pendingJoinCode,
+                  !hasPresentedJoinForDeepLink {
             deepLinkJoinCode = code
             showJoinView = true
             hasPresentedJoinForDeepLink = true
