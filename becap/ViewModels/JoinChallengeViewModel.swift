@@ -40,17 +40,40 @@ class JoinChallengeViewModel: ObservableObject {
 
         guard !code.isEmpty || linkURL != nil else { return nil }
 
-        var message = "Je t'invite à rejoindre mon défi \"\(challenge.title)\" sur Becap !"
+        var messageComponents: [String] = [
+            "✨ Découvre \"\(challenge.title)\" sur Becap",
+            "",
+            "Un calendrier collaboratif pour garder le cap ensemble et célébrer vos réussites quotidiennes."
+        ]
 
         if let linkURL {
-            message += "\n\nClique sur ce lien pour nous rejoindre directement : \(linkURL.absoluteString)"
+            messageComponents.append(contentsOf: [
+                "",
+                "➡️ Accès direct : \(linkURL.absoluteString)"
+            ])
         }
 
         if !code.isEmpty {
-            message += "\nCode du défi : \(code)"
+            messageComponents.append("🔐 Code d'accès : \(code)")
         }
 
+        messageComponents.append(contentsOf: [
+            "",
+            "Becap – Le rendez-vous collectif de 20h00."
+        ])
+
+        let message = messageComponents.joined(separator: "\n")
+
+        #if canImport(UIKit)
+        let previewImage = ChallengeSharePreviewBuilder.makePreviewImage(for: challenge, code: code)
+        let shareItem = ChallengeShareItem(challenge: challenge,
+                                           message: message,
+                                           linkURL: linkURL,
+                                           previewImage: previewImage)
+        return [shareItem]
+        #else
         return [message]
+        #endif
     }
 
     // TODO: Supprimer participantUids et récupérer collection participant
