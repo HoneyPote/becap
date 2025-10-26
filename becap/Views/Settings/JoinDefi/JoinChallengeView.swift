@@ -8,6 +8,9 @@
 import SwiftUI
 
 struct JoinChallengeView: View {
+    // ⬇️ NEW: reçoit un code prérempli (depuis le deep link)
+    private let prefilledCode: String?
+
     @Environment(\.dismiss) private var dismiss
     @FocusState private var isFocused: Bool
 
@@ -17,6 +20,11 @@ struct JoinChallengeView: View {
     @State private var showCreationToast = false
     @State private var isShareSheetPresented = false
     @State private var shareItems: [Any] = []
+
+    // ⬇️ NEW: init optionnel avec code
+    init(prefilledCode: String? = nil) {
+        self.prefilledCode = prefilledCode
+    }
 
     var body: some View {
         NavigationView {
@@ -86,6 +94,19 @@ struct JoinChallengeView: View {
                 ShareSheet(activityItems: shareItems)
             }
         }
+        // ⬇️ NEW: quand on arrive avec un code prérempli, on l’affiche
+        .onAppear {
+            if let code = prefilledCode, !code.isEmpty {
+                viewModel.code = code
+                // On évite d’ouvrir le clavier si le code est déjà rempli
+                isFocused = false
+            } else {
+                // sinon focus sur le champ
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    isFocused = true
+                }
+            }
+        }
     }
 
     private var joinByCodeSection: some View {
@@ -104,8 +125,10 @@ struct JoinChallengeView: View {
 
             Button(action: {
                 isFocused = false
-                viewModel.joinChallenge() {
-                    dismiss()
+                viewModel.joinChallenge {
+                    if prefilledCode == nil {
+                        dismiss()
+                    }
                 }
             }) {
                 HStack {

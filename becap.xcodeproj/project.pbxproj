@@ -7,16 +7,16 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-                7B3EFB752E40A2C900CC6EDE /* OneSignalExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB742E40A2C900CC6EDE /* OneSignalExtension */; };
-                7B3EFB772E40A2C900CC6EDE /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB762E40A2C900CC6EDE /* OneSignalFramework */; };
-                7B3EFB792E40A2C900CC6EDE /* OneSignalInAppMessages in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB782E40A2C900CC6EDE /* OneSignalInAppMessages */; };
-                7BCCE45C2E27880500B0ED0F /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45B2E27880500B0ED0F /* FirebaseAnalytics */; };
-                7BCCE45E2E27880500B0ED0F /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45D2E27880500B0ED0F /* FirebaseAuth */; };
-                7BCCE4602E27880500B0ED0F /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45F2E27880500B0ED0F /* FirebaseFirestore */; };
-                7BCCE4622E27880500B0ED0F /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE4612E27880500B0ED0F /* FirebaseMessaging */; };
-                7BCCE4642E27880500B0ED0F /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE4632E27880500B0ED0F /* FirebaseStorage */; };
-                A7FF4F242F3A2137009D9CF0 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */; };
-                CEBF55852E40933A008B791E /* OneSignalNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CEBF557E2E40933A008B791E /* OneSignalNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		7B3EFB752E40A2C900CC6EDE /* OneSignalExtension in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB742E40A2C900CC6EDE /* OneSignalExtension */; };
+		7B3EFB772E40A2C900CC6EDE /* OneSignalFramework in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB762E40A2C900CC6EDE /* OneSignalFramework */; };
+		7B3EFB792E40A2C900CC6EDE /* OneSignalInAppMessages in Frameworks */ = {isa = PBXBuildFile; productRef = 7B3EFB782E40A2C900CC6EDE /* OneSignalInAppMessages */; };
+		7BCCE45C2E27880500B0ED0F /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45B2E27880500B0ED0F /* FirebaseAnalytics */; };
+		7BCCE45E2E27880500B0ED0F /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45D2E27880500B0ED0F /* FirebaseAuth */; };
+		7BCCE4602E27880500B0ED0F /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE45F2E27880500B0ED0F /* FirebaseFirestore */; };
+		7BCCE4622E27880500B0ED0F /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE4612E27880500B0ED0F /* FirebaseMessaging */; };
+		7BCCE4642E27880500B0ED0F /* FirebaseStorage in Frameworks */ = {isa = PBXBuildFile; productRef = 7BCCE4632E27880500B0ED0F /* FirebaseStorage */; };
+		A7FF4F242F3A2137009D9CF0 /* ShareSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */; };
+		CEBF55852E40933A008B791E /* OneSignalNotificationServiceExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CEBF557E2E40933A008B791E /* OneSignalNotificationServiceExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -58,11 +58,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-                7B3F854F2E2685890076BB60 /* becap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = becap.app; sourceTree = BUILT_PRODUCTS_DIR; };
-                7B3F855C2E26858B0076BB60 /* becapTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = becapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-                7B3F85662E26858B0076BB60 /* becapUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = becapUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-                CEBF557E2E40933A008B791E /* OneSignalNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OneSignalNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
-                A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareSheet.swift; path = becap/Views/UI/ShareSheet.swift; sourceTree = SOURCE_ROOT; };
+		7B3F854F2E2685890076BB60 /* becap.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = becap.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B3F855C2E26858B0076BB60 /* becapTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = becapTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B3F85662E26858B0076BB60 /* becapUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = becapUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = ShareSheet.swift; path = becap/Views/UI/ShareSheet.swift; sourceTree = SOURCE_ROOT; };
+		CEBF557E2E40933A008B791E /* OneSignalNotificationServiceExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = OneSignalNotificationServiceExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -151,18 +151,18 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-                7B3F85462E2685890076BB60 = {
-                        isa = PBXGroup;
-                        children = (
-                                7B3F85512E2685890076BB60 /* becap */,
-                                7B3F855F2E26858B0076BB60 /* becapTests */,
-                                7B3F85692E26858B0076BB60 /* becapUITests */,
-                                CEBF557F2E40933A008B791E /* OneSignalNotificationServiceExtension */,
-                                7B3F85502E2685890076BB60 /* Products */,
-                                A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */,
-                        );
-                        sourceTree = "<group>";
-                };
+		7B3F85462E2685890076BB60 = {
+			isa = PBXGroup;
+			children = (
+				7B3F85512E2685890076BB60 /* becap */,
+				7B3F855F2E26858B0076BB60 /* becapTests */,
+				7B3F85692E26858B0076BB60 /* becapUITests */,
+				CEBF557F2E40933A008B791E /* OneSignalNotificationServiceExtension */,
+				7B3F85502E2685890076BB60 /* Products */,
+				A7FF4F232F3A2137009D9CF0 /* ShareSheet.swift */,
+			);
+			sourceTree = "<group>";
+		};
 		7B3F85502E2685890076BB60 /* Products */ = {
 			isa = PBXGroup;
 			children = (
@@ -361,14 +361,14 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-                7B3F854B2E2685890076BB60 /* Sources */ = {
-                        isa = PBXSourcesBuildPhase;
-                        buildActionMask = 2147483647;
-                        files = (
-                                A7FF4F242F3A2137009D9CF0 /* ShareSheet.swift in Sources */,
-                        );
-                        runOnlyForDeploymentPostprocessing = 0;
-                };
+		7B3F854B2E2685890076BB60 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A7FF4F242F3A2137009D9CF0 /* ShareSheet.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		7B3F85582E26858B0076BB60 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -545,6 +545,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = becap/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = CFBundleURLTypes;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Access is needed to share photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -579,6 +580,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = becap/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = CFBundleURLTypes;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Access is needed to share photos.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;

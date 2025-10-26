@@ -27,11 +27,16 @@ struct becap: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @StateObject private var appState = AppState.shared
+    @StateObject private var deepLinkRouter = DeepLinkRouter()
 
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
                 .environmentObject(appState)
+                .environmentObject(deepLinkRouter)               // <<<<<< injection
+                .onOpenURL { url in                              // <<<<<< routage
+                    deepLinkRouter.handle(url: url)
+                }
         }
     }
 }
