@@ -23,15 +23,25 @@ class AppDelegate: NSObject, UIApplicationDelegate {
 
 @main
 struct becap: App {
-    // register app delegate for Firebase setup
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
 
     @StateObject private var appState = AppState.shared
+    @StateObject private var deepLinkRouter = DeepLinkRouter()
 
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
                 .environmentObject(appState)
+                .environmentObject(deepLinkRouter)
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    if let url = activity.webpageURL {
+                        deepLinkRouter.handle(url: url)
+                    }
+                }
+
+                .onOpenURL { url in
+                    deepLinkRouter.handle(url: url)
+                }
         }
     }
 }
