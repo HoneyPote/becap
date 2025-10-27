@@ -23,10 +23,6 @@ class JoinChallengeViewModel: ObservableObject {
 
     private let currentUser: User?
     private let challengeManager: ChallengeManager
-    private let universalLinkScheme = "https"
-    private let universalLinkHost = "becap.app"
-    private let universalLinkPath = "/join"
-
     init(userManager: UserManagerProtocol = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
         self.currentUser = userManager.currentUser
@@ -47,6 +43,14 @@ class JoinChallengeViewModel: ObservableObject {
             "Clique sur le lien ci-dessous pour ouvrir l'app.",
             linkURL.absoluteString
         ]
+
+        if let fallbackURL = fallbackUniversalLinkURL(for: challenge, code: code) {
+            messageComponents.append(contentsOf: [
+                "",
+                "🌐 Si Safari n'arrive pas à établir une connexion sécurisée, utilise aussi :",
+                fallbackURL.absoluteString
+            ])
+        }
 
         if !code.isEmpty {
             messageComponents.append("🔐 Code d'accès : \(code)")
@@ -127,11 +131,11 @@ class JoinChallengeViewModel: ObservableObject {
 
 // MARK: - Observers
 extension JoinChallengeViewModel {
-    private func universalLinkURL(for challenge: Challenge, code: String) -> URL? {
+    private func universalLinkURL(for challenge: Challenge, code: String, host: String? = nil) -> URL? {
         var components = URLComponents()
-        components.scheme = universalLinkScheme
-        components.host = universalLinkHost
-        components.path = universalLinkPath
+        components.scheme = UniversalLinkConfiguration.scheme
+        components.host = host ?? UniversalLinkConfiguration.primaryHost
+        components.path = UniversalLinkConfiguration.joinPath
 
         var queryItems: [URLQueryItem] = []
         if !code.isEmpty {
@@ -145,6 +149,14 @@ extension JoinChallengeViewModel {
         guard !queryItems.isEmpty else { return nil }
         components.queryItems = queryItems
         return components.url
+    }
+
+    private func fallbackUniversalLinkURL(for challenge: Challenge, code: String) -> URL? {
+        guard let fallbackHost = UniversalLinkConfiguration.fallbackHost(excluding: UniversalLinkConfiguration.primaryHost) else {
+            return nil
+        }
+
+        return universalLinkURL(for: challenge, code: code, host: fallbackHost)
     }
 
     private func observeChallengesChanges() {

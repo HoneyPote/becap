@@ -50,14 +50,46 @@ private extension DeepLinkRouter {
         let path = components.path.lowercased()
 
         let isCustomLink = scheme == "becap" && host == "join"
-        let isUniversalLink = (scheme == "https" || scheme == "http") &&
-            (host == "becap.app" || host == "www.becap.app") &&
-            (path == "/join" || path.hasPrefix("/join/"))
+        let isUniversalLink = (scheme == UniversalLinkConfiguration.scheme || scheme == "http") &&
+            UniversalLinkConfiguration.matches(host: host) &&
+            (path == UniversalLinkConfiguration.joinPath || path.hasPrefix(UniversalLinkConfiguration.joinPath + "/"))
 
         guard isCustomLink || isUniversalLink else { return nil }
 
         let code = components.queryItems?.first(where: { $0.name == "code" })?.value
         let challengeId = components.queryItems?.first(where: { $0.name == "challengeId" })?.value
         return (code: code, challengeId: challengeId)
+    }
+}
+
+enum UniversalLinkConfiguration {
+    static let scheme = "https"
+    static let joinPath = "/join"
+
+    private static let defaultHosts = ["becap.app", "www.becap.app", "becap.web.app"]
+
+    static let hosts: [String] = {
+        guard let configured = Bundle.main.object(forInfoDictionaryKey: "BECUniversalLinkHosts") as? [String] else {
+            return defaultHosts
+        }
+
+        let sanitized = configured
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+            .filter { !$0.isEmpty }
+
+        return sanitized.isEmpty ? defaultHosts : sanitized
+    }()
+
+    static var primaryHost: String {
+        hosts.first ?? defaultHosts[0]
+    }
+
+    static func fallbackHost(excluding host: String) -> String? {
+        hosts.first(where: { $0 != host })
+    }
+
+    static func matches(host: String?) -> Bool {
+        guard let host else { return false }
+        return hosts.contains(host)
     }
 }

@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>CFBundleURLTypes</key>
-	<array>
-		<dict>
-			<key>CFBundleTypeRole</key>
+        <key>CFBundleURLTypes</key>
+        <array>
+                <dict>
+                        <key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
 			<string>app.becap</string>
@@ -13,10 +13,16 @@
 			<array>
 				<string>becap</string>
 			</array>
-		</dict>
-		<dict/>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array/>
+                </dict>
+                <dict/>
+        </array>
+        <key>BECUniversalLinkHosts</key>
+        <array>
+                <string>becap.app</string>
+                <string>www.becap.app</string>
+                <string>becap.web.app</string>
+        </array>
+        <key>UIBackgroundModes</key>
+        <array/>
 </dict>
 </plist>
