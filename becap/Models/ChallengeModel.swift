@@ -69,34 +69,3 @@ struct ChallengeNotification: Codable {
     var times: [Date] // Format "HH:mm" ou utiliser Date si tu préfères
 }
 
-
-
-enum DeepLink {
-    case join(code: String, challengeId: String?)
-}
-
-import SwiftUI
-
-final class DeepLinkRouter: ObservableObject {
-    @Published var pendingJoinCode: String? = nil
-    @Published var showJoinSheet: Bool = false
-
-    // Appelle ceci depuis .onOpenURL
-    func handle(url: URL) {
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
-        // Ex: becap://join?code=123456
-        if comps.scheme?.lowercased() == "becap",
-           comps.host?.lowercased() == "join" {
-            let code = comps.queryItems?.first(where: { $0.name == "code" })?.value
-            DispatchQueue.main.async {
-                self.pendingJoinCode = code
-                self.showJoinSheet = true
-            }
-        }
-    }
-
-    func clearJoin() {
-        pendingJoinCode = nil
-        showJoinSheet = false
-    }
-}

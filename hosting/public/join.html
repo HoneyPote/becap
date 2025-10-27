@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Rejoindre un défi – Becap</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- Open Graph pour WhatsApp / iMessage -->
+  <meta property="og:title" content="Rejoindre un défi – Becap" />
+  <meta property="og:description" content="Un calendrier collaboratif pour garder le cap ensemble et célébrer vos réussites quotidiennes." />
+  <meta property="og:image" content="https://becap.app/og/becap-share-epic.jpg" />
+  <meta property="og:url" content="https://becap.app/join" />
+  <meta property="og:type" content="website" />
+
+  <style>
+    body{margin:0;background:linear-gradient(180deg,#6190E8,#A7BFE8);font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial;color:#fff}
+    .wrap{max-width:640px;margin:0 auto;padding:32px}
+    .card{background:rgba(255,255,255,.12);backdrop-filter:blur(8px);border-radius:20px;padding:24px;margin-top:20px;border:1px solid rgba(255,255,255,.18)}
+    .btn{display:inline-block;padding:14px 18px;border-radius:12px;background:#0a84ff;color:#fff;text-decoration:none;font-weight:600}
+    .tiny{opacity:.85}
+    input{padding:12px 14px;border-radius:12px;border:none;width:100%;box-sizing:border-box}
+    .row{display:flex;gap:12px;align-items:center}
+    @media (max-width: 480px){
+      .row{flex-direction:column;align-items:stretch}
+      .btn{width:100%;text-align:center}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Becap</h1>
+    <p class="tiny">Le rendez-vous collectif de 20h00.</p>
+
+    <div class="card">
+      <h2>Rejoindre le défi</h2>
+      <p id="desc">Si l’app est installée, elle devrait s’ouvrir automatiquement. Sinon, utilise le bouton ci-dessous.</p>
+
+      <div class="row">
+        <input id="code" type="text" placeholder="Code (optionnel)" />
+        <a id="openApp" class="btn" href="#">Ouvrir l’app</a>
+      </div>
+      <p class="tiny" id="fallbackText" style="margin-top:10px;display:none">
+        Si rien ne se passe, <a href="https://apps.apple.com/app/id0000000000" style="color:#fff;text-decoration:underline">télécharge l’app sur l’App Store</a>.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const code = params.get('code') || '';
+    const challengeId = params.get('challengeId') || '';
+
+    const openBtn = document.getElementById('openApp');
+    const codeInput = document.getElementById('code');
+    codeInput.value = code;
+
+    function appUrl() {
+      const base = 'becap://join';
+      const p = new URLSearchParams();
+      if (codeInput.value) p.set('code', codeInput.value);
+      if (challengeId) p.set('challengeId', challengeId);
+      const query = p.toString();
+      return query ? `${base}?${query}` : base;
+    }
+
+    openBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location = appUrl();
+      setTimeout(() => {
+        document.getElementById('fallbackText').style.display = 'block';
+      }, 1200);
+    });
+
+    setTimeout(() => {
+      window.location = appUrl();
+    }, 300);
+  </script>
+</body>
+</html>

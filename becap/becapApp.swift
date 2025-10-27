@@ -37,6 +37,10 @@ struct becap: App {
                 .onOpenURL { url in                              // <<<<<< routage
                     deepLinkRouter.handle(url: url)
                 }
+                .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
+                    guard let url = activity.webpageURL else { return }
+                    deepLinkRouter.handle(url: url)
+                }
         }
     }
 }
