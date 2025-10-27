@@ -145,24 +145,31 @@ class CalendarDetailViewModel: ObservableObject {
               let userId = challengeManager.currentUser?.id else { return }
 
         do {
-            let userHasReaction = message.reactions[reaction]?.contains(userId) ?? false
+            let latestMessages = try await fetchChatMessages()
+
+            guard let targetMessage = latestMessages.first(where: { $0.id == message.id }) else {
+                print("❌ Failed to resolve message for reaction toggle")
+                return
+            }
+
+            let userHasReaction = targetMessage.reactions[reaction]?.contains(userId) ?? false
 
             if userHasReaction {
                 try await challengeManager.removeChatReaction(reaction,
-                                                             from: message,
+                                                             from: targetMessage,
                                                              challengeId: challengeId,
                                                              userId: userId)
             } else {
                 try await challengeManager.addChatReaction(reaction,
-                                                           to: message,
+                                                           to: targetMessage,
                                                            challengeId: challengeId,
                                                            userId: userId)
             }
 
-            let messages = try await fetchChatMessages()
+            let refreshedMessages = try await fetchChatMessages()
 
             await MainActor.run {
-                self.updateChat(messages: messages)
+                self.updateChat(messages: refreshedMessages)
             }
         } catch {
             print("❌ Failed to toggle reaction: \(error)")

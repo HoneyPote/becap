@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct ParticipantsOverviewView: View {
+    @Environment(\.dismiss) private var dismiss
+
     let participants: [Participant]
     let photos: [ChallengePhoto]
     let progresses: [ParticipantProgress]
@@ -54,6 +56,21 @@ struct ParticipantsOverviewView: View {
             }
             .navigationTitle("Participants")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button(action: { dismiss() }) {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(12)
+                            .background(.ultraThinMaterial)
+                            .clipShape(Circle())
+                            .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Fermer")
+                }
+            }
         }
         .sheet(isPresented: $showingChat) {
             GroupChatView(

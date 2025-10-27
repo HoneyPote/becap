@@ -14,6 +14,8 @@ struct GroupChatMessageRow: View {
     let availableReactions: [String]
     let onToggleReaction: (String) -> Void
 
+    @State private var showingReactionPicker = false
+
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .none
@@ -36,8 +38,13 @@ struct GroupChatMessageRow: View {
                 .padding(.horizontal, 14)
                 .background(bubbleBackground)
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .contentShape(Rectangle())
+                .onLongPressGesture(minimumDuration: 0.35) {
+                    guard canReact else { return }
+                    showingReactionPicker = true
+                }
 
-            if !message.reactions.isEmpty || canReact {
+            if !message.reactions.isEmpty {
                 reactionStack
             }
 
@@ -46,6 +53,18 @@ struct GroupChatMessageRow: View {
                 .foregroundColor(.white.opacity(0.5))
         }
         .frame(maxWidth: .infinity, alignment: isCurrentUser ? .trailing : .leading)
+        .confirmationDialog("Réagir au message", isPresented: $showingReactionPicker, titleVisibility: .visible) {
+            ForEach(availableReactions, id: \.self) { reaction in
+                Button {
+                    onToggleReaction(reaction)
+                } label: {
+                    let hasReacted = userHasReacted(to: reaction)
+                    Text("\(reaction) " + (hasReacted ? "Retirer" : "Ajouter"))
+                }
+            }
+
+            Button("Annuler", role: .cancel) { }
+        }
     }
 
     private var bubbleBackground: some View {
@@ -76,26 +95,6 @@ struct GroupChatMessageRow: View {
                 .buttonStyle(.plain)
             }
 
-            if canReact {
-                Menu {
-                    ForEach(availableReactions, id: \.self) { reaction in
-                        Button {
-                            onToggleReaction(reaction)
-                        } label: {
-                            let hasReacted = userHasReacted(to: reaction)
-                            Text("\(reaction) " + (hasReacted ? "Retirer" : "Ajouter"))
-                        }
-                    }
-                } label: {
-                    Image(systemName: "face.smiling")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Color.white.opacity(0.18))
-                        .clipShape(Circle())
-                }
-                .accessibilityLabel("Ajouter une réaction")
-            }
         }
         .frame(maxWidth: .infinity, alignment: isCurrentUser ? .trailing : .leading)
     }
