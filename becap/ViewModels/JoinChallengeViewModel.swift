@@ -23,8 +23,9 @@ class JoinChallengeViewModel: ObservableObject {
 
     private let currentUser: User?
     private let challengeManager: ChallengeManager
-    private let deepLinkScheme = "becap"
-    private let deepLinkHost = "join"
+    private let universalLinkScheme = "https"
+    private let universalLinkHost = "becap.app"
+    private let universalLinkPath = "/join"
 
     init(userManager: UserManagerProtocol = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
@@ -36,26 +37,37 @@ class JoinChallengeViewModel: ObservableObject {
 
     func shareItems(for challenge: Challenge) -> [Any]? {
         let code = challenge.code ?? ""
-        let linkURL = deepLinkURL(for: challenge, code: code)
+        guard let linkURL = universalLinkURL(for: challenge, code: code) else { return nil }
 
-        guard !code.isEmpty || linkURL != nil else { return nil }
-
-        var message = "Je t'invite à rejoindre mon défi \"\(challenge.title)\" sur Becap !"
-
-        if let linkURL {
-            message += "\n\nClique sur ce lien pour nous rejoindre directement : \(linkURL.absoluteString)"
-        }
+        var messageComponents: [String] = [
+            "✨ Découvre \"\(challenge.title)\" sur Becap",
+            "",
+            "Un calendrier collaboratif pour garder le cap ensemble et célébrer vos réussites quotidiennes.",
+            "",
+            "Clique sur le lien ci-dessous pour ouvrir l'app.",
+            linkURL.absoluteString
+        ]
 
         if !code.isEmpty {
-            message += "\nCode du défi : \(code)"
+            messageComponents.append("🔐 Code d'accès : \(code)")
         }
 
-        var items: [Any] = [message]
-        if let linkURL {
-            items.append(linkURL)
-        }
+        messageComponents.append(contentsOf: [
+            "",
+            "Becap – Le rendez-vous collectif de 20h00."
+        ])
 
-        return items
+        let message = messageComponents.joined(separator: "\n")
+
+        #if canImport(UIKit)
+        let previewImage = ChallengeSharePreviewBuilder.makePreviewImage(for: challenge, code: code)
+        let linkItem = ChallengeShareItem(challenge: challenge,
+                                          linkURL: linkURL,
+                                          previewImage: previewImage)
+        return [previewImage, message, linkItem]
+        #else
+        return [message, linkURL.absoluteString]
+        #endif
     }
 
     // TODO: Supprimer participantUids et récupérer collection participant
@@ -115,11 +127,11 @@ class JoinChallengeViewModel: ObservableObject {
 
 // MARK: - Observers
 extension JoinChallengeViewModel {
-    private func deepLinkURL(for challenge: Challenge, code: String) -> URL? {
+    private func universalLinkURL(for challenge: Challenge, code: String) -> URL? {
         var components = URLComponents()
-        components.scheme = deepLinkScheme
-        components.host = deepLinkHost
-        components.path = ""
+        components.scheme = universalLinkScheme
+        components.host = universalLinkHost
+        components.path = universalLinkPath
 
         var queryItems: [URLQueryItem] = []
         if !code.isEmpty {
@@ -130,7 +142,8 @@ extension JoinChallengeViewModel {
             queryItems.append(URLQueryItem(name: "challengeId", value: id))
         }
 
-        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        guard !queryItems.isEmpty else { return nil }
+        components.queryItems = queryItems
         return components.url
     }
 
