@@ -17,6 +17,7 @@ struct GroupChatView: View {
 
     @State private var messageDraft: String = ""
     @FocusState private var isInputFocused: Bool
+    @State private var displayedMessages: [ChallengeChatMessage] = []
 
     private let availableReactions = ["👍", "🔥", "👏", "❤️", "😂", "😮"]
 
@@ -25,11 +26,11 @@ struct GroupChatView: View {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        if messages.isEmpty {
+                        if displayedMessages.isEmpty {
                             emptyState
                         } else {
                             LazyVStack(alignment: .leading, spacing: 16) {
-                                ForEach(messages) { message in
+                                ForEach(displayedMessages) { message in
                                     GroupChatMessageRow(
                                         message: message,
                                         isCurrentUser: message.senderId == currentUserId,
@@ -48,10 +49,14 @@ struct GroupChatView: View {
                             .padding(.bottom, 16)
                         }
                     }
-                    .onChange(of: messages.count) { _ in
+                    .onChange(of: displayedMessages.count) { _ in
                         scrollToBottom(proxy: proxy)
                     }
+                    .onChange(of: messages) { newValue in
+                        displayedMessages = newValue
+                    }
                     .onAppear {
+                        displayedMessages = messages
                         scrollToBottom(proxy: proxy, animated: false)
                     }
                 }
@@ -150,7 +155,7 @@ struct GroupChatView: View {
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
-        guard let lastId = messages.last?.id else { return }
+        guard let lastId = displayedMessages.last?.id else { return }
 
         DispatchQueue.main.async {
             withAnimation(animated ? .easeOut(duration: 0.25) : nil) {
