@@ -12,6 +12,8 @@ import FirebaseAuth
 final class SettingsViewModel: ObservableObject {
     @Published var currentUser: User?
     @Published var signoutError: String? = nil
+    @Published var isDeletingAccount = false
+    @Published var accountDeletionError: String?
 
     private var cancellables = Set<AnyCancellable>()
 
@@ -72,6 +74,30 @@ final class SettingsViewModel: ObservableObject {
             } catch {
                 await MainActor.run {
                     signoutError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    func deleteAccount() {
+        guard !isDeletingAccount else { return }
+
+        isDeletingAccount = true
+        accountDeletionError = nil
+
+        Task {
+            do {
+                try await accountManager.deleteAccount()
+
+                await MainActor.run {
+                    AppState.shared.sessionID = UUID()
+                    AppState.shared.isLoggedIn = false
+                    self.isDeletingAccount = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.accountDeletionError = error.localizedDescription
+                    self.isDeletingAccount = false
                 }
             }
         }

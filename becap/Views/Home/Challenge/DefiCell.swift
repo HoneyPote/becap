@@ -10,6 +10,7 @@ import SwiftUI
 struct DefiCell: View {
     let challenge: Challenge
     let onDelete: () -> Void
+    let onReport: () -> Void
 
     var body: some View {
         ZStack {
@@ -50,6 +51,12 @@ struct DefiCell: View {
                 onDelete()
             } label: {
                 Label("Supprimer", systemImage: "trash")
+            }
+
+            Button {
+                onReport()
+            } label: {
+                Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
         .padding(4)

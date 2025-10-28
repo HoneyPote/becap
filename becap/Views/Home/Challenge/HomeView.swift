@@ -43,6 +43,9 @@ struct HomeView: View {
                 if let error = viewModel.deleteChallengeError {
                     deleteChallengeErrorView(error: error)
                 }
+                if viewModel.showReportSuccessToast {
+                    reportSuccessToast
+                }
             }
             .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
                 deleteChallengeConfirmationAlert
@@ -55,6 +58,19 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showNewChallengeView) {
             NewChallengeView(challengeCreated: $showCreationToast)
+        }
+        .sheet(item: $viewModel.challengeToReport) { challenge in
+            ReportContentView(
+                challenge: challenge,
+                isSubmitting: $viewModel.isSubmittingReport,
+                errorMessage: $viewModel.reportErrorMessage,
+                onSubmit: { reason, details in
+                    viewModel.submitReport(reason: reason, details: details)
+                },
+                onCancel: {
+                    viewModel.cancelReport()
+                }
+            )
         }
         .overlay(alignment: .top) {
             if showCreationToast {
@@ -97,7 +113,9 @@ struct HomeView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.challenges) { challenge in
                     NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
-                        DefiCell(challenge: challenge, onDelete: { viewModel.confirmDelete(challenge) })
+                        DefiCell(challenge: challenge,
+                                 onDelete: { viewModel.confirmDelete(challenge) },
+                                 onReport: { viewModel.presentReport(for: challenge) })
                     }
                 }
             }
@@ -157,5 +175,22 @@ struct HomeView: View {
         .onAppear { viewModel.onAppearDeleteChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .zIndex(10)
+    }
+
+    private var reportSuccessToast: some View {
+        VStack {
+            Spacer()
+            ToastView(message: "Signalement envoyé. Merci !", type: .success)
+                .padding(.bottom, 40)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                        withAnimation {
+                            viewModel.showReportSuccessToast = false
+                        }
+                    }
+                }
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .zIndex(11)
     }
 }

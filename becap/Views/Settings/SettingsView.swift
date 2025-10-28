@@ -12,6 +12,7 @@ struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
 
     @State private var showingLogoutAlert = false
+    @State private var showingDeleteAccountDialog = false
     @State private var showCreationToast = false
 
     // NEW: avatar picker state
@@ -64,19 +65,56 @@ struct SettingsView: View {
                 }
             }
             .navigationBarHidden(true)
-            .alert("Déconnexion", isPresented: $showingLogoutAlert) {
-                Button("Annuler", role: .cancel) {}
+            .confirmationDialog("Déconnexion", isPresented: $showingLogoutAlert, titleVisibility: .visible) {
                 Button("Déconnexion", role: .destructive) { viewModel.signOut() }
+                Button("Annuler", role: .cancel) {}
+            }
+            .confirmationDialog("Supprimer mon compte ?", isPresented: $showingDeleteAccountDialog, titleVisibility: .visible) {
+                Button("Supprimer définitivement", role: .destructive) { viewModel.deleteAccount() }
+                Button("Annuler", role: .cancel) {}
+            } message: {
+                Text("Cette action supprimera votre compte, vos données de profil et votre historique de défis. Cette action est irréversible.")
             }
             .overlay(alignment: .bottom) {
-                if showCreationToast {
-                    ToastView(message: "Défi créé avec succès 🎉", type: .success)
-                        .onAppear {
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                                withAnimation { showCreationToast = false }
-                            }
+                if showCreationToast || viewModel.accountDeletionError != nil {
+                    VStack(spacing: 16) {
+                        if showCreationToast {
+                            ToastView(message: "Défi créé avec succès 🎉", type: .success)
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                                        withAnimation { showCreationToast = false }
+                                    }
+                                }
                         }
-                        .padding(.bottom, 40)
+
+                        if let deletionError = viewModel.accountDeletionError {
+                            ToastView(message: deletionError, type: .error)
+                                .onAppear {
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                        withAnimation { viewModel.accountDeletionError = nil }
+                                    }
+                                }
+                        }
+                    }
+                    .padding(.bottom, 40)
+                }
+            }
+            .overlay {
+                if viewModel.isDeletingAccount {
+                    ZStack {
+                        Color.black.opacity(0.35).ignoresSafeArea()
+
+                        VStack(spacing: 16) {
+                            ProgressView()
+                            Text("Suppression du compte…")
+                                .font(.system(.headline, design: .rounded))
+                                .foregroundColor(.white)
+                        }
+                        .padding(28)
+                        .background(Color.black.opacity(0.65))
+                        .cornerRadius(16)
+                    }
+                    .transition(.opacity)
                 }
             }
         }
@@ -125,10 +163,28 @@ struct SettingsView: View {
                     .padding(.vertical, 6)
             }
 
+            NavigationLink(destination: LegalDocumentsView()) {
+                Label("Mentions légales", systemImage: "doc.text")
+                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+            }
+
             Button(role: .destructive) {
                 showingLogoutAlert = true
             } label: {
                 Label("Déconnexion", systemImage: "arrow.backward.circle")
+                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+            }
+
+            Button(role: .destructive) {
+                showingDeleteAccountDialog = true
+            } label: {
+                Label("Supprimer mon compte", systemImage: "person.crop.circle.badge.xmark")
                     .font(.system(.headline, design: .rounded).weight(.semibold))
                     .foregroundColor(.red)
                     .frame(maxWidth: .infinity, alignment: .leading)

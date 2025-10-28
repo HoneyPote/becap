@@ -19,11 +19,15 @@ struct SplashScreenView: View {
     var body: some View {
         Group {
             if viewModel.isReadyToProceed {
-                if appState.isLoggedIn {
-                    MainTabView()
-                        .id(appState.sessionID) // 💥 Vue root recréée à chaque changement
+                if appState.hasAcceptedLegal {
+                    if appState.isLoggedIn {
+                        MainTabView()
+                            .id(appState.sessionID) // 💥 Vue root recréée à chaque changement
+                    } else {
+                        LoginView()
+                    }
                 } else {
-                    LoginView()
+                    TermsAcceptanceView()
                 }
             } else {
                 splashScreen
