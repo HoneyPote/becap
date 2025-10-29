@@ -7,7 +7,6 @@
 
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
 
 protocol ReportServiceProtocol {
     func submitReport(_ report: ContentReport) async throws

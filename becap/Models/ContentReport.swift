@@ -6,7 +6,7 @@
 //
 
 import Foundation
-import FirebaseFirestoreSwift
+import FirebaseFirestore
 
 enum ContentReportReason: String, Codable, CaseIterable, Identifiable {
     case nudity
