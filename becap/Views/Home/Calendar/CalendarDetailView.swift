@@ -30,6 +30,7 @@ struct CalendarDetailView: View {
     @State private var selectedGridCell: CalendarDetailCell?
     @State private var showNotifSheet = false
     @State private var showJoinSheet = false
+    @State private var showParticipantsSheet = false
     @State private var pagerInfo: PagerInfo?
 
     init(challenge: Challenge) {
@@ -153,12 +154,33 @@ struct CalendarDetailView: View {
                         .onTapGesture { showNotifSheet = true }
                     GlassCircleIcon(systemName: "square.and.arrow.up.fill")
                         .onTapGesture { showJoinSheet = true }
+                    GlassCircleIcon(systemName: "person.2.fill")
+                        .onTapGesture { showParticipantsSheet = true }
                 }
                 .sheet(isPresented: $showNotifSheet, onDismiss: { viewModel.fetchInfos() }) {
                     NotificationSettingsView(challenge: viewModel.challenge)
                 }
                 .sheet(isPresented: $showJoinSheet) {
                     JoinChallengeView()
+                }
+                .sheet(isPresented: $showParticipantsSheet) {
+                    ParticipantsOverviewView(participants: viewModel.participants,
+                                              photos: viewModel.allPhotos,
+                                              progresses: viewModel.participantProgresses,
+                                              chatMessages: viewModel.chatMessages,
+                                              hasUnreadMessages: viewModel.chatHasUnreadMessages,
+                                              currentUserId: viewModel.currentUserId,
+                                              onSendMessage: { message in
+                                                  await viewModel.sendChatMessage(content: message)
+                                              },
+                                              onToggleReaction: { message, reaction in
+                                                  await viewModel.toggleReaction(reaction, for: message)
+                                              },
+                                              onChatOpened: {
+                                                  Task {
+                                                      await viewModel.markChatAsRead()
+                                                  }
+                                              })
                 }
             }
             .padding(.horizontal, 14)

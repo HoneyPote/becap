@@ -35,6 +35,14 @@ protocol ChallengeManagerProtocol {
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+
+    // Chat
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
+    func sendChatMessage(_ content: String, challengeId: String) async throws
+    func markChatAsRead(for challengeId: String)
+    func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool
+    func addChatReaction(_ reaction: String, to message: ChallengeChatMessage, challengeId: String, userId: String) async throws
+    func removeChatReaction(_ reaction: String, from message: ChallengeChatMessage, challengeId: String, userId: String) async throws
 }
 
 class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
@@ -52,19 +60,23 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let notificationService: NotificationService
     private let rewardService: RewardService
     private let alertManager: GlobalAlertManager
+    private let defaults: UserDefaults
+    private let chatLastReadPrefix = "challengeChatLastRead_"
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
          accountManager: AccountManager = AccountManager(),
          notifificationService: NotificationService = NotificationService.shared,
          rewardService: RewardService = RewardService.shared,
-         alertManager: GlobalAlertManager = GlobalAlertManager.shared) {
+         alertManager: GlobalAlertManager = GlobalAlertManager.shared,
+         defaults: UserDefaults = .standard) {
         self.userManager = userManager
         self.challengeService = challengeService
         self.accountManager = accountManager
         self.notificationService = notifificationService
         self.rewardService = rewardService
         self.alertManager = alertManager
+        self.defaults = defaults
 
         observeCurrentUser()
     }
@@ -132,6 +144,67 @@ extension ChallengeManager {
                 challenges[index] = challenge
             }
         }
+    }
+}
+
+// MARK: - Chat
+extension ChallengeManager {
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage] {
+        try await challengeService.fetchChatMessages(for: challengeId)
+    }
+
+    func sendChatMessage(_ content: String, challengeId: String) async throws {
+        guard let currentUser, let userId = currentUser.id else { return }
+
+        let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedContent.isEmpty else { return }
+
+        let message = ChallengeChatMessage(
+            documentId: nil,
+            challengeId: challengeId,
+            senderId: userId,
+            senderName: currentUser.name,
+            content: trimmedContent,
+            createdAt: Date(),
+            reactions: [:]
+        )
+
+        try await challengeService.addChatMessage(message, to: challengeId)
+    }
+
+    func markChatAsRead(for challengeId: String) {
+        defaults.set(Date(), forKey: chatLastReadPrefix + challengeId)
+    }
+
+    func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool {
+        guard let latestMessageDate else { return false }
+
+        let lastRead = defaults.object(forKey: chatLastReadPrefix + challengeId) as? Date ?? .distantPast
+        return latestMessageDate > lastRead
+    }
+
+    func addChatReaction(_ reaction: String,
+                         to message: ChallengeChatMessage,
+                         challengeId: String,
+                         userId: String) async throws {
+        guard let messageId = message.documentId else { return }
+
+        try await challengeService.addReaction(reaction,
+                                               to: messageId,
+                                               in: challengeId,
+                                               userId: userId)
+    }
+
+    func removeChatReaction(_ reaction: String,
+                            from message: ChallengeChatMessage,
+                            challengeId: String,
+                            userId: String) async throws {
+        guard let messageId = message.documentId else { return }
+
+        try await challengeService.removeReaction(reaction,
+                                                  from: messageId,
+                                                  in: challengeId,
+                                                  userId: userId)
     }
 }
 
@@ -273,6 +346,10 @@ extension ChallengeManager {
                                                currentStreak: 0)
 
         try setUserProgress(userId: userId, challengeId: challengeId, progress: userProgress)
+    }
+
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        return try await challengeService.fetchParticipantsProgress(for: challengeId)
     }
 
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws {
