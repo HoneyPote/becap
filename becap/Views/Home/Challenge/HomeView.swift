@@ -7,13 +7,12 @@
 
 import SwiftUI
 
-// TODO: Faire un bouton réutilisable pour les challenges et join et create
+// TODO: Faire un bouton réutilisable pour les challenges et join/report
 struct HomeView: View {
     @StateObject var viewModel = HomeViewModel()
 
     @State private var showJoinView = false
-    @State private var showNewChallengeView = false
-    @State private var showCreationToast = false
+    @State private var showReportSelector = false
 
     var body: some View {
         NavigationStack {
@@ -31,7 +30,7 @@ struct HomeView: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: .zero) {
-                            joinCreateChallengeSection
+                            joinReportChallengeSection
 
                             challengeListSection
                         }
@@ -56,8 +55,13 @@ struct HomeView: View {
         .sheet(isPresented: $showJoinView) {
             JoinChallengeView()
         }
-        .sheet(isPresented: $showNewChallengeView) {
-            NewChallengeView(challengeCreated: $showCreationToast)
+        .sheet(isPresented: $showReportSelector) {
+            ReportChallengeSelectorView(
+                challenges: viewModel.challenges,
+                onSelect: { challenge in
+                    viewModel.presentReport(for: challenge)
+                }
+            )
         }
         .sheet(item: $viewModel.challengeToReport) { challenge in
             ReportContentView(
@@ -72,22 +76,17 @@ struct HomeView: View {
                 }
             )
         }
-        .overlay(alignment: .top) {
-            if showCreationToast {
-                challengeCreatedToast
-                    .padding(.bottom, 40)
-            }
-        }
     }
 
-    private var joinCreateChallengeSection: some View {
+    private var joinReportChallengeSection: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
             JoinButtonCell {
                 showJoinView = true
             }
 
-            NewChallengeCell {
-                showNewChallengeView = true
+            ReportShortcutCell(isDisabled: viewModel.challenges.isEmpty) {
+                guard !viewModel.challenges.isEmpty else { return }
+                showReportSelector = true
             }
         }
     }
@@ -120,18 +119,6 @@ struct HomeView: View {
                 }
             }
         }
-    }
-
-    private var challengeCreatedToast: some View {
-        // TODO: Améliorer je sais pas trop comment
-        ToastView(message: "Défi créé avec succès 🎉", type: .success)
-            .onAppear {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation {
-                        showCreationToast = false
-                    }
-                }
-            }
     }
 
     private var deleteChallengeConfirmationAlert: some View {
