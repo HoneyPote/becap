@@ -12,14 +12,21 @@ class HomeViewModel: ObservableObject {
     @Published var showDeleteAlert = false
     @Published var deleteChallengeError: String?
     @Published var challenges: [Challenge] = []
+    @Published var challengeToReport: Challenge?
+    @Published var isSubmittingReport = false
+    @Published var reportErrorMessage: String?
+    @Published var showReportSuccessToast = false
 
     private var cancellables = Set<AnyCancellable>()
 
     private let challengeManager: ChallengeManager
+    private let reportManager: ReportManagerProtocol
     private var challengeToDelete: Challenge?
 
-    init(challengeManager: ChallengeManager = ChallengeManager.shared) {
+    init(challengeManager: ChallengeManager = ChallengeManager.shared,
+         reportManager: ReportManagerProtocol = ReportManager.shared) {
         self.challengeManager = challengeManager
+        self.reportManager = reportManager
 
         observeChallengesChanges()
     }
@@ -67,6 +74,41 @@ class HomeViewModel: ObservableObject {
     func cancelDelete() {
         challengeToDelete = nil
         showDeleteAlert = false
+    }
+
+    func presentReport(for challenge: Challenge) {
+        challengeToReport = challenge
+        reportErrorMessage = nil
+    }
+
+    func cancelReport() {
+        challengeToReport = nil
+        isSubmittingReport = false
+        reportErrorMessage = nil
+    }
+
+    func submitReport(reason: ContentReportReason, details: String) {
+        guard let challenge = challengeToReport else { return }
+
+        isSubmittingReport = true
+        reportErrorMessage = nil
+
+        Task {
+            do {
+                try await reportManager.submitChallengeReport(challenge: challenge, reason: reason, details: details)
+
+                await MainActor.run {
+                    self.isSubmittingReport = false
+                    self.challengeToReport = nil
+                    self.showReportSuccessToast = true
+                }
+            } catch {
+                await MainActor.run {
+                    self.isSubmittingReport = false
+                    self.reportErrorMessage = "Impossible d’envoyer le signalement. Veuillez réessayer."
+                }
+            }
+        }
     }
 }
 

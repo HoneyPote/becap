@@ -14,6 +14,7 @@ protocol AccountManagerProtocol {
     func updateCurrentUser(with uid: String) async throws -> User?
     func signOut() throws
     func fetchUser(uid: String) async throws -> User?
+    func deleteAccount() async throws
 }
 
 class AccountManager: AccountManagerProtocol {
@@ -61,5 +62,14 @@ extension AccountManager {
         } catch {
             throw AccountError.fetchUserError(error.localizedDescription)
         }
+    }
+
+    func deleteAccount() async throws {
+        try await accountService.deleteCurrentAccount()
+
+        await MainActor.run {
+            userManager.resetUser()
+        }
+        notificationService.logoutOneSignalUser()
     }
 }

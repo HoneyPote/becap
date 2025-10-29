@@ -29,6 +29,7 @@ protocol AccountServiceProtocol {
     func register(email: String, password: String, name: String) async throws -> FirebaseAuth.User
     func signOut() throws
     func fetchUserDocument(uid: String) async throws -> DocumentSnapshot
+    func deleteCurrentAccount() async throws
 }
 
 class AccountService: AccountServiceProtocol {
@@ -67,6 +68,24 @@ extension AccountService {
             return try await firestoreDB.collection("users").document(uid).getDocument()
         } catch {
             throw AccountError.fetchUserError(error.localizedDescription)
+        }
+    }
+
+    func deleteCurrentAccount() async throws {
+        guard let user = firebaseAuth.currentUser else { return }
+
+        let uid = user.uid
+
+        try await firestoreDB.collection(FirestoreUserKeys.users).document(uid).delete()
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            user.delete { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
         }
     }
 
