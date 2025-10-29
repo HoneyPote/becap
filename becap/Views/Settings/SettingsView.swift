@@ -10,14 +10,23 @@ import PhotosUI
 
 struct SettingsView: View {
     @StateObject private var viewModel = SettingsViewModel()
+    @ObservedObject private var challengeManager = ChallengeManager.shared
 
     @State private var showingLogoutAlert = false
     @State private var showingDeleteAccountDialog = false
-    @State private var showCreationToast = false
+
+    // Reporting flow state
+    @State private var showReportSelector = false
+    @State private var challengeToReport: Challenge?
+    @State private var isSubmittingReport = false
+    @State private var reportErrorMessage: String?
+    @State private var showReportSuccessToast = false
 
     // NEW: avatar picker state
     @State private var avatarItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
+
+    private let reportManager: ReportManagerProtocol = ReportManager.shared
 
     var body: some View {
         NavigationView {
@@ -76,15 +85,11 @@ struct SettingsView: View {
                 Text("Cette action supprimera votre compte, vos données de profil et votre historique de défis. Cette action est irréversible.")
             }
             .overlay(alignment: .bottom) {
-                if showCreationToast || viewModel.accountDeletionError != nil {
+                if showReportSuccessToast || viewModel.accountDeletionError != nil {
                     VStack(spacing: 16) {
-                        if showCreationToast {
-                            ToastView(message: "Défi créé avec succès 🎉", type: .success)
-                                .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                                        withAnimation { showCreationToast = false }
-                                    }
-                                }
+                        if showReportSuccessToast {
+                            ToastView(message: "Signalement envoyé. Merci !", type: .success)
+                                .onAppear { scheduleReportSuccessDismissal() }
                         }
 
                         if let deletionError = viewModel.accountDeletionError {
@@ -117,6 +122,31 @@ struct SettingsView: View {
                     .transition(.opacity)
                 }
             }
+        }
+        .task {
+            try? await challengeManager.fetchAndFilterChallenges()
+        }
+        .sheet(isPresented: $showReportSelector) {
+            ReportChallengeSelectorView(
+                challenges: challengeManager.challenges,
+                onSelect: { challenge in
+                    challengeToReport = challenge
+                    reportErrorMessage = nil
+                }
+            )
+        }
+        .sheet(item: $challengeToReport) { challenge in
+            ReportContentView(
+                challenge: challenge,
+                isSubmitting: $isSubmittingReport,
+                errorMessage: $reportErrorMessage,
+                onSubmit: { reason, details in
+                    submitReport(for: challenge, reason: reason, details: details)
+                },
+                onCancel: {
+                    cancelReport()
+                }
+            )
         }
     }
 
@@ -155,10 +185,12 @@ struct SettingsView: View {
 
     private var navigationList: some View {
         VStack(spacing: 14) {
-            NavigationLink(destination: NewChallengeView(challengeCreated: $showCreationToast)) {
-                Label("Créer un nouveau défi", systemImage: "plus.circle")
+            Button {
+                showReportSelector = true
+            } label: {
+                Label("Signaler un défi", systemImage: "exclamationmark.bubble")
                     .font(.system(.headline, design: .rounded).weight(.semibold))
-                    .foregroundColor(.blue)
+                    .foregroundColor(.orange)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 6)
             }
@@ -208,6 +240,42 @@ struct SettingsView: View {
             }
         } catch {
             print("❌ Upload avatar error: \(error)")
+        }
+    }
+
+    private func submitReport(for challenge: Challenge, reason: ContentReportReason, details: String) {
+        isSubmittingReport = true
+        reportErrorMessage = nil
+
+        Task {
+            do {
+                try await reportManager.submitChallengeReport(challenge: challenge, reason: reason, details: details)
+
+                await MainActor.run {
+                    self.isSubmittingReport = false
+                    self.challengeToReport = nil
+                    self.showReportSuccessToast = true
+                }
+            } catch {
+                await MainActor.run {
+                    self.isSubmittingReport = false
+                    self.reportErrorMessage = "Impossible d’envoyer le signalement. Veuillez réessayer."
+                }
+            }
+        }
+    }
+
+    private func cancelReport() {
+        challengeToReport = nil
+        isSubmittingReport = false
+        reportErrorMessage = nil
+    }
+
+    private func scheduleReportSuccessDismissal() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+            withAnimation {
+                showReportSuccessToast = false
+            }
         }
     }
 }
