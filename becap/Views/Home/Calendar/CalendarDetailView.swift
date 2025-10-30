@@ -32,9 +32,13 @@ struct CalendarDetailView: View {
     @State private var showNotifSheet = false
     @State private var showJoinSheet = false
     @State private var pagerInfo: PagerInfo?
+    @State private var hasHandledInitialPhoto = false
 
-    init(challenge: Challenge) {
+    private let initialPhotoId: String?
+
+    init(challenge: Challenge, initialPhotoId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
+        self.initialPhotoId = initialPhotoId
     }
 
     var body: some View {
@@ -98,6 +102,13 @@ struct CalendarDetailView: View {
         }
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
+        .onChange(of: viewModel.allPhotos) { _ in
+            handleInitialPhotoIfNeeded()
+        }
+        .onChange(of: viewModel.doneLoadingPhotos) { isDone in
+            guard isDone else { return }
+            handleInitialPhotoIfNeeded()
+        }
         .navigationBarHidden(true)
     }
 
@@ -205,5 +216,23 @@ struct CalendarDetailView: View {
                 pagerInfo = info
             }
         })
+    }
+}
+
+extension CalendarDetailView {
+    private func handleInitialPhotoIfNeeded() {
+        guard !hasHandledInitialPhoto,
+              let targetId = initialPhotoId,
+              viewModel.allPhotos.contains(where: { $0.id == targetId }) else { return }
+
+        hasHandledInitialPhoto = true
+
+        let cells = viewModel.buildDetailcells()
+        guard let cell = cells.first(where: { $0.photos.contains(where: { $0.id == targetId }) }),
+              let index = cell.photos.firstIndex(where: { $0.id == targetId }) else { return }
+
+        DispatchQueue.main.async {
+            pagerInfo = PagerInfo(photos: cell.photos, index: index, date: cell.date)
+        }
     }
 }

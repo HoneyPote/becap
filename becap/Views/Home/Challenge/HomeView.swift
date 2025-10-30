@@ -7,16 +7,33 @@
 
 import SwiftUI
 
+private struct ChallengeNavigation: Hashable {
+    let challenge: Challenge
+    let photoId: String?
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(challenge)
+        hasher.combine(photoId)
+    }
+
+    static func == (lhs: ChallengeNavigation, rhs: ChallengeNavigation) -> Bool {
+        lhs.challenge == rhs.challenge && lhs.photoId == rhs.photoId
+    }
+}
+
 // TODO: Faire un bouton réutilisable pour les challenges et join et create
 struct HomeView: View {
+    @EnvironmentObject private var appState: AppState
     @StateObject var viewModel = HomeViewModel()
 
     @State private var showJoinView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
+    @State private var navigationPath = NavigationPath()
+    @State private var pendingDeepLink: AppDeepLink?
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $navigationPath) {
             ZStack {
                 LinearGradient.petrolToSky.ignoresSafeArea()
 
@@ -62,6 +79,20 @@ struct HomeView: View {
                     .padding(.bottom, 40)
             }
         }
+        .navigationDestination(for: ChallengeNavigation.self) { navigation in
+            CalendarDetailView(challenge: navigation.challenge, initialPhotoId: navigation.photoId)
+        }
+        .onChange(of: appState.deepLink) { deepLink in
+            guard let deepLink else { return }
+            pendingDeepLink = deepLink
+            handlePendingDeepLinkIfPossible()
+        }
+        .onChange(of: viewModel.challenges) { _ in
+            handlePendingDeepLinkIfPossible()
+        }
+        .onAppear {
+            handlePendingDeepLinkIfPossible()
+        }
     }
 
     private var joinCreateChallengeSection: some View {
@@ -96,7 +127,7 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.challenges) { challenge in
-                    NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
+                    NavigationLink(value: ChallengeNavigation(challenge: challenge, photoId: nil)) {
                         DefiCell(challenge: challenge, onDelete: { viewModel.confirmDelete(challenge) })
                     }
                 }
@@ -157,5 +188,24 @@ struct HomeView: View {
         .onAppear { viewModel.onAppearDeleteChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .zIndex(10)
+    }
+}
+
+extension HomeView {
+    private func handlePendingDeepLinkIfPossible() {
+        guard let deepLink = pendingDeepLink ?? appState.deepLink else { return }
+
+        switch deepLink {
+        case let .calendarPhoto(challengeId, photoId):
+            guard let targetChallenge = viewModel.challenges.first(where: { $0.id == challengeId }) else {
+                pendingDeepLink = deepLink
+                return
+            }
+
+            pendingDeepLink = nil
+            navigationPath = NavigationPath()
+            navigationPath.append(ChallengeNavigation(challenge: targetChallenge, photoId: photoId))
+            appState.clearDeepLink()
+        }
     }
 }

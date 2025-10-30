@@ -72,7 +72,11 @@ class NotificationService {
         sendUrlRequestNotification(payload: payload)
     }
 
-    func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
+    func sendLikeNotification(to authorUid: String,
+                              from userName: String,
+                              challengeTitle: String,
+                              challengeId: String,
+                              photoId: String) async {
         guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
             print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
             return
@@ -84,7 +88,12 @@ class NotificationService {
                                                    "fr": "Nouvelle mention J’aime !"],
                                       "contents": ["en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
                                                    "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""],
-                                      "ios_sound": "default"]
+                                      "ios_sound": "default",
+                                      "data": [
+                                        "type": "photo-activity",
+                                        "challengeId": challengeId,
+                                        "photoId": photoId
+                                      ]]
 
         sendUrlRequestNotification(payload: payload)
     }
@@ -92,7 +101,9 @@ class NotificationService {
     func sendCommentNotification(to authorUid: String,
                                  from userName: String,
                                  challengeTitle: String,
-                                 commentText: String) async {
+                                 commentText: String,
+                                 challengeId: String,
+                                 photoId: String) async {
         guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
             print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
             return
@@ -108,7 +119,12 @@ class NotificationService {
                                         "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
                                         "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
                                       ],
-                                      "ios_sound": "default"]
+                                      "ios_sound": "default",
+                                      "data": [
+                                        "type": "photo-activity",
+                                        "challengeId": challengeId,
+                                        "photoId": photoId
+                                      ]]
 
         sendUrlRequestNotification(payload: payload)
     }

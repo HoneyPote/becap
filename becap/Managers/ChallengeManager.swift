@@ -203,7 +203,9 @@ extension ChallengeManager {
 
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
                                                             from: currentUser.name,
-                                                            challengeTitle: challengeTitle)
+                                                            challengeTitle: challengeTitle,
+                                                            challengeId: challengeId,
+                                                            photoId: photoId)
     }
 
     func unlikePhoto(photo: ChallengePhoto) async throws {
@@ -253,7 +255,9 @@ extension ChallengeManager {
         await notificationService.sendCommentNotification(to: photo.authorUid,
                                                           from: currentUser.name,
                                                           challengeTitle: challengeTitle,
-                                                          commentText: content)
+                                                          commentText: content,
+                                                          challengeId: challengeId,
+                                                          photoId: photoId)
     }
 
     // Photos - Privates

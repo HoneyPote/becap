@@ -9,6 +9,7 @@ import SwiftUI
 import Combine
 
 struct MainTabView: View {
+    @EnvironmentObject private var appState: AppState
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
 
     @Environment(\.scenePhase) private var scenePhase
@@ -33,12 +34,19 @@ struct MainTabView: View {
         }
         .onAppear {
             NotificationManager.shared.requestAuthorization()
+            if appState.deepLink != nil {
+                selectedIndex = TabType.home.rawValue
+            }
         }
         .task {
             viewModel.fetchInfos()
         }
         .onChange(of: scenePhase) { newPhase in
             viewModel.onChangeOfScenePhase(newPhase)
+        }
+        .onChange(of: appState.deepLink) { deepLink in
+            guard deepLink != nil else { return }
+            selectedIndex = TabType.home.rawValue
         }
         .overlay {
             if let medal = viewModel.medal {
