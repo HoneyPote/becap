@@ -29,8 +29,9 @@ struct CalendarDetailView: View {
     @State private var selectedParticipant: Participant?
     @State private var selectedGridCell: CalendarDetailCell?
     @State private var showNotifSheet = false
-    @State private var showJoinSheet = false
     @State private var showParticipantsSheet = false
+    @State private var isShareSheetPresented = false
+    @State private var shareItems: [Any] = []
     @State private var pagerInfo: PagerInfo?
 
     init(challenge: Challenge) {
@@ -153,15 +154,12 @@ struct CalendarDetailView: View {
                     GlassCircleIcon(systemName: "bell.fill")
                         .onTapGesture { showNotifSheet = true }
                     GlassCircleIcon(systemName: "square.and.arrow.up.fill")
-                        .onTapGesture { showJoinSheet = true }
+                        .onTapGesture { presentShareSheet() }
                     GlassCircleIcon(systemName: "person.2.fill")
                         .onTapGesture { showParticipantsSheet = true }
                 }
                 .sheet(isPresented: $showNotifSheet, onDismiss: { viewModel.fetchInfos() }) {
                     NotificationSettingsView(challenge: viewModel.challenge)
-                }
-                .sheet(isPresented: $showJoinSheet) {
-                    JoinChallengeView()
                 }
                 .sheet(isPresented: $showParticipantsSheet) {
                     ParticipantsOverviewView(participants: viewModel.participants,
@@ -181,6 +179,11 @@ struct CalendarDetailView: View {
                                                       await viewModel.markChatAsRead()
                                                   }
                                               })
+                }
+                .sheet(isPresented: $isShareSheetPresented) {
+                    if !shareItems.isEmpty {
+                        ShareSheet(activityItems: shareItems)
+                    }
                 }
             }
             .padding(.horizontal, 14)
@@ -226,5 +229,11 @@ struct CalendarDetailView: View {
                 pagerInfo = info
             }
         })
+    }
+
+    private func presentShareSheet() {
+        guard let items = ChallengeShareBuilder.makeShareItems(for: viewModel.challenge) else { return }
+        shareItems = items
+        isShareSheetPresented = true
     }
 }
