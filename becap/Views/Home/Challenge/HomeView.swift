@@ -25,7 +25,7 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient.petrolToSky.ignoresSafeArea()
+                PetrolSkyHeroBackground()
 
                 VStack(alignment: .center) {
                     Text("⛿ BE CAP ⛿")

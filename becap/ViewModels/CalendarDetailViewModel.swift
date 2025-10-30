@@ -11,6 +11,7 @@ struct Participant: Hashable {
     let id: String
     let name: String
     var medals: [UserMedal]
+    var photoURL: String?
 
     static func ==(lhs: Participant, rhs: Participant) -> Bool {
         lhs.id == rhs.id && lhs.name == rhs.name
@@ -36,6 +37,9 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var doneLoadingPhotos: Bool = false
     @Published var selectedPagerInfo: PagerInfo?
     @Published var participants: [Participant] = []
+    @Published var participantProgresses: [ParticipantProgress] = []
+    @Published var chatMessages: [ChallengeChatMessage] = []
+    @Published var chatHasUnreadMessages: Bool = false
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -56,12 +60,16 @@ class CalendarDetailViewModel: ObservableObject {
         Task {
             async let photosTask = try fetchPhotos()
             async let allParticipants = try buildParticipants()
+            async let progressesTask = try fetchParticipantProgresses()
+            async let chatTask = try fetchChatMessages()
 
-            let (photos, participants) = try await (photosTask, allParticipants)
+            let (photos, participants, progresses, chatMessages) = try await (photosTask, allParticipants, progressesTask, chatTask)
 
             await MainActor.run {
                 self.updatePhotos(photos)
                 self.participants = participants
+                self.participantProgresses = progresses
+                self.updateChat(messages: chatMessages)
                 self.doneLoadingPhotos = true
             }
         }
@@ -102,6 +110,72 @@ class CalendarDetailViewModel: ObservableObject {
         participants.first(where: { $0.id == uid })
     }
 
+    var currentUserId: String? {
+        challengeManager.currentUser?.id
+    }
+
+    @MainActor
+    func markChatAsRead() {
+        guard let challengeId = challenge.id else { return }
+
+        challengeManager.markChatAsRead(for: challengeId)
+        chatHasUnreadMessages = false
+    }
+
+    func sendChatMessage(content: String) async {
+        guard let challengeId = challenge.id else { return }
+
+        do {
+            try await challengeManager.sendChatMessage(content, challengeId: challengeId)
+            let messages = try await fetchChatMessages()
+
+            await MainActor.run {
+                self.updateChat(messages: messages)
+                if !messages.isEmpty {
+                    self.markChatAsRead()
+                }
+            }
+        } catch {
+            print("❌ Failed to send chat message: \(error)")
+        }
+    }
+
+    func toggleReaction(_ reaction: String, for message: ChallengeChatMessage) async {
+        guard let challengeId = challenge.id,
+              let userId = challengeManager.currentUser?.id else { return }
+
+        do {
+            let latestMessages = try await fetchChatMessages()
+
+            guard let targetMessage = latestMessages.first(where: { $0.id == message.id }) else {
+                print("❌ Failed to resolve message for reaction toggle")
+                return
+            }
+
+            let userHasReaction = targetMessage.reactions[reaction]?.contains(userId) ?? false
+
+            if userHasReaction {
+                try await challengeManager.removeChatReaction(reaction,
+                                                             from: targetMessage,
+                                                             challengeId: challengeId,
+                                                             userId: userId)
+            } else {
+                try await challengeManager.addChatReaction(reaction,
+                                                           to: targetMessage,
+                                                           challengeId: challengeId,
+                                                           userId: userId)
+            }
+
+            let refreshedMessages = try await fetchChatMessages()
+
+            await MainActor.run {
+                self.updateChat(messages: refreshedMessages)
+            }
+        } catch {
+            print("❌ Failed to toggle reaction: \(error)")
+        }
+    }
+
     // MARK: - Private functions
 
     private func buildParticipants() async throws -> [Participant] {
@@ -113,10 +187,27 @@ class CalendarDetailViewModel: ObservableObject {
 
             let participantName = currentUser.id == user.id ? "Moi" : user.name
 
-            allParticipants.append(Participant(id: participantUid, name: participantName, medals: user.medals ?? []))
+            allParticipants.append(
+                Participant(id: participantUid,
+                            name: participantName,
+                            medals: user.medals ?? [],
+                            photoURL: user.photoURL)
+            )
         }
 
         return allParticipants
+    }
+
+    private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
+        guard let challengeId = challenge.id else { return [] }
+
+        return try await challengeManager.fetchParticipantsProgress(for: challengeId)
+    }
+
+    private func fetchChatMessages() async throws -> [ChallengeChatMessage] {
+        guard let challengeId = challenge.id else { return [] }
+
+        return try await challengeManager.fetchChatMessages(for: challengeId)
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {
@@ -131,5 +222,20 @@ class CalendarDetailViewModel: ObservableObject {
 
     private func updatePhotos(_ photos: [ChallengePhoto]) {
         self.allPhotos = photos
+    }
+
+    @MainActor
+    private func updateChat(messages: [ChallengeChatMessage]) {
+        self.chatMessages = messages
+
+        guard let challengeId = challenge.id else {
+            self.chatHasUnreadMessages = false
+            return
+        }
+
+        self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(
+            for: challengeId,
+            latestMessageDate: messages.last?.createdAt
+        )
     }
 }

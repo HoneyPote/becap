@@ -154,14 +154,19 @@ struct SettingsView: View {
 
     // Keep this thin; heavier UI is in subviews below to avoid type-check blowups.
     private func headerProfile(user: User) -> some View {
-        ProfileHeader(
-            user: user,
-            avatarItem: $avatarItem,
-            isUploading: $isUploadingAvatar,
-            onAvatarPicked: { item in
-                Task { await handleAvatarSelection(item: item) }
-            }
-        )
+        VStack(spacing: 12) {
+            ProfileAvatarView(name: user.name, photoURL: user.photoURL)
+
+            Text(user.name)
+                .font(.system(.title3, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+
+            Text(user.email)
+                .font(.subheadline)
+                .foregroundColor(.white.opacity(0.7))
+        }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
     }
 
     // MARK: - Sections
@@ -383,5 +388,54 @@ private struct AvatarCircle: View {
                 .foregroundColor(.white.opacity(0.92))
                 .padding(10)
         }
+    }
+}
+
+private struct ProfileAvatarView: View {
+    let name: String
+    let photoURL: String?
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.white.opacity(0.18))
+                .overlay(
+                    Circle()
+                        .stroke(Color.white.opacity(0.25), lineWidth: 0.8)
+                )
+
+            if let photoURL, let url = URL(string: photoURL) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .scaledToFill()
+                    case .empty:
+                        ProgressView()
+                    case .failure:
+                        initialsView
+                    @unknown default:
+                        initialsView
+                    }
+                }
+                .clipShape(Circle())
+            } else {
+                initialsView
+            }
+        }
+        .frame(width: 90, height: 90)
+    }
+
+    private var initialsView: some View {
+        Text(initials(from: name))
+            .font(.system(.title2, design: .rounded).weight(.heavy))
+            .foregroundColor(.white)
+    }
+
+    private func initials(from name: String) -> String {
+        let components = name.split(separator: " ")
+        let initials = components.prefix(2).compactMap { $0.first }
+        return String(initials)
     }
 }

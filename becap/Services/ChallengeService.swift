@@ -36,6 +36,12 @@ protocol ChallengeServiceProtocol {
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+
+    // Chat
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
+    func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws
+    func addReaction(_ reaction: String, to messageId: String, in challengeId: String, userId: String) async throws
+    func removeReaction(_ reaction: String, from messageId: String, in challengeId: String, userId: String) async throws
 }
 
 final class ChallengeService: ChallengeServiceProtocol {
@@ -47,6 +53,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecPhotos = "photos"
     private let collecParticipants = "participants"
     private let collecComments = "comments"
+    private let collecChat = "chatMessages"
 
     private init() {}
 }
@@ -265,6 +272,74 @@ extension ChallengeService {
     }
 }
 
+// MARK: - Chat
+extension ChallengeService {
+    func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage] {
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .order(by: "createdAt", descending: false)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
+    }
+
+    func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws {
+        try firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .addDocument(from: message)
+    }
+
+    func addReaction(_ reaction: String,
+                     to messageId: String,
+                     in challengeId: String,
+                     userId: String) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .document(messageId)
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            ref.updateData([
+                "reactions.\(reaction)": FieldValue.arrayUnion([userId])
+            ]) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+
+    func removeReaction(_ reaction: String,
+                        from messageId: String,
+                        in challengeId: String,
+                        userId: String) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+            .document(messageId)
+
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            ref.updateData([
+                "reactions.\(reaction)": FieldValue.arrayRemove([userId])
+            ]) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume()
+                }
+            }
+        }
+    }
+}
+
 // MARK: - Reward flow
 extension ChallengeService {
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
@@ -291,6 +366,16 @@ extension ChallengeService {
 
             completion(progresses)
         }
+    }
+
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ParticipantProgress.self) }
     }
 
     func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
