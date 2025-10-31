@@ -16,11 +16,6 @@ struct JoinChallengeView: View {
 
     @StateObject private var viewModel = JoinChallengeViewModel()
 
-    @State private var isCodeCopied = false
-    @State private var showCreationToast = false
-    @State private var isShareSheetPresented = false
-    @State private var shareItems: [Any] = []
-
     // ⬇️ NEW: init optionnel avec code
     init(prefilledCode: String? = nil) {
         self.prefilledCode = prefilledCode
@@ -43,10 +38,6 @@ struct JoinChallengeView: View {
 
                         GlassCard {
                             joinByCodeSection
-                        }
-
-                        GlassCard {
-                            shareExistingChallengeSection
                         }
                     }
                     .padding(.horizontal, 16)
@@ -76,23 +67,6 @@ struct JoinChallengeView: View {
                 message: Text(viewModel.alertMessage),
                 dismissButton: .default(Text("OK"))
             )
-        }
-        .overlay(alignment: .bottom) {
-            if showCreationToast {
-                ToastView(message: "Défi créé avec succès 🎉",
-                          type: .success)
-                .onAppear {
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                        withAnimation { showCreationToast = false }
-                    }
-                }
-                .padding(.bottom, 40)
-            }
-        }
-        .sheet(isPresented: $isShareSheetPresented) {
-            if !shareItems.isEmpty {
-                ShareSheet(activityItems: shareItems)
-            }
         }
         // ⬇️ NEW: quand on arrive avec un code prérempli, on l’affiche
         .onAppear {
@@ -152,106 +126,5 @@ struct JoinChallengeView: View {
             .shadow(color: Color.blue.opacity(0.16), radius: 7, x: 0, y: 2)
         }
         .padding(.vertical, 6)
-    }
-
-    private var shareExistingChallengeSection: some View {
-        VStack(spacing: 16) {
-            Text("Partager un de mes défis")
-                .font(.system(.title3, design: .rounded).weight(.bold))
-                .foregroundColor(.accentColor)
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            if !viewModel.userCreatedChallenges.isEmpty {
-                createdChallengesPicker
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 6)
-
-                if let challenge = viewModel.selectedChallengeToShare {
-                    challengeToShareCode(challenge)
-                        .padding(.horizontal, 2)
-                        .padding(.top, 2)
-                }
-            } else {
-                Text("Aucun défi encore créé")
-                    .foregroundColor(.secondary)
-            }
-        }
-        .padding(.vertical, 6)
-    }
-
-    private var createdChallengesPicker: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(.ultraThinMaterial)
-                .shadow(color: Color.black.opacity(0.05), radius: 4, x: 0, y: 2)
-
-            Picker("Sélectionner un défi", selection: $viewModel.selectedChallengeToShare) {
-                ForEach(viewModel.userCreatedChallenges, id: \.id) { challenge in
-                    Text(challenge.title)
-                        .tag(Optional(challenge))
-                }
-            }
-            .pickerStyle(MenuPickerStyle())
-            .padding(.horizontal, 8)
-        }
-        .frame(height: 54)
-    }
-
-    private func challengeToShareCode(_ challenge: Challenge) -> some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Code à Partager:")
-                    .font(.system(.subheadline, design: .rounded).weight(.bold))
-                    .foregroundColor(.white)
-
-                Text(challenge.code ?? "—")
-                    .font(.system(.title2, design: .monospaced).weight(.bold))
-                    .foregroundColor(.accentColor)
-
-                if isCodeCopied {
-                    Text("Code copié ✅")
-                        .font(.caption2)
-                        .foregroundColor(.green)
-                        .transition(.opacity)
-                }
-            }
-            .padding(.vertical, 2)
-            Spacer()
-            HStack(spacing: 10) {
-                Button(action: {
-                    UIPasteboard.general.string = challenge.code
-                    withAnimation { isCodeCopied = true }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                        withAnimation { isCodeCopied = false }
-                    }
-                }) {
-                    Image(systemName: "doc.on.doc.fill")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(.ultraThinMaterial))
-                        .shadow(radius: 4)
-                }
-                .accessibilityLabel("Copier le code du défi")
-
-                Button(action: {
-                    guard let items = viewModel.shareItems(for: challenge) else { return }
-                    shareItems = items
-                    isShareSheetPresented = true
-                }) {
-                    Image(systemName: "square.and.arrow.up")
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(Circle().fill(.ultraThinMaterial))
-                        .shadow(radius: 4)
-                }
-                .accessibilityLabel("Partager le défi")
-            }
-        }
-        .padding(.vertical, 6)
-        .padding(.horizontal, 2)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color.white.opacity(0.08))
-        )
     }
 }
