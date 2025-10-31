@@ -26,6 +26,11 @@ protocol ChallengeServiceProtocol {
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
     func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void)
     func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void)
+    func addComment(photoId: String,
+                    content: String,
+                    challengeId: String,
+                    userId: String,
+                    userName: String) async throws -> PhotoCommentModel
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -186,10 +191,8 @@ extension ChallengeService {
                                    date: Date(),
                                    createdAt: Date())
 
-        // Save in Firestore
-        try savePhoto(photo, challengeId: challengeId)
-
-        return photo
+        // Save in Firestore and retrieve persisted representation with identifier
+        return try savePhoto(photo, challengeId: challengeId)
     }
 
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto] {
@@ -259,7 +262,8 @@ extension ChallengeService {
         }
     }
 
-    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws {
+    @discardableResult
+    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws -> ChallengePhoto {
         let docRef = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -269,6 +273,8 @@ extension ChallengeService {
         var photoToSave = photo
         photoToSave.id = docRef.documentID
         try docRef.setData(from: photoToSave)
+
+        return photoToSave
     }
 }
 
@@ -477,12 +483,12 @@ extension ChallengeService {
                     content: String,
                     challengeId: String,
                     userId: String,
-                    userName: String,
-                    completion: ((Error?) -> Void)? = nil) {
+                    userName: String) async throws -> PhotoCommentModel {
+        let timestamp = Date()
         let commentData: [String: Any] = ["userId": userId,
                                           "userName": userName,
                                           "content": content,
-                                          "timestamp": Timestamp(date: Date())]
+                                          "timestamp": Timestamp(date: timestamp)]
 
         let ref = firestoreDB
             .collection(collecChallenges)
@@ -491,8 +497,19 @@ extension ChallengeService {
             .document(photoId)
             .collection(collecComments)
 
-        ref.addDocument(data: commentData) { error in
-            completion?(error)
+        return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PhotoCommentModel, Error>) in
+            let docRef = ref.addDocument(data: commentData) { error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    let comment = PhotoCommentModel(id: docRef.documentID,
+                                                     userId: userId,
+                                                     userName: userName,
+                                                     content: content,
+                                                     timestamp: timestamp)
+                    continuation.resume(returning: comment)
+                }
+            }
         }
     }
 

@@ -13,6 +13,7 @@ class NotificationService {
     static let shared = NotificationService()
 
     private let db = Firestore.firestore()
+    private let notificationCollection = "notifications"
 
     var currentOneSignalPushId: String? {
         OneSignal.User.pushSubscription.id
@@ -29,9 +30,12 @@ class NotificationService {
             print("User accepted notifications: \(accepted)")
         }, fallbackToSettings: false)
 
-        // 🔄 Ajout de l'observer
-        // TODO: À voir si on a besoin de ça, j'ai fait en sorte qu'on refresh le playerId constamment avant l'affichage de MainTabView, est-ce que c'est pas suffisant ? -> En faisant le test de relancer l'application sur deux simu différents avec le même compte, le playerId se change bien même sans l'observer. À confirmer si c'est le bon test à faire.
-//        OneSignal.User.pushSubscription.addObserver(PushObserver())
+        OneSignal.Notifications.addClickListener { [weak self] result in
+            guard let data = result.notification.additionalData,
+                  let route = self?.notificationRoute(from: data) else { return }
+
+            NotificationCenter.default.post(name: .didReceiveNotificationRoute, object: route)
+        }
     }
 
     func loginOneSignalUser(with userId: String) {
@@ -50,67 +54,249 @@ class NotificationService {
         ref.setData(["onesignalPlayerId": oneSignalPushId], merge: true)
     }
 
-    func sendPhotoNotification(to participantIds: [String], authorName: String, challengeTitle: String) async {
-        guard let participantOneSignalPushIds = try? await fetchOneSignalPushIds(userIds: participantIds),
-              !participantOneSignalPushIds.isEmpty else {
-            print("❌ Impossible de trouver le playerId OneSignal pour les participants")
-            return
+    func sendPhotoNotification(to participantIds: [String],
+                               author: User,
+                               challenge: Challenge,
+                               photo: ChallengePhoto) async {
+        guard let authorId = author.id,
+              let challengeId = challenge.id,
+              let photoId = photo.id else { return }
+
+        let recipients = participantIds.filter { $0 != authorId }
+        let pushRecipients = (try? await fetchOneSignalPushIds(userIds: recipients)) ?? []
+
+        let title = "Nouveau post dans \"\(challenge.title)\""
+        let message = "\(author.name) a posté une nouvelle photo !"
+
+        if !pushRecipients.isEmpty {
+            var payload: [String: Any] = [
+                "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
+                "include_player_ids": pushRecipients,
+                "headings": ["en": title, "fr": title],
+                "contents": ["en": message, "fr": message],
+                "ios_sound": "default"
+            ]
+
+            payload["data"] = notificationData(kind: .photoPosted,
+                                                 challengeId: challengeId,
+                                                 challengeTitle: challenge.title,
+                                                 photoId: photoId,
+                                                 commentId: nil,
+                                                 actorName: author.name)
+
+            sendUrlRequestNotification(payload: payload)
         }
 
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": participantOneSignalPushIds,
-                                      "headings": [
-                                        "en": "Nouveau post dans \"\(challengeTitle)\"",
-                                        "fr": "Nouveau post dans \"\(challengeTitle)\""
-                                      ],
-                                      "contents": [
-                                        "en": "\(authorName) a posté une nouvelle photo !",
-                                        "fr": "\(authorName) a posté une nouvelle photo !"
-                                      ],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
+        await persistNotifications(for: recipients,
+                                   kind: .photoPosted,
+                                   title: title,
+                                   message: message,
+                                   challengeId: challengeId,
+                                   challengeTitle: challenge.title,
+                                   photoId: photoId,
+                                   commentId: nil,
+                                   actorName: author.name)
     }
 
-    func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
+    func sendLikeNotification(to authorUid: String,
+                              from user: User,
+                              challenge: Challenge,
+                              photo: ChallengePhoto) async {
+        guard let challengeId = challenge.id,
+              let photoId = photo.id else { return }
+
+        let title = "Nouvelle mention J’aime !"
+        let message = "\(user.name) a liké ta photo dans \"\(challenge.title)\""
+
+        if let pushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first {
+            var payload: [String: Any] = [
+                "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
+                "include_player_ids": [pushId],
+                "headings": ["en": title, "fr": title],
+                "contents": ["en": message, "fr": message],
+                "ios_sound": "default"
+            ]
+
+            payload["data"] = notificationData(kind: .like,
+                                                 challengeId: challengeId,
+                                                 challengeTitle: challenge.title,
+                                                 photoId: photoId,
+                                                 commentId: nil,
+                                                 actorName: user.name)
+
+            sendUrlRequestNotification(payload: payload)
         }
 
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": ["en": "Nouvelle mention J’aime !",
-                                                   "fr": "Nouvelle mention J’aime !"],
-                                      "contents": ["en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
-                                                   "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
+        await persistNotifications(for: [authorUid],
+                                   kind: .like,
+                                   title: title,
+                                   message: message,
+                                   challengeId: challengeId,
+                                   challengeTitle: challenge.title,
+                                   photoId: photoId,
+                                   commentId: nil,
+                                   actorName: user.name)
     }
 
     func sendCommentNotification(to authorUid: String,
-                                 from userName: String,
-                                 challengeTitle: String,
-                                 commentText: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
+                                 from user: User,
+                                 challenge: Challenge,
+                                 photo: ChallengePhoto,
+                                 comment: PhotoCommentModel) async {
+        guard let challengeId = challenge.id,
+              let photoId = photo.id,
+              let commentId = comment.id else { return }
+
+        let title = "Nouveau commentaire 💬"
+        let truncatedText = truncatedComment(comment.content)
+        let message = "\(user.name) a commenté ta photo dans \"\(challenge.title)\" : \"\(truncatedText)\""
+
+        if let pushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first {
+            var payload: [String: Any] = [
+                "app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
+                "include_player_ids": [pushId],
+                "headings": ["en": title, "fr": title],
+                "contents": ["en": message, "fr": message],
+                "ios_sound": "default"
+            ]
+
+            payload["data"] = notificationData(kind: .comment,
+                                                 challengeId: challengeId,
+                                                 challengeTitle: challenge.title,
+                                                 photoId: photoId,
+                                                 commentId: commentId,
+                                                 actorName: user.name)
+
+            sendUrlRequestNotification(payload: payload)
         }
 
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": [
-                                        "en": "Nouveau commentaire 💬",
-                                        "fr": "Nouveau commentaire 💬"
-                                      ],
-                                      "contents": [
-                                        "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
-                                        "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
-                                      ],
-                                      "ios_sound": "default"]
+        await persistNotifications(for: [authorUid],
+                                   kind: .comment,
+                                   title: title,
+                                   message: message,
+                                   challengeId: challengeId,
+                                   challengeTitle: challenge.title,
+                                   photoId: photoId,
+                                   commentId: commentId,
+                                   actorName: user.name)
+    }
 
-        sendUrlRequestNotification(payload: payload)
+    func observeNotifications(for userId: String, completion: @escaping ([AppNotification]) -> Void) -> ListenerRegistration {
+        db.collection("users")
+            .document(userId)
+            .collection(notificationCollection)
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                guard let documents = snapshot?.documents, error == nil else {
+                    completion([])
+                    return
+                }
+
+                let notifications = documents.compactMap { try? $0.data(as: AppNotification.self) }
+                completion(notifications)
+            }
+    }
+
+    func markNotificationsAsRead(_ ids: [String], for userId: String) async {
+        guard !ids.isEmpty else { return }
+
+        let collection = db.collection("users").document(userId).collection(notificationCollection)
+        let batch = db.batch()
+
+        ids.forEach { id in
+            batch.updateData(["isRead": true], forDocument: collection.document(id))
+        }
+
+        do {
+            try await batch.commit()
+        } catch {
+            print("❌ Impossible de marquer les notifications comme lues : \(error)")
+        }
+    }
+
+    private func persistNotifications(for userIds: [String],
+                                       kind: AppNotificationKind,
+                                       title: String,
+                                       message: String,
+                                       challengeId: String?,
+                                       challengeTitle: String?,
+                                       photoId: String?,
+                                       commentId: String?,
+                                       actorName: String?) async {
+        guard !userIds.isEmpty else { return }
+
+        let timestamp = Timestamp(date: Date())
+        let batch = db.batch()
+
+        userIds.forEach { userId in
+            let document = db.collection("users")
+                .document(userId)
+                .collection(notificationCollection)
+                .document()
+
+            var data: [String: Any] = [
+                "type": kind.rawValue,
+                "title": title,
+                "message": message,
+                "createdAt": timestamp,
+                "isRead": false
+            ]
+
+            if let challengeId { data["challengeId"] = challengeId }
+            if let challengeTitle { data["challengeTitle"] = challengeTitle }
+            if let photoId { data["photoId"] = photoId }
+            if let commentId { data["commentId"] = commentId }
+            if let actorName { data["actorName"] = actorName }
+
+            batch.setData(data, forDocument: document)
+        }
+
+        do {
+            try await batch.commit()
+        } catch {
+            print("❌ Erreur lors de l’enregistrement des notifications Firestore : \(error)")
+        }
+    }
+
+    private func notificationData(kind: AppNotificationKind,
+                                  challengeId: String?,
+                                  challengeTitle: String?,
+                                  photoId: String?,
+                                  commentId: String?,
+                                  actorName: String?) -> [String: Any] {
+        var data: [String: Any] = ["type": kind.rawValue]
+        if let challengeId { data["challengeId"] = challengeId }
+        if let challengeTitle { data["challengeTitle"] = challengeTitle }
+        if let photoId { data["photoId"] = photoId }
+        if let commentId { data["commentId"] = commentId }
+        if let actorName { data["actorName"] = actorName }
+        return data
+    }
+
+    private func truncatedComment(_ text: String, limit: Int = 120) -> String {
+        guard text.count > limit else { return text }
+        let endIndex = text.index(text.startIndex, offsetBy: limit)
+        return "\(text[..<endIndex])…"
+    }
+
+    private func notificationRoute(from data: [String: Any]) -> NotificationRoute? {
+        guard let typeString = data["type"] as? String,
+              let kind = AppNotificationKind(rawValue: typeString) else { return nil }
+
+        switch kind {
+        case .photoPosted, .like:
+            guard let challengeId = data["challengeId"] as? String,
+                  let photoId = data["photoId"] as? String else { return nil }
+            return .photo(challengeId: challengeId, photoId: photoId, commentId: nil)
+        case .comment:
+            guard let challengeId = data["challengeId"] as? String,
+                  let photoId = data["photoId"] as? String else { return nil }
+            let commentId = data["commentId"] as? String
+            return .photo(challengeId: challengeId, photoId: photoId, commentId: commentId)
+        case .reminder:
+            guard let challengeId = data["challengeId"] as? String else { return nil }
+            return .challenge(challengeId: challengeId)
+        }
     }
 
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {

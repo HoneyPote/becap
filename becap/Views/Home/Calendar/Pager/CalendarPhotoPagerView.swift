@@ -14,7 +14,9 @@ struct CalendarPhotoPagerView: View {
     @FocusState private var isTextFieldFocused: Bool
 
     @State private var commentText: String = ""
-    @State private var commentSectionIsShown: Bool = false
+    @State private var commentSectionIsShown: Bool
+    @State private var pendingFocusedCommentId: String?
+    @State private var highlightedCommentId: String?
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
@@ -22,6 +24,8 @@ struct CalendarPhotoPagerView: View {
 
     init(photos: [ChallengePhoto],
          startIndex: Int = 0,
+         focusCommentId: String? = nil,
+         showCommentsInitially: Bool? = nil,
          getParticipant: @escaping (String) -> Participant?,
          onDelete: @escaping (String) -> Void,
          onClose: @escaping () -> Void) {
@@ -30,6 +34,10 @@ struct CalendarPhotoPagerView: View {
         self.onClose = onClose
 
         _viewModel = StateObject(wrappedValue: PhotoPagerViewModel(photos: photos, selectedPhotoIndex: startIndex))
+        let shouldOpenComments = showCommentsInitially ?? (focusCommentId != nil)
+        _commentSectionIsShown = State(initialValue: shouldOpenComments)
+        _pendingFocusedCommentId = State(initialValue: focusCommentId)
+        _highlightedCommentId = State(initialValue: nil)
     }
 
     var body: some View {
@@ -200,15 +208,23 @@ extension CalendarPhotoPagerView {
 extension CalendarPhotoPagerView {
     private func commentSection(photoVM: PhotoViewModel) -> some View {
         ZStack(alignment: .bottom) {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 6) {
-                    commentList(comments: photoVM.comments)
+            ScrollViewReader { proxy in
+                ScrollView(showsIndicators: false) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        commentList(comments: photoVM.comments)
 
-                    Divider().background(Color.white.opacity(0.3))
+                        Divider().background(Color.white.opacity(0.3))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+                    .padding(.bottom, 65)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                .padding(.bottom, 65)
+                .onAppear {
+                    scrollToFocusedCommentIfNeeded(proxy: proxy, comments: photoVM.comments)
+                }
+                .onChange(of: photoVM.comments) { newValue in
+                    scrollToFocusedCommentIfNeeded(proxy: proxy, comments: newValue)
+                }
             }
 
             CommentsInputBar(commentText: $commentText,
@@ -220,7 +236,8 @@ extension CalendarPhotoPagerView {
     }
 
     private func commentList(comments: [PhotoCommentModel] = []) -> some View {
-        ForEach(comments) { comment in
+        ForEach(Array(comments.enumerated()), id: \.offset) { _, comment in
+            let identifier = commentIdentifier(for: comment)
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
                     Text(comment.userName)
@@ -236,7 +253,19 @@ extension CalendarPhotoPagerView {
                     .font(.body)
                     .foregroundColor(.white.opacity(0.85))
             }
+            .padding(.vertical, 6)
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(highlightedCommentId == identifier ? Color.white.opacity(0.18) : Color.clear)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .stroke(Color.white.opacity(highlightedCommentId == identifier ? 0.65 : 0.15), lineWidth: highlightedCommentId == identifier ? 1.2 : 0.6)
+            )
             .padding(.bottom, 4)
+            .id(identifier)
         }
     }
 
@@ -248,6 +277,34 @@ extension CalendarPhotoPagerView {
     private func resetCommentTextfield() {
         commentText = ""
         isTextFieldFocused = false
+    }
+
+    private func commentIdentifier(for comment: PhotoCommentModel) -> String {
+        if let id = comment.id { return id }
+        return "\(comment.userId)-\(comment.timestamp.timeIntervalSince1970)"
+    }
+
+    private func scrollToFocusedCommentIfNeeded(proxy: ScrollViewProxy, comments: [PhotoCommentModel]) {
+        guard let targetId = pendingFocusedCommentId,
+              comments.contains(where: { $0.id == targetId }) else { return }
+
+        DispatchQueue.main.async {
+            commentSectionIsShown = true
+            withAnimation(.easeInOut(duration: 0.3)) {
+                proxy.scrollTo(targetId, anchor: .center)
+            }
+            highlightedCommentId = targetId
+            pendingFocusedCommentId = nil
+            removeHighlightAfterDelay()
+        }
+    }
+
+    private func removeHighlightAfterDelay() {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation(.easeInOut(duration: 0.3)) {
+                highlightedCommentId = nil
+            }
+        }
     }
 }
 

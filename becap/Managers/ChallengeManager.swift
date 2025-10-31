@@ -214,22 +214,24 @@ extension ChallengeManager {
         guard let currentUser, let currentUserId = currentUser.id, let challengeId = challenge.id else { return }
 
         print("📤 Upload de la photo en cours...")
-        _ = try await uploadPhotoAsync(image: image,
-                                       challengeId: challengeId,
-                                       author: currentUser,
-                                       description: descriptionText)
+        let uploadedPhoto = try await uploadPhotoAsync(image: image,
+                                                       challengeId: challengeId,
+                                                       author: currentUser,
+                                                       description: descriptionText)
 
         print("✅ Upload réussi, mise à jour progression Firestore...")
         try await updateParticipantProgress(for: challengeId, userId: currentUserId, date: Date())
 
         // Envoyer notif
         await notificationService.sendPhotoNotification(to: challenge.participantUids,
-                                                        authorName: currentUser.name,
-                                                        challengeTitle: challenge.title)
+                                                        author: currentUser,
+                                                        challenge: challenge,
+                                                        photo: uploadedPhoto)
     }
 
     /// Upload une photo dans Firebase Storage via `ChallengeService`
-    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
+    @discardableResult
+    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws -> ChallengePhoto {
         let photo = try await challengeService.uploadPhoto(image: image,
                                                            challengeId: challengeId,
                                                            author: author,
@@ -238,6 +240,8 @@ extension ChallengeManager {
         await MainActor.run {
             savePhoto(photo, to: challengeId)
         }
+
+        return photo
     }
 
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
@@ -272,11 +276,12 @@ extension ChallengeManager {
             }
         }
 
-        let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
+        guard let challenge = self.challenges.first(where: { $0.id == challengeId }) else { return }
 
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
-                                                            from: currentUser.name,
-                                                            challengeTitle: challengeTitle)
+                                                            from: currentUser,
+                                                            challenge: challenge,
+                                                            photo: photo)
     }
 
     func unlikePhoto(photo: ChallengePhoto) async throws {
@@ -305,28 +310,19 @@ extension ChallengeManager {
               let photoId = photo.id,
               let challengeId = photo.challengeId else { return }
 
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            challengeService.addComment(photoId: photoId,
-                                        content: content,
-                                        challengeId: challengeId,
-                                        userId: currentUserId,
-                                        userName: currentUser.name) { error in
-                if let error = error {
-                    print("❌ Adding comment failed: \(error)")
-                    continuation.resume(throwing: error)
-                } else {
-                    print("✅ Comment added !")
-                    continuation.resume()
-                }
-            }
-        }
+        let comment = try await challengeService.addComment(photoId: photoId,
+                                                            content: content,
+                                                            challengeId: challengeId,
+                                                            userId: currentUserId,
+                                                            userName: currentUser.name)
 
-        let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
+        guard let challenge = self.challenges.first(where: { $0.id == challengeId }) else { return }
 
         await notificationService.sendCommentNotification(to: photo.authorUid,
-                                                          from: currentUser.name,
-                                                          challengeTitle: challengeTitle,
-                                                          commentText: content)
+                                                          from: currentUser,
+                                                          challenge: challenge,
+                                                          photo: photo,
+                                                          comment: comment)
     }
 
     // Photos - Privates

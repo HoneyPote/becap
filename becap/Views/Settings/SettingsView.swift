@@ -190,6 +190,14 @@ struct SettingsView: View {
 
     private var navigationList: some View {
         VStack(spacing: 14) {
+            NavigationLink(destination: NotificationCenterView()) {
+                Label("Centre de notifications", systemImage: "bell.badge")
+                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 6)
+            }
+
             Button {
                 showReportSelector = true
             } label: {

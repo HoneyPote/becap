@@ -18,6 +18,7 @@ struct PagerInfo: Identifiable {
     var photos: [ChallengePhoto]
     var index: Int
     let date: Date
+    var focusCommentId: String?
 }
 
 // TODO: Mettre dans VM ce qui doit être dans VM
@@ -25,6 +26,7 @@ struct PagerInfo: Identifiable {
 struct CalendarDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: CalendarDetailViewModel
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
 
     @State private var selectedParticipant: Participant?
     @State private var selectedGridCell: CalendarDetailCell?
@@ -32,6 +34,7 @@ struct CalendarDetailView: View {
     @State private var showJoinSheet = false
     @State private var showParticipantsSheet = false
     @State private var pagerInfo: PagerInfo?
+    @State private var hasAttemptedInitialPhotoDeepLink = false
 
     init(challenge: Challenge) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -92,13 +95,23 @@ struct CalendarDetailView: View {
         .sheet(item: $pagerInfo) { info in
             CalendarPhotoPagerView(photos: info.photos,
                                    startIndex: info.index,
+                                   focusCommentId: info.focusCommentId,
                                    getParticipant: { viewModel.getParticipant(for: $0) },
                                    onDelete: { viewModel.deletePhoto($0) },
                                    onClose: { pagerInfo = nil })
         }
-        .onAppear { viewModel.fetchInfos() }
+        .onAppear {
+            viewModel.fetchInfos()
+            attemptPhotoDeepLinkIfNeeded(force: true)
+        }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
+        .onChange(of: viewModel.doneLoadingPhotos) { _ in
+            attemptPhotoDeepLinkIfNeeded()
+        }
+        .onChange(of: deepLinkRouter.pendingPhotoDeepLink) { _ in
+            attemptPhotoDeepLinkIfNeeded(force: true)
+        }
     }
 
     // MARK: - Month Grid (w/ precomputed counts)
@@ -226,5 +239,42 @@ struct CalendarDetailView: View {
                 pagerInfo = info
             }
         })
+    }
+}
+
+extension CalendarDetailView {
+    private func attemptPhotoDeepLinkIfNeeded(force: Bool = false) {
+        guard viewModel.doneLoadingPhotos else { return }
+        guard let link = deepLinkRouter.pendingPhotoDeepLink,
+              let challengeId = viewModel.challenge.id,
+              link.challengeId == challengeId else { return }
+
+        if !force && hasAttemptedInitialPhotoDeepLink {
+            return
+        }
+
+        guard let targetPhoto = viewModel.allPhotos.first(where: { $0.id == link.photoId }) else {
+            hasAttemptedInitialPhotoDeepLink = true
+            return
+        }
+
+        let dayPhotos = viewModel.allPhotos.filter {
+            Calendar.current.isDate($0.date, inSameDayAs: targetPhoto.date)
+        }
+
+        guard let startIndex = dayPhotos.firstIndex(where: { $0.id == link.photoId }) else {
+            hasAttemptedInitialPhotoDeepLink = true
+            return
+        }
+
+        pagerInfo = PagerInfo(photos: dayPhotos,
+                              index: startIndex,
+                              date: targetPhoto.date,
+                              focusCommentId: link.commentId)
+
+        hasAttemptedInitialPhotoDeepLink = true
+        DispatchQueue.main.async {
+            deepLinkRouter.pendingPhotoDeepLink = nil
+        }
     }
 }

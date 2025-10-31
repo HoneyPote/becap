@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import Combine
 
 enum ChallengeStatus: String {
     case active = "En cours"
@@ -77,10 +78,30 @@ enum DeepLink {
 
 import SwiftUI
 
+struct PhotoDeepLink: Identifiable, Equatable {
+    let challengeId: String
+    let photoId: String
+    let commentId: String?
+
+    var id: String { "\(challengeId)-\(photoId)-\(commentId ?? "")" }
+}
+
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingJoinCode: String? = nil
     @Published var showJoinSheet: Bool = false
     @Published var pendingCalendarChallengeId: String? = nil
+    @Published var pendingPhotoDeepLink: PhotoDeepLink? = nil
+
+    private var cancellables = Set<AnyCancellable>()
+
+    init(notificationCenter: NotificationCenter = .default) {
+        notificationCenter.publisher(for: .didReceiveNotificationRoute)
+            .compactMap { $0.object as? NotificationRoute }
+            .sink { [weak self] route in
+                self?.handle(route: route)
+            }
+            .store(in: &cancellables)
+    }
 
     // Appelle ceci depuis .onOpenURL
     func handle(url: URL) {
@@ -113,5 +134,21 @@ final class DeepLinkRouter: ObservableObject {
 
     func clearChallengeNavigation() {
         pendingCalendarChallengeId = nil
+    }
+
+    private func handle(route: NotificationRoute) {
+        switch route {
+        case let .challenge(challengeId):
+            DispatchQueue.main.async {
+                self.pendingCalendarChallengeId = challengeId
+            }
+        case let .photo(challengeId, photoId, commentId):
+            DispatchQueue.main.async {
+                self.pendingCalendarChallengeId = challengeId
+                self.pendingPhotoDeepLink = PhotoDeepLink(challengeId: challengeId,
+                                                          photoId: photoId,
+                                                          commentId: commentId)
+            }
+        }
     }
 }

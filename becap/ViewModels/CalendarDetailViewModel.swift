@@ -211,7 +211,10 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {
-        selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
+        selectedPagerInfo = PagerInfo(photos: cell.photos,
+                                      index: 0,
+                                      date: cell.date,
+                                      focusCommentId: nil)
     }
 
     private func fetchPhotos() async throws -> [ChallengePhoto] {

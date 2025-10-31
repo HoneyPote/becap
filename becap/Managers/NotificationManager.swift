@@ -8,13 +8,15 @@
 import Foundation
 import UserNotifications
 
-class NotificationManager {
+class NotificationManager: NSObject {
     static let shared = NotificationManager()
 
     private let notificationService: NotificationService
 
     init(notificationService: NotificationService = NotificationService()) {
         self.notificationService = notificationService
+        super.init()
+        UNUserNotificationCenter.current().delegate = self
     }
 
     func requestAuthorization(completion: ((Bool) -> Void)? = nil) {
@@ -107,6 +109,51 @@ class NotificationManager {
         content.title = "Photo challenge: \(challenge.title)"
         content.body = "It's time to post your picture for the challenge!"
         content.sound = .default
+        if let challengeId = challenge.id {
+            content.userInfo = [
+                "type": AppNotificationKind.reminder.rawValue,
+                "challengeId": challengeId,
+                "challengeTitle": challenge.title
+            ]
+        }
         return content
+    }
+}
+
+extension NotificationManager: UNUserNotificationCenterDelegate {
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.sound, .banner, .list])
+    }
+
+    func userNotificationCenter(_ center: UNUserNotificationCenter,
+                                didReceive response: UNNotificationResponse,
+                                withCompletionHandler completionHandler: @escaping () -> Void) {
+        if let route = route(from: response.notification.request.content.userInfo) {
+            NotificationCenter.default.post(name: .didReceiveNotificationRoute, object: route)
+        }
+        completionHandler()
+    }
+
+    private func route(from userInfo: [AnyHashable: Any]) -> NotificationRoute? {
+        guard let typeString = userInfo["type"] as? String,
+              let kind = AppNotificationKind(rawValue: typeString) else { return nil }
+
+        switch kind {
+        case .photoPosted, .like:
+            guard let challengeId = userInfo["challengeId"] as? String,
+                  let photoId = userInfo["photoId"] as? String else { return nil }
+            let commentId = userInfo["commentId"] as? String
+            return .photo(challengeId: challengeId, photoId: photoId, commentId: commentId)
+        case .comment:
+            guard let challengeId = userInfo["challengeId"] as? String,
+                  let photoId = userInfo["photoId"] as? String else { return nil }
+            let commentId = userInfo["commentId"] as? String
+            return .photo(challengeId: challengeId, photoId: photoId, commentId: commentId)
+        case .reminder:
+            guard let challengeId = userInfo["challengeId"] as? String else { return nil }
+            return .challenge(challengeId: challengeId)
+        }
     }
 }
