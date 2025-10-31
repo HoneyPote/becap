@@ -119,9 +119,12 @@ extension UIImage {
         let aspectRatio = size.height / size.width
         let newSize = CGSize(width: width, height: width * aspectRatio)
         let renderer = UIGraphicsImageRenderer(size: newSize)
-
+        
         return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+}
 
 import SwiftUI
 
