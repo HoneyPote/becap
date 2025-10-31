@@ -14,6 +14,7 @@ class NotificationService {
 
     private let db = Firestore.firestore()
     private let notificationCollection = "notifications"
+    private var notificationClickListener: OSNotificationClickListener?
 
     var currentOneSignalPushId: String? {
         OneSignal.User.pushSubscription.id
@@ -30,12 +31,15 @@ class NotificationService {
             print("User accepted notifications: \(accepted)")
         }, fallbackToSettings: false)
 
-        OneSignal.Notifications.addClickListener { [weak self] result in
-            guard let data = result.notification.additionalData,
+        let listener = NotificationClickHandler { [weak self] event in
+            guard let data = event.notification.additionalData,
                   let route = self?.notificationRoute(from: data) else { return }
 
             NotificationCenter.default.post(name: .didReceiveNotificationRoute, object: route)
         }
+
+        OneSignal.Notifications.addClickListener(listener)
+        notificationClickListener = listener
     }
 
     func loginOneSignalUser(with userId: String) {
@@ -342,6 +346,18 @@ class NotificationService {
                 print("Réponse OneSignal : \(body)")
             }
         }.resume()
+    }
+}
+
+private final class NotificationClickHandler: NSObject, OSNotificationClickListener {
+    private let handler: (OSNotificationClickEvent) -> Void
+
+    init(handler: @escaping (OSNotificationClickEvent) -> Void) {
+        self.handler = handler
+    }
+
+    func onClick(event: OSNotificationClickEvent) {
+        handler(event)
     }
 }
 
