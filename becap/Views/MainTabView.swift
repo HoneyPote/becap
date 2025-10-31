@@ -122,6 +122,9 @@ extension UIImage {
 
         return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
+        }
+    }
+}
 
 import SwiftUI
 
