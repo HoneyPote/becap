@@ -25,6 +25,7 @@ struct SettingsView: View {
     // NEW: avatar picker state
     @State private var avatarItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
+    @State private var showingMedalsPopover = false
 
     private let reportManager: ReportManagerProtocol = ReportManager.shared
 
@@ -172,18 +173,26 @@ struct SettingsView: View {
     // MARK: - Sections
 
     private var medalSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("🎖️ Médailles")
-                .font(.headline)
-                .foregroundColor(.white.opacity(0.6))
+        let medals = viewModel.currentUser?.medals ?? []
+        let sorted = medals.sorted { $0.achievedDate > $1.achievedDate }
 
-            if let medals = viewModel.currentUser?.medals, !medals.isEmpty {
-                let sorted = medals.sorted { $0.achievedDate > $1.achievedDate }
-                ParticipantMedalSection(medals: sorted)
-            } else {
-                Text("Aucune médaille pour le moment.")
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.6))
+        return VStack(alignment: .leading, spacing: 12) {
+            MedalTriggerRow(
+                medalCount: medals.count,
+                participantName: viewModel.currentUser?.name ?? "Vous",
+                onTap: {
+                    if !sorted.isEmpty {
+                        showingMedalsPopover = true
+                    }
+                }
+            )
+            .popover(isPresented: $showingMedalsPopover, arrowEdge: .top) {
+                MedalBubbleView(medals: sorted)
+            }
+        }
+        .onChange(of: medals.count) { count in
+            if count == 0 {
+                showingMedalsPopover = false
             }
         }
     }
