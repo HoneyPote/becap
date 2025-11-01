@@ -485,10 +485,12 @@ extension ChallengeService {
                     userId: String,
                     userName: String) async throws -> PhotoCommentModel {
         let timestamp = Date()
-        let commentData: [String: Any] = ["userId": userId,
-                                          "userName": userName,
-                                          "content": content,
-                                          "timestamp": Timestamp(date: timestamp)]
+        let commentData: [String: Any] = [
+            "userId": userId,
+            "userName": userName,
+            "content": content,
+            "timestamp": Timestamp(date: timestamp)
+        ]
 
         let ref = firestoreDB
             .collection(collecChallenges)
@@ -497,21 +499,27 @@ extension ChallengeService {
             .document(photoId)
             .collection(collecComments)
 
+        // ✅ Crée un document d'abord, puis setData dans la closure
+        let docRef = ref.document()
+
         return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<PhotoCommentModel, Error>) in
-            let docRef = ref.addDocument(data: commentData) { error in
-                if let error {
+            docRef.setData(commentData) { error in
+                if let error = error {
                     continuation.resume(throwing: error)
-                } else {
-                    let comment = PhotoCommentModel(id: docRef.documentID,
-                                                     userId: userId,
-                                                     userName: userName,
-                                                     content: content,
-                                                     timestamp: timestamp)
-                    continuation.resume(returning: comment)
+                    return
                 }
+
+                let comment = PhotoCommentModel(
+                    id: docRef.documentID,
+                    userId: userId,
+                    userName: userName,
+                    content: content,
+                    timestamp: timestamp
+                )
+                continuation.resume(returning: comment)
             }
         }
-    }
+}
 
     func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) {
         let ref = firestoreDB

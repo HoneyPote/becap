@@ -33,7 +33,7 @@ class NotificationService {
 
         let listener = NotificationClickHandler { [weak self] event in
             guard let data = event.notification.additionalData,
-                  let route = self?.notificationRoute(from: data) else { return }
+                  let route = self?.notificationRoute(from: data as! [String : Any]) else { return }
 
             NotificationCenter.default.post(name: .didReceiveNotificationRoute, object: route)
         }
