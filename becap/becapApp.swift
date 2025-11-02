@@ -15,7 +15,7 @@ class AppDelegate: NSObject, UIApplicationDelegate {
             FirebaseApp.configure()
         }
 
-        NotificationService().setupOneSignal()
+        NotificationService.shared.setupOneSignal()
 
         return true
     }

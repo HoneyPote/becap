@@ -13,7 +13,7 @@ class NotificationManager {
 
     private let notificationService: NotificationService
 
-    init(notificationService: NotificationService = NotificationService()) {
+    init(notificationService: NotificationService = NotificationService.shared) {
         self.notificationService = notificationService
     }
 

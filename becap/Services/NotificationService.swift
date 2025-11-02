@@ -12,7 +12,13 @@ import OneSignalFramework
 class NotificationService {
     static let shared = NotificationService()
 
-    private let db = Firestore.firestore()
+    private let db: Firestore
+    private let userManager: UserManager
+
+    init(db: Firestore = Firestore.firestore(), userManager: UserManager = .shared) {
+        self.db = db
+        self.userManager = userManager
+    }
 
     var currentOneSignalPushId: String? {
         OneSignal.User.pushSubscription.id
@@ -115,22 +121,25 @@ class NotificationService {
 
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
         var playerIds: [String] = []
+        let currentUserId = excludeCurrentUser ? userManager.currentUser?.id : nil
 
         for userId in userIds {
             let snap = try await db.collection("users").document(userId).getDocument()
 
-            if let data = snap.data(),
-               let playerId = data["onesignalPlayerId"] as? String,
-               !playerId.isEmpty {
-                playerIds.append(playerId)
-                print("✅ Trouvé playerId : \(playerId) pour uid : \(userId)")
-            } else {
+            guard let data = snap.data(),
+                  let playerId = data["onesignalPlayerId"] as? String,
+                  !playerId.isEmpty else {
                 print("⚠️ Aucun playerId OneSignal pour uid : \(userId)")
+                continue
             }
-        }
 
-        if excludeCurrentUser {
-            return playerIds.filter { $0 != currentOneSignalPushId }
+            if let currentUserId, userId == currentUserId {
+                print("ℹ️ Ignoré playerId courant pour uid : \(userId)")
+                continue
+            }
+
+            playerIds.append(playerId)
+            print("✅ Trouvé playerId : \(playerId) pour uid : \(userId)")
         }
 
         return playerIds
