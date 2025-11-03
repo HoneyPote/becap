@@ -57,66 +57,86 @@ class NotificationService {
     }
 
     func sendPhotoNotification(to participantIds: [String], authorName: String, challengeTitle: String) async {
-        guard let participantOneSignalPushIds = try? await fetchOneSignalPushIds(userIds: participantIds),
-              !participantOneSignalPushIds.isEmpty else {
-            print("❌ Impossible de trouver le playerId OneSignal pour les participants")
-            return
+        do {
+            let participantPlayerIds = try await fetchOneSignalPushIds(userIds: participantIds)
+            let targets = filterPlayerIds(participantPlayerIds)
+
+            guard !targets.isEmpty else {
+                print("❌ Impossible de trouver le playerId OneSignal pour les participants")
+                return
+            }
+
+            let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
+                                          "include_player_ids": targets,
+                                          "headings": [
+                                            "en": "Nouveau post dans \"\(challengeTitle)\"",
+                                            "fr": "Nouveau post dans \"\(challengeTitle)\""
+                                          ],
+                                          "contents": [
+                                            "en": "\(authorName) a posté une nouvelle photo !",
+                                            "fr": "\(authorName) a posté une nouvelle photo !"
+                                          ],
+                                          "ios_sound": "default"]
+
+            sendUrlRequestNotification(payload: payload)
+        } catch {
+            print("❌ Erreur lors de la récupération des playerIds participants : \(error)")
         }
-
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": participantOneSignalPushIds,
-                                      "headings": [
-                                        "en": "Nouveau post dans \"\(challengeTitle)\"",
-                                        "fr": "Nouveau post dans \"\(challengeTitle)\""
-                                      ],
-                                      "contents": [
-                                        "en": "\(authorName) a posté une nouvelle photo !",
-                                        "fr": "\(authorName) a posté une nouvelle photo !"
-                                      ],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
     }
 
     func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
+        do {
+            let authorPlayerIds = try await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)
+            let targets = filterPlayerIds(authorPlayerIds)
+
+            guard !targets.isEmpty else {
+                print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
+                return
+            }
+
+            let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
+                                          "include_player_ids": targets,
+                                          "headings": ["en": "Nouvelle mention J’aime !",
+                                                       "fr": "Nouvelle mention J’aime !"],
+                                          "contents": ["en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
+                                                       "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""],
+                                          "ios_sound": "default"]
+
+            sendUrlRequestNotification(payload: payload)
+        } catch {
+            print("❌ Erreur lors de l’envoi de la notif like : \(error)")
         }
-
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": ["en": "Nouvelle mention J’aime !",
-                                                   "fr": "Nouvelle mention J’aime !"],
-                                      "contents": ["en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
-                                                   "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
     }
 
     func sendCommentNotification(to authorUid: String,
                                  from userName: String,
                                  challengeTitle: String,
                                  commentText: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
+        do {
+            let authorPlayerIds = try await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)
+            let targets = filterPlayerIds(authorPlayerIds)
+
+            guard !targets.isEmpty else {
+                print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
+                return
+            }
+
+            let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
+                                          "include_player_ids": targets,
+                                          "headings": [
+                                            "en": "Nouveau commentaire 💬",
+                                            "fr": "Nouveau commentaire 💬"
+                                          ],
+                                          "contents": [
+                                            "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
+                                            "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
+                                          ],
+                                          "ios_sound": "default"]
+
+            sendUrlRequestNotification(payload: payload)
+        } catch {
+            print("❌ Erreur lors de l’envoi de la notif commentaire : \(error)")
         }
-
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": [
-                                        "en": "Nouveau commentaire 💬",
-                                        "fr": "Nouveau commentaire 💬"
-                                      ],
-                                      "contents": [
-                                        "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
-                                        "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
-                                      ],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
     }
 
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
@@ -143,6 +163,16 @@ class NotificationService {
         }
 
         return playerIds
+    }
+
+    private func filterPlayerIds(_ playerIds: [String], excludeCurrentDevice: Bool = true) -> [String] {
+        var uniqueIds = Array(Set(playerIds))
+
+        if excludeCurrentDevice, let currentId = currentOneSignalPushId {
+            uniqueIds.removeAll { $0 == currentId }
+        }
+
+        return uniqueIds
     }
 
     private func sendUrlRequestNotification(payload: [String: Any]) {
