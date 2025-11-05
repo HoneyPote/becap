@@ -57,6 +57,47 @@ struct NewChallengeView: View {
                     }
 
                     GlassCard {
+                        VStack(alignment: .leading, spacing: 14) {
+                            HStack {
+                                Text("Jokers disponibles")
+                                    .font(.system(.headline, design: .rounded).weight(.bold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("\(viewModel.nombreJokers)")
+                                    .font(.system(.title3, design: .rounded).weight(.semibold))
+                                    .foregroundColor(.white.opacity(0.85))
+                            }
+
+                            Stepper(value: $viewModel.nombreJokers,
+                                    in: 0...max(0, viewModel.duree)) {
+                                Text("Nombre de jokers pour le défi")
+                                    .foregroundColor(.white.opacity(0.9))
+                            }
+
+                            HStack(spacing: 8) {
+                                let iconCount = min(max(viewModel.nombreJokers, 1), 8)
+                                ForEach(0..<iconCount, id: \.self) { index in
+                                    let isActive = index < min(viewModel.nombreJokers, iconCount)
+                                    JokerIconView(size: 28,
+                                                  fillColor: .white,
+                                                  isDimmed: !isActive)
+                                        .opacity(viewModel.nombreJokers == 0 ? 0.25 : 1.0)
+                                }
+
+                                if viewModel.nombreJokers > iconCount {
+                                    Text("+\(viewModel.nombreJokers - iconCount)")
+                                        .font(.system(.footnote, design: .rounded).weight(.semibold))
+                                        .foregroundColor(.white.opacity(0.6))
+                                }
+                            }
+
+                            Text("Les jokers permettent de sauver un jour sans photo. Les participants peuvent voter pour valider un joker sur une publication si la majorité l'estime nécessaire.")
+                                .font(.footnote)
+                                .foregroundColor(.white.opacity(0.65))
+                        }
+                    }
+
+                    GlassCard {
                         VStack(alignment: .leading, spacing: 18) {
                             Text("Heure de notification")
                                 .font(.system(.headline, design: .rounded).weight(.bold))

@@ -15,13 +15,19 @@ struct CalendarPhotoPagerView: View {
 
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
+    @State private var pendingJokerAction: JokerAction?
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
     let onClose: () -> Void
+    private enum JokerAction {
+        case vote
+        case declare
+    }
 
     init(photos: [ChallengePhoto],
          startIndex: Int = 0,
+         challenge: Challenge,
          getParticipant: @escaping (String) -> Participant?,
          onDelete: @escaping (String) -> Void,
          onClose: @escaping () -> Void) {
@@ -29,7 +35,9 @@ struct CalendarPhotoPagerView: View {
         self.onDelete = onDelete
         self.onClose = onClose
 
-        _viewModel = StateObject(wrappedValue: PhotoPagerViewModel(photos: photos, selectedPhotoIndex: startIndex))
+        _viewModel = StateObject(wrappedValue: PhotoPagerViewModel(photos: photos,
+                                                                   selectedPhotoIndex: startIndex,
+                                                                   challenge: challenge))
     }
 
     var body: some View {
@@ -63,6 +71,31 @@ struct CalendarPhotoPagerView: View {
             }
         }
         .interactiveDismissDisabled()
+        .alert(isPresented: Binding<Bool>(
+            get: { pendingJokerAction != nil },
+            set: { if !$0 { pendingJokerAction = nil } }
+        )) {
+            let action = pendingJokerAction ?? .vote
+
+            switch action {
+            case .declare:
+                return Alert(title: Text("Utiliser un joker"),
+                             message: Text("Confirmer que cette journée consomme un de vos jokers ?"),
+                             primaryButton: .default(Text("Confirmer")) {
+                                viewModel.declareJokerUsage()
+                                pendingJokerAction = nil
+                             },
+                             secondaryButton: .cancel())
+            case .vote:
+                return Alert(title: Text("Voter pour un joker"),
+                             message: Text("Confirmer que cette photo doit utiliser un joker ?"),
+                             primaryButton: .default(Text("Voter")) {
+                                viewModel.toggleJokerVote()
+                                pendingJokerAction = nil
+                             },
+                             secondaryButton: .cancel())
+            }
+        }
     }
 
     private func currentPostContent(photoVM: PhotoViewModel) -> some View {
@@ -192,6 +225,57 @@ extension CalendarPhotoPagerView {
                                    endPoint: .top)
                 )
             }
+        }
+        .overlay(alignment: .topTrailing) {
+            jokerBadge(for: viewModel.selectedJokerState)
+                .padding(12)
+        }
+    }
+
+    @ViewBuilder
+    private func jokerBadge(for state: PhotoJokerState) -> some View {
+        let voteCount = state.voters.count
+        let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
+
+        let icon = JokerIconView(size: 40,
+                                  fillColor: .white,
+                                  isDimmed: state.isConfirmed)
+
+        let decorated = icon
+            .overlay(alignment: .topTrailing) {
+                voteBubble(for: voteCount)
+            }
+
+        if canAct {
+            Button(action: { handleJokerTap(for: state) }) {
+                decorated
+            }
+            .buttonStyle(.plain)
+        } else {
+            decorated
+        }
+    }
+
+    @ViewBuilder
+    private func voteBubble(for count: Int) -> some View {
+        if count > 0 {
+            Text("\(count)")
+                .font(.caption2.bold())
+                .foregroundColor(.white)
+                .padding(6)
+                .background(Color.pink.opacity(0.85))
+                .clipShape(Circle())
+                .offset(x: 8, y: -8)
+        }
+    }
+
+    private func handleJokerTap(for state: PhotoJokerState) {
+        guard !state.isConfirmed else { return }
+
+        if viewModel.canDeclareJoker {
+            pendingJokerAction = .declare
+        } else if viewModel.canToggleJokerVote {
+            pendingJokerAction = .vote
         }
     }
 }

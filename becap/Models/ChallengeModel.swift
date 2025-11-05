@@ -22,6 +22,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var participantUids: [String]
     var notificationsConfig: [ChallengeNotification]?
     var code: String?
+    var jokerConfiguration: ChallengeJokerConfiguration?
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -54,6 +55,7 @@ struct ChallengePhoto: Identifiable, Codable, Hashable {
     var createdAt: Date                  // Date de création Firestore (souvent == date)
 
     var likes: [String]? // <--- AJOUTE CE CHAMP ! (optional pour backward compatibilité)
+    var jokerState: PhotoJokerState?
 
     // Pour Hashable automatique
     static func == (lhs: ChallengePhoto, rhs: ChallengePhoto) -> Bool {

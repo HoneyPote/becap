@@ -114,6 +114,53 @@ class CalendarDetailViewModel: ObservableObject {
         challengeManager.currentUser?.id
     }
 
+    var currentUserProgress: ParticipantProgress? {
+        guard let currentUserId else { return nil }
+
+        return participantProgresses.first(where: { $0.id == currentUserId })
+    }
+
+    var currentUserJokerStatus: (total: Int, remaining: Int)? {
+        guard let progress = currentUserProgress else {
+            guard let total = challenge.jokerConfiguration?.jokersPerParticipant, total > 0 else { return nil }
+            return (total, total)
+        }
+
+        let total = progress.jokerProgress?.total ?? challenge.jokerConfiguration?.jokersPerParticipant ?? 0
+        guard total > 0 else { return nil }
+        let remaining = progress.jokerProgress?.remaining ?? total
+        return (total, remaining)
+    }
+
+    func canUseJokerToday() -> Bool {
+        guard let status = currentUserJokerStatus else { return false }
+        guard status.remaining > 0 else { return false }
+
+        guard let progress = currentUserProgress else { return true }
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let hasValidatedToday = progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: today) }
+
+        return !hasValidatedToday
+    }
+
+    func useJokerForToday() {
+        guard canUseJokerToday() else { return }
+
+        Task {
+            do {
+                try await challengeManager.declareJokerUsage(for: challenge,
+                                                             on: Date(),
+                                                             photoId: nil)
+                await MainActor.run {
+                    self.fetchInfos()
+                }
+            } catch {
+                print("❌ Failed to declare joker today: \(error)")
+            }
+        }
+    }
+
     @MainActor
     func markChatAsRead() {
         guard let challengeId = challenge.id else { return }

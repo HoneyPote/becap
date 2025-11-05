@@ -68,6 +68,58 @@ struct CalendarDetailView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 10)
 
+                if let jokerStatus = viewModel.currentUserJokerStatus {
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Mes jokers")
+                                    .font(.system(.headline, design: .rounded).weight(.bold))
+                                    .foregroundColor(.white)
+                                Spacer()
+                                Text("\(jokerStatus.remaining)/\(jokerStatus.total)")
+                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    .foregroundColor(.white.opacity(0.85))
+                            }
+
+                            HStack(spacing: 8) {
+                                let displayCount = min(jokerStatus.total, 8)
+                                ForEach(0..<displayCount, id: \.self) { index in
+                                    let isActive = index < min(jokerStatus.remaining, displayCount)
+                                    JokerIconView(size: 26,
+                                                  fillColor: .white,
+                                                  isDimmed: !isActive)
+                                }
+
+                                if jokerStatus.total > displayCount {
+                                    Text("+\(jokerStatus.total - displayCount)")
+                                        .font(.system(.footnote, design: .rounded).weight(.semibold))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                            }
+
+                            if viewModel.canUseJokerToday() {
+                                Button(action: { viewModel.useJokerForToday() }) {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "sparkles")
+                                        Text("Utiliser un joker aujourd'hui")
+                                    }
+                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    .padding(.vertical, 10)
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color.white.opacity(0.18))
+                                    .cornerRadius(10)
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                Text("Journée déjà validée ou aucun joker disponible.")
+                                    .font(.system(.footnote, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.65))
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                }
+
                 // Apple-style month grid adapted to challenge length
                 monthGrid
 
@@ -95,6 +147,7 @@ struct CalendarDetailView: View {
         .sheet(item: $pagerInfo) { info in
             CalendarPhotoPagerView(photos: info.photos,
                                    startIndex: info.index,
+                                   challenge: viewModel.challenge,
                                    getParticipant: { viewModel.getParticipant(for: $0) },
                                    onDelete: { viewModel.deletePhoto($0) },
                                    onClose: { pagerInfo = nil })
@@ -183,6 +236,7 @@ struct CalendarDetailView: View {
                                               chatMessages: viewModel.chatMessages,
                                               hasUnreadMessages: viewModel.chatHasUnreadMessages,
                                               currentUserId: viewModel.currentUserId,
+                                              jokerConfiguration: viewModel.challenge.jokerConfiguration,
                                               onSendMessage: { message in
                                                   await viewModel.sendChatMessage(content: message)
                                               },

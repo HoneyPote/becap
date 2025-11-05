@@ -16,6 +16,7 @@ struct ParticipantsOverviewView: View {
     let chatMessages: [ChallengeChatMessage]
     let hasUnreadMessages: Bool
     let currentUserId: String?
+    let jokerConfiguration: ChallengeJokerConfiguration?
     let onSendMessage: (String) async -> Void
     let onToggleReaction: (ChallengeChatMessage, String) async -> Void
     let onChatOpened: () -> Void
@@ -93,12 +94,17 @@ struct ParticipantsOverviewView: View {
             partialResult + (photo.likes?.count ?? 0)
         }
         let progress = progresses.first { $0.id == participant.id }
+        let jokerProgress = progress?.jokerProgress
+        let totalJokers = jokerProgress?.total ?? jokerConfiguration?.jokersPerParticipant ?? 0
+        let remainingJokers = jokerProgress?.remaining ?? totalJokers
 
         return ParticipantOverviewStats(
             photosCount: participantPhotos.count,
             likesCount: likes,
             streak: progress?.currentStreak ?? 0,
-            validatedDays: progress?.validatedDays.count ?? 0
+            validatedDays: progress?.validatedDays.count ?? 0,
+            totalJokers: totalJokers,
+            remainingJokers: remainingJokers
         )
     }
 }

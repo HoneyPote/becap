@@ -26,6 +26,7 @@ protocol ChallengeServiceProtocol {
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
     func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void)
     func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void)
+    func updatePhotoJokerState(challengeId: String, photoId: String, state: PhotoJokerState) async throws
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -526,6 +527,18 @@ extension ChallengeService {
 
             onUpdate(updatedPhoto)
         }
+    }
+
+    func updatePhotoJokerState(challengeId: String, photoId: String, state: PhotoJokerState) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .document(photoId)
+
+        try await ref.updateData([
+            "jokerState": try Firestore.Encoder().encode(state)
+        ])
     }
 }
 
