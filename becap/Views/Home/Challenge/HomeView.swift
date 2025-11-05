@@ -105,6 +105,22 @@ struct HomeView: View {
             hasPresentedJoinForDeepLink = false
             beginResolvingDeepLink(for: challengeId)
         }
+        .onChange(of: deepLinkRouter.pendingPhotoLink) { link in
+            guard let link else { return }
+
+            if let challenge = deepLinkedChallenge,
+               let challengeId = challenge.id,
+               challengeId == link.challengeId {
+                deepLinkedPhotoId = link.photoId
+            }
+
+            if isResolvingDeepLink,
+               hasLoadedChallengesForPendingDeepLink,
+               let pendingId = deepLinkRouter.pendingCalendarChallengeId,
+               pendingId == link.challengeId {
+                attemptNavigationToChallenge(withId: link.challengeId, allowJoinFallback: true)
+            }
+        }
         .onChange(of: viewModel.challenges) { _ in
             guard isResolvingDeepLink,
                   let challengeId = deepLinkRouter.pendingCalendarChallengeId else { return }

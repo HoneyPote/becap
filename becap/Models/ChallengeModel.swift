@@ -121,8 +121,10 @@ final class DeepLinkRouter: ObservableObject {
                   let photoId, !photoId.isEmpty else { return }
 
             DispatchQueue.main.async {
-                self.pendingCalendarChallengeId = challengeId
+                // Définir d'abord la cible photo pour que les observateurs disposent
+                // de l'identifiant avant que le challenge ne déclenche la navigation.
                 self.pendingPhotoLink = PhotoDeepLink(challengeId: challengeId, photoId: photoId)
+                self.pendingCalendarChallengeId = challengeId
                 self.showJoinSheet = false
             }
 
