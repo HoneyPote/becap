@@ -46,7 +46,6 @@ final class PhotoViewModel: ObservableObject, Identifiable {
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
-    let challenge: Challenge
 
     var photoFormattedDate: String {
         let dateFormatter = DateFormatter()
@@ -146,6 +145,7 @@ class PhotoPagerViewModel: ObservableObject {
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
+    let challenge: Challenge
 
     var photoFormattedDate: String {
         selectedPhotoVM.photoFormattedDate
