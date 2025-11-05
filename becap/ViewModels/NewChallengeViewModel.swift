@@ -9,13 +9,15 @@ import SwiftUI
 import UserNotifications
 
 class NewChallengeViewModel: ObservableObject {
+    private static let defaultDuration = 30
+
     @Published var nom: String = ""
-    @Published var duree: Int = 30 {
+    @Published var duree: Int = defaultDuration {
         didSet { updateSuggestedJokersIfNeeded() }
     }
     @Published var heureNotification: Date = Date()
     @Published var isLoading: Bool = false
-    @Published var nombreJokers: Int {
+    @Published var nombreJokers: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {
         didSet {
             if shouldIgnoreJokerUpdate {
                 shouldIgnoreJokerUpdate = false
@@ -43,7 +45,6 @@ class NewChallengeViewModel: ObservableObject {
         self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.alertManager = alertManager
-        self.nombreJokers = NewChallengeViewModel.suggestedJokerCount(for: duree)
     }
 
     func createChallenge(completion: @escaping (Bool) -> Void) {
