@@ -305,7 +305,21 @@ final class NotificationService {
         var req = URLRequest(url: url)
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        req.setValue(onesignalRestAuth, forHTTPHeaderField: "Authorization")
+
+        let trimmedKey = onesignalRestAuth.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedKey.isEmpty else {
+            print("⚠️ \(context) annulée : clé OneSignal REST manquante.")
+            onInvalidPlayers([])
+            return
+        }
+
+        let authHeader: String
+        if trimmedKey.lowercased().hasPrefix("basic ") {
+            authHeader = trimmedKey
+        } else {
+            authHeader = "Basic \(trimmedKey)"
+        }
+        req.setValue(authHeader, forHTTPHeaderField: "Authorization")
         req.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
 
         URLSession.shared.dataTask(with: req) { data, resp, err in
