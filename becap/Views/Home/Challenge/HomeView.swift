@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var hasPresentedJoinForDeepLink = false
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
+    @State private var deepLinkedPhotoId: String?
 
     var body: some View {
         NavigationStack {
@@ -97,6 +98,7 @@ struct HomeView: View {
                 hasPresentedJoinForDeepLink = false
                 isResolvingDeepLink = false
                 hasLoadedChallengesForPendingDeepLink = false
+                deepLinkedPhotoId = nil
                 return
             }
 
@@ -247,7 +249,10 @@ extension HomeView {
     @ViewBuilder
     private var deepLinkNavigationDestination: some View {
         if let challenge = deepLinkedChallenge {
-            CalendarDetailView(challenge: challenge)
+            CalendarDetailView(challenge: challenge, initialPhotoId: deepLinkedPhotoId)
+                .onDisappear {
+                    deepLinkedPhotoId = nil
+                }
         } else {
             EmptyView()
         }
@@ -266,6 +271,12 @@ extension HomeView {
     private func attemptNavigationToChallenge(withId challengeId: String, allowJoinFallback: Bool) {
         if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
             deepLinkedChallenge = challenge
+            if let link = deepLinkRouter.pendingPhotoLink,
+               link.challengeId == challengeId {
+                deepLinkedPhotoId = link.photoId
+            } else {
+                deepLinkedPhotoId = nil
+            }
             navigateToDeepLinkedChallenge = true
             hasPresentedJoinForDeepLink = false
             deepLinkJoinCode = nil
@@ -274,6 +285,7 @@ extension HomeView {
 
             deepLinkRouter.clearChallengeNavigation()
             deepLinkRouter.clearJoin()
+            deepLinkRouter.clearPhotoNavigation()
         } else if allowJoinFallback,
                   let code = deepLinkRouter.pendingJoinCode,
                   !hasPresentedJoinForDeepLink {

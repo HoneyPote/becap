@@ -81,7 +81,9 @@ final class NotificationService {
     }
     func sendPhotoNotification(to participantIds: [String],
                                authorName: String,
-                               challengeTitle: String) async {
+                               challengeTitle: String,
+                               challengeId: String,
+                               photoId: String) async {
         do {
             // Exclure l’auteur, dédupliquer
             let selfUid = userManager.currentUser?.id
@@ -106,20 +108,33 @@ final class NotificationService {
 
             print("📬 PHOTO → externalIds=\(externalIds) playerIds=\(playerIds)")
 
+            let deepLink = makePhotoDeepLink(challengeId: challengeId, photoId: photoId)
+            let additionalData: [String: Any] = [
+                "type": "photo_posted",
+                "challengeId": challengeId,
+                "photoId": photoId
+            ]
+
             // Passe par le même helper que like/comment
             sendForUser(externalIds: externalIds,
                         playerIds: playerIds,
                         headings: headings,
                         contents: contents,
                         userIdForCleanup: externalIds.first ?? "",
-                        context: "sendPhotoNotification")
+                        context: "sendPhotoNotification",
+                        additionalData: additionalData,
+                        appUrl: deepLink)
         } catch {
             print("❌ Erreur sendPhotoNotification: \(error)")
         }
     }
 
     // MARK: - LIKE notification
-    func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
+    func sendLikeNotification(to authorUid: String,
+                              from userName: String,
+                              challengeTitle: String,
+                              challengeId: String,
+                              photoId: String) async {
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New like!", "fr": "Nouvelle mention J’aime !"]
@@ -127,19 +142,29 @@ final class NotificationService {
                         "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""]
 
         print("🔔 LIKE → authorUid=\(authorUid) playerIds=\(playerIds)")
+        let deepLink = makePhotoDeepLink(challengeId: challengeId, photoId: photoId)
+        let additionalData: [String: Any] = [
+            "type": "photo_liked",
+            "challengeId": challengeId,
+            "photoId": photoId
+        ]
         sendForUser(externalIds: [authorUid],
                     playerIds: playerIds,
                     headings: headings,
                     contents: contents,
                     userIdForCleanup: authorUid,
-                    context: "sendLikeNotification")
+                    context: "sendLikeNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
     }
 
     // MARK: - COMMENT notification
     func sendCommentNotification(to authorUid: String,
                                  from userName: String,
                                  challengeTitle: String,
-                                 commentText: String) async {
+                                 commentText: String,
+                                 challengeId: String,
+                                 photoId: String) async {
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New comment 💬", "fr": "Nouveau commentaire 💬"]
@@ -147,12 +172,20 @@ final class NotificationService {
                         "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""]
 
         print("🔔 COMMENT → authorUid=\(authorUid) playerIds=\(playerIds)")
+        let deepLink = makePhotoDeepLink(challengeId: challengeId, photoId: photoId)
+        let additionalData: [String: Any] = [
+            "type": "photo_commented",
+            "challengeId": challengeId,
+            "photoId": photoId
+        ]
         sendForUser(externalIds: [authorUid],
                     playerIds: playerIds,
                     headings: headings,
                     contents: contents,
                     userIdForCleanup: authorUid,
-                    context: "sendCommentNotification")
+                    context: "sendCommentNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
     }
 
     // MARK: - Firestore fetch
@@ -179,21 +212,37 @@ final class NotificationService {
     }
 
     // MARK: - Core send helpers
+    private func makePhotoDeepLink(challengeId: String, photoId: String) -> String {
+        var comps = URLComponents()
+        comps.scheme = "becap"
+        comps.host = "photo"
+        comps.queryItems = [
+            URLQueryItem(name: "challengeId", value: challengeId),
+            URLQueryItem(name: "photoId", value: photoId)
+        ]
+
+        return comps.url?.absoluteString ?? "becap://photo?challengeId=\(challengeId)&photoId=\(photoId)"
+    }
+
     private func sendForUser(externalIds: [String],
                              playerIds: [String],
                              headings: [String: String],
                              contents: [String: String],
                              userIdForCleanup: String,
-                             context: String) {
+                             context: String,
+                             additionalData: [String: Any]? = nil,
+                             appUrl: String? = nil) {
         // 1️⃣ D’abord tenter via playerIds (plus simple, pas de target_channel requis)
         if !playerIds.isEmpty {
-            let payload: [String: Any] = [
+            var payload: [String: Any] = [
                 "app_id": onesignalAppId,
                 "include_player_ids": playerIds,
                 "headings": headings,
                 "contents": contents,
                 "ios_sound": "default"
             ]
+            if let additionalData { payload["data"] = additionalData }
+            if let appUrl { payload["app_url"] = appUrl }
             sendUrlRequestNotification(payload: payload, context: context) { invalid in
                 guard !invalid.isEmpty else { return }
                 print("⛔️ \(context) invalid_player_ids: \(invalid) → purge + retry via external_id")
@@ -201,7 +250,7 @@ final class NotificationService {
                 self.handleInvalidPlayerIds(invalid, for: userIdForCleanup)
 
                 // 2️⃣ Retry via alias (external_id) — EXIGE target_channel
-                let retryPayload: [String: Any] = [
+                var retryPayload: [String: Any] = [
                     "app_id": self.onesignalAppId,
                     "include_aliases": ["external_id": [userIdForCleanup]],
                     "target_channel": "push",
@@ -209,6 +258,8 @@ final class NotificationService {
                     "contents": contents,
                     "ios_sound": "default"
                 ]
+                if let additionalData { retryPayload["data"] = additionalData }
+                if let appUrl { retryPayload["app_url"] = appUrl }
                 self.sendUrlRequestNotification(payload: retryPayload,
                                                 context: context + " [retry-alias]") { _ in }
             }
@@ -217,7 +268,7 @@ final class NotificationService {
 
         // 3️⃣ Si aucun playerId dispo, on passe direct par alias (external_id) — avec target_channel
         if !externalIds.isEmpty {
-            let payload: [String: Any] = [
+            var payload: [String: Any] = [
                 "app_id": onesignalAppId,
                 "include_aliases": ["external_id": externalIds],
                 "target_channel": "push",
@@ -225,6 +276,8 @@ final class NotificationService {
                 "contents": contents,
                 "ios_sound": "default"
             ]
+            if let additionalData { payload["data"] = additionalData }
+            if let appUrl { payload["app_url"] = appUrl }
             sendUrlRequestNotification(payload: payload, context: context) { _ in }
             return
         }

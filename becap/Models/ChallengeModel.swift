@@ -75,19 +75,28 @@ enum DeepLink {
     case join(code: String, challengeId: String?)
 }
 
+struct PhotoDeepLink: Equatable {
+    let challengeId: String
+    let photoId: String
+}
+
 import SwiftUI
 
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingJoinCode: String? = nil
     @Published var showJoinSheet: Bool = false
     @Published var pendingCalendarChallengeId: String? = nil
+    @Published var pendingPhotoLink: PhotoDeepLink? = nil
 
     // Appelle ceci depuis .onOpenURL
     func handle(url: URL) {
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false) else { return }
-        // Ex: becap://join?code=123456
-        if comps.scheme?.lowercased() == "becap",
-           comps.host?.lowercased() == "join" {
+        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              comps.scheme?.lowercased() == "becap" else { return }
+
+        let host = comps.host?.lowercased()
+
+        switch host {
+        case "join":
             let code = comps.queryItems?.first(where: { $0.name == "code" })?.value
             let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
             DispatchQueue.main.async {
@@ -103,6 +112,22 @@ final class DeepLinkRouter: ObservableObject {
                     }
                 }
             }
+
+        case "photo":
+            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
+            let photoId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value
+
+            guard let challengeId, !challengeId.isEmpty,
+                  let photoId, !photoId.isEmpty else { return }
+
+            DispatchQueue.main.async {
+                self.pendingCalendarChallengeId = challengeId
+                self.pendingPhotoLink = PhotoDeepLink(challengeId: challengeId, photoId: photoId)
+                self.showJoinSheet = false
+            }
+
+        default:
+            break
         }
     }
 
@@ -113,5 +138,9 @@ final class DeepLinkRouter: ObservableObject {
 
     func clearChallengeNavigation() {
         pendingCalendarChallengeId = nil
+    }
+
+    func clearPhotoNavigation() {
+        pendingPhotoLink = nil
     }
 }

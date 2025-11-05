@@ -215,22 +215,32 @@ extension ChallengeManager {
         guard let currentUser, let currentUserId = currentUser.id, let challengeId = challenge.id else { return }
 
         print("📤 Upload de la photo en cours...")
-        _ = try await uploadPhotoAsync(image: image,
-                                       challengeId: challengeId,
-                                       author: currentUser,
-                                       description: descriptionText)
+        let uploadedPhoto = try await uploadPhotoAsync(image: image,
+                                                       challengeId: challengeId,
+                                                       author: currentUser,
+                                                       description: descriptionText)
 
         print("✅ Upload réussi, mise à jour progression Firestore...")
         try await updateParticipantProgress(for: challengeId, userId: currentUserId, date: Date())
 
         // Envoyer notif
-        await notificationService.sendPhotoNotification(to: challenge.participantUids,
-                                                        authorName: currentUser.name,
-                                                        challengeTitle: challenge.title)
+        if let photoId = uploadedPhoto.id {
+            await notificationService.sendPhotoNotification(to: challenge.participantUids,
+                                                            authorName: currentUser.name,
+                                                            challengeTitle: challenge.title,
+                                                            challengeId: challengeId,
+                                                            photoId: photoId)
+        } else {
+            print("⚠️ Impossible d'envoyer la notif photo : identifiant photo manquant")
+        }
     }
 
     /// Upload une photo dans Firebase Storage via `ChallengeService`
-    func uploadPhotoAsync(image: UIImage, challengeId: String, author: User, description: String? = "") async throws {
+    @discardableResult
+    func uploadPhotoAsync(image: UIImage,
+                          challengeId: String,
+                          author: User,
+                          description: String? = "") async throws -> ChallengePhoto {
         let photo = try await challengeService.uploadPhoto(image: image,
                                                            challengeId: challengeId,
                                                            author: author,
@@ -239,6 +249,8 @@ extension ChallengeManager {
         await MainActor.run {
             savePhoto(photo, to: challengeId)
         }
+
+        return photo
     }
 
     func loadPhotos(from challengeId: String) async throws -> [ChallengePhoto] {
@@ -277,7 +289,9 @@ extension ChallengeManager {
 
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
                                                             from: currentUser.name,
-                                                            challengeTitle: challengeTitle)
+                                                            challengeTitle: challengeTitle,
+                                                            challengeId: challengeId,
+                                                            photoId: photoId)
     }
 
     func unlikePhoto(photo: ChallengePhoto) async throws {
@@ -327,7 +341,9 @@ extension ChallengeManager {
         await notificationService.sendCommentNotification(to: photo.authorUid,
                                                           from: currentUser.name,
                                                           challengeTitle: challengeTitle,
-                                                          commentText: content)
+                                                          commentText: content,
+                                                          challengeId: challengeId,
+                                                          photoId: photoId)
     }
 
     // Photos - Privates
