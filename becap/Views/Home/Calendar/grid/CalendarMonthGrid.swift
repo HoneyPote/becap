@@ -13,6 +13,7 @@ struct CalendarMonthGrid: View {
     let days: Int
     let selectedDate: Date?
     let photoCountByDay: [Date: Int]
+    let jokerCountByDay: [Date: Int]
     let onSelectDate: (Date) -> Void
 
     private let calendar = Calendar.current
@@ -24,11 +25,13 @@ struct CalendarMonthGrid: View {
          days: Int,
          selectedDate: Date?,
          photoCountByDay: [Date: Int],
+         jokerCountByDay: [Date: Int],
          onSelectDate: @escaping (Date) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
         self.selectedDate = selectedDate
         self.photoCountByDay = photoCountByDay
+        self.jokerCountByDay = jokerCountByDay
         self.onSelectDate = onSelectDate
 
         let calendar = Calendar.current
@@ -53,7 +56,7 @@ struct CalendarMonthGrid: View {
         self.trailingEmpty = remainder == 0 ? 0 : (7 - remainder)
     }
 
-    private let cellHeight: CGFloat = 54
+    private let cellHeight: CGFloat = 64
 
     var body: some View {
         ScrollView {
@@ -71,27 +74,27 @@ struct CalendarMonthGrid: View {
                         ForEach(dayItems) { item in
                             let day = calendar.startOfDay(for: item.date)
                             let count = photoCountByDay[day] ?? 0
+                            let jokerCount = jokerCountByDay[day] ?? 0
                             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
 
                             DayCell(
                                 date: day,
                                 dayNumber: item.dayNumber,               // ⬅️ passe le n° de défi
                                 photoCount: count,
+                                jokerCount: jokerCount,
                                 isToday: calendar.isDateInToday(day),
                                 isWithinChallenge: true,
                                 isSelected: isSelected
                             ) {
                                 onSelectDate(day)
                             }
-
-
-                             .overlay(alignment: .bottom) {
-                                 Text("Jour")
-                                     .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                     .foregroundColor(.white.opacity(0.55))
-                                     .padding(.bottom, 2)
-                                     .allowsHitTesting(false)
-                             }
+                            .overlay(alignment: .bottom) {
+                                Text("Jour")
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.55))
+                                    .padding(.bottom, jokerCount > 0 ? 22 : 6)
+                                    .allowsHitTesting(false)
+                            }
                         }
 
                         ForEach(0..<trailingEmpty, id: \.self) { index in

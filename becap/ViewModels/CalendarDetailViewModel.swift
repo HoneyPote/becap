@@ -102,6 +102,36 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
+    func jokerUsageCounts(for selectedParticipant: Participant? = nil) -> [Date: Int] {
+        guard (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return [:] }
+
+        let relevantProgresses: [ParticipantProgress]
+
+        if let selectedParticipant {
+            relevantProgresses = participantProgresses.filter { $0.id == selectedParticipant.id }
+        } else {
+            relevantProgresses = participantProgresses
+        }
+
+        guard !relevantProgresses.isEmpty else { return [:] }
+
+        var counts: [Date: Int] = [:]
+        counts.reserveCapacity(relevantProgresses.count * 2)
+
+        let calendar = Calendar.current
+
+        for progress in relevantProgresses {
+            guard let jokerProgress = progress.jokerProgress else { continue }
+
+            for usage in jokerProgress.confirmedUsages {
+                let day = calendar.startOfDay(for: usage.date)
+                counts[day, default: 0] += 1
+            }
+        }
+
+        return counts
+    }
+
     func deletePhoto(_ photoId: String) {
         self.allPhotos.removeAll(where: { $0.id == photoId })
     }

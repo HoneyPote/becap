@@ -34,6 +34,7 @@ struct CalendarDetailView: View {
     @State private var shareItems: [Any] = []
     @State private var pagerInfo: PagerInfo?
     @State private var pendingInitialPhotoId: String?
+    @State private var showJokerBubble = false
 
     init(challenge: Challenge, initialPhotoId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -69,55 +70,8 @@ struct CalendarDetailView: View {
                     .padding(.bottom, 10)
 
                 if let jokerStatus = viewModel.currentUserJokerStatus {
-                    GlassCard {
-                        VStack(alignment: .leading, spacing: 12) {
-                            HStack {
-                                Text("Mes jokers")
-                                    .font(.system(.headline, design: .rounded).weight(.bold))
-                                    .foregroundColor(.white)
-                                Spacer()
-                                Text("\(jokerStatus.remaining)/\(jokerStatus.total)")
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                    .foregroundColor(.white.opacity(0.85))
-                            }
-
-                            HStack(spacing: 8) {
-                                let displayCount = min(jokerStatus.total, 8)
-                                ForEach(0..<displayCount, id: \.self) { index in
-                                    let isActive = index < min(jokerStatus.remaining, displayCount)
-                                    JokerIconView(size: 26,
-                                                  fillColor: .white,
-                                                  isDimmed: !isActive)
-                                }
-
-                                if jokerStatus.total > displayCount {
-                                    Text("+\(jokerStatus.total - displayCount)")
-                                        .font(.system(.footnote, design: .rounded).weight(.semibold))
-                                        .foregroundColor(.white.opacity(0.7))
-                                }
-                            }
-
-                            if viewModel.canUseJokerToday() {
-                                Button(action: { viewModel.useJokerForToday() }) {
-                                    HStack(spacing: 8) {
-                                        Image(systemName: "sparkles")
-                                        Text("Utiliser un joker aujourd'hui")
-                                    }
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                                    .padding(.vertical, 10)
-                                    .frame(maxWidth: .infinity)
-                                    .background(Color.white.opacity(0.18))
-                                    .cornerRadius(10)
-                                }
-                                .buttonStyle(.plain)
-                            } else {
-                                Text("Journée déjà validée ou aucun joker disponible.")
-                                    .font(.system(.footnote, design: .rounded))
-                                    .foregroundColor(.white.opacity(0.65))
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
+                    jokerShortcutButton(status: jokerStatus)
+                        .padding(.horizontal, 16)
                 }
 
                 // Apple-style month grid adapted to challenge length
@@ -128,19 +82,36 @@ struct CalendarDetailView: View {
         }
         // Bubble with the inline grid
         .overlay {
-            if let cell = selectedGridCell {
-                ZStack {
-                    // tap-catcher UNDER the bubble
-                    Color.black.opacity(0.001)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation { selectedGridCell = nil }
-                        }
+            ZStack {
+                if let cell = selectedGridCell {
+                    ZStack {
+                        // tap-catcher UNDER the bubble
+                        Color.black.opacity(0.001)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation { selectedGridCell = nil }
+                            }
 
-                    BubbleOverlay {
-                        buildGridPhotos(cell: cell)
+                        BubbleOverlay {
+                            buildGridPhotos(cell: cell)
+                        }
+                        .transition(.scale.combined(with: .opacity))
                     }
-                    .transition(.scale.combined(with: .opacity))
+                }
+
+                if showJokerBubble, let jokerStatus = viewModel.currentUserJokerStatus {
+                    ZStack {
+                        Color.black.opacity(0.001)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation { showJokerBubble = false }
+                            }
+
+                        BubbleOverlay {
+                            jokerBubbleContent(status: jokerStatus)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
                 }
             }
         }
@@ -168,6 +139,9 @@ struct CalendarDetailView: View {
         .onChange(of: viewModel.allPhotos) { _ in
             openInitialPhotoIfNeeded()
         }
+        .onChange(of: selectedParticipant) { _ in
+            showJokerBubble = false
+        }
     }
 
     // MARK: - Month Grid (w/ precomputed counts)
@@ -184,11 +158,14 @@ struct CalendarDetailView: View {
             return map
         }()
 
+        let jokerCountByDay = viewModel.jokerUsageCounts(for: selectedParticipant)
+
         return CalendarMonthGrid(
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
             selectedDate: selectedGridCell?.date,
             photoCountByDay: photoCountByDay,
+            jokerCountByDay: jokerCountByDay,
             onSelectDate: { date in
                 let day = startOfDay(date)
 
@@ -196,6 +173,7 @@ struct CalendarDetailView: View {
                    !cell.photos.isEmpty {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                         selectedGridCell = cell
+                        showJokerBubble = false
                     }
                 }
             }
@@ -308,6 +286,95 @@ struct CalendarDetailView: View {
 }
 
 extension CalendarDetailView {
+    @ViewBuilder
+    private func jokerBubbleContent(status: (total: Int, remaining: Int)) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Mes jokers")
+                    .font(.system(.headline, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Text("\(status.remaining)/\(status.total)")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+
+            HStack(spacing: 8) {
+                let displayCount = min(status.total, 8)
+                ForEach(0..<displayCount, id: \.self) { index in
+                    let isActive = index < min(status.remaining, displayCount)
+                    JokerIconView(size: 26,
+                                  fillColor: .white,
+                                  isDimmed: !isActive)
+                }
+
+                if status.total > displayCount {
+                    Text("+\(status.total - displayCount)")
+                        .font(.system(.footnote, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+
+            if viewModel.canUseJokerToday() {
+                Button(action: {
+                    showJokerBubble = false
+                    viewModel.useJokerForToday()
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "sparkles")
+                        Text("Utiliser un joker aujourd'hui")
+                    }
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .padding(.vertical, 10)
+                    .frame(maxWidth: .infinity)
+                    .background(Color.white.opacity(0.18))
+                    .cornerRadius(10)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Text("Journée déjà validée ou aucun joker disponible.")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.65))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func jokerShortcutButton(status: (total: Int, remaining: Int)) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                showJokerBubble.toggle()
+            }
+        } label: {
+            GlassCard {
+                HStack(spacing: 16) {
+                    JokerIconView(size: 34,
+                                  fillColor: .white,
+                                  isDimmed: status.remaining == 0)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Mes jokers")
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white)
+
+                        Text("\(status.remaining) restants / \(status.total) au total")
+                            .font(.system(size: 13, weight: .medium, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                    }
+
+                    Spacer()
+
+                    Image(systemName: showJokerBubble ? "chevron.down" : "chevron.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white.opacity(0.8))
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+
     private func openInitialPhotoIfNeeded() {
         guard viewModel.doneLoadingPhotos,
               let photoId = pendingInitialPhotoId else { return }

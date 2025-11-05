@@ -231,13 +231,46 @@ class PhotoPagerViewModel: ObservableObject {
     }
 
     func toggleJokerVote() {
-        guard canToggleJokerVote else { return }
+        guard canToggleJokerVote,
+              let currentUserId = challengeManager.currentUser?.id else { return }
+
+        var state = selectedPhotoVM.jokerState
+
+        if state.voters.contains(currentUserId) {
+            state.voters.removeAll { $0 == currentUserId }
+        } else {
+            state.voters.append(currentUserId)
+        }
+
+        let participantCount = max(1, challenge.participantUids.count)
+        let requiredVotes = participantCount <= 2 ? participantCount : (participantCount / 2 + 1)
+        let isConfirmed = state.voters.count >= requiredVotes
+
+        state.isConfirmed = isConfirmed
+        state.confirmedAt = isConfirmed ? Date() : nil
+
+        selectedPhotoVM.jokerState = state
+        objectWillChange.send()
 
         selectedPhotoVM.toggleJokerVote()
     }
 
     func declareJokerUsage() {
-        guard canDeclareJoker else { return }
+        guard canDeclareJoker,
+              let currentUserId = challengeManager.currentUser?.id else { return }
+
+        var state = selectedPhotoVM.jokerState
+        state.declaredByAuthor = true
+
+        if !state.voters.contains(currentUserId) {
+            state.voters.append(currentUserId)
+        }
+
+        state.isConfirmed = true
+        state.confirmedAt = Date()
+
+        selectedPhotoVM.jokerState = state
+        objectWillChange.send()
 
         selectedPhotoVM.declareJokerUsage(in: challenge)
     }

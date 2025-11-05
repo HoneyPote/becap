@@ -21,12 +21,14 @@ struct DayCell: View {
     let date: Date
     let dayNumber: Int          // ⬅️ nouveau : n° du jour de défi
     let photoCount: Int
+    let jokerCount: Int
     let isToday: Bool
     let isWithinChallenge: Bool
     let isSelected: Bool
     let tap: () -> Void
 
     private var photoCountIsNil: Bool { photoCount == 0 }
+    private var hasJokerUsage: Bool { jokerCount > 0 }
 
     var body: some View {
         Button {
@@ -55,7 +57,7 @@ struct DayCell: View {
                 }
                 .padding(.bottom, -8)
             }
-            .frame(height: 54)
+            .frame(height: 64)
             .opacity(isWithinChallenge ? 1.0 : 0.38)
             // badge photos en haut-droite
             .overlay(alignment: .topTrailing) {
@@ -71,6 +73,25 @@ struct DayCell: View {
                     .background(Color.black.opacity(0.25))
                     .clipShape(Capsule())
                     .padding(4)
+                }
+            }
+            .overlay(alignment: .bottomLeading) {
+                if hasJokerUsage {
+                    HStack(spacing: 4) {
+                        JokerIconView(size: 20,
+                                      fillColor: .white,
+                                      isDimmed: true)
+                            .frame(width: 20, height: 20)
+                        Text("\(jokerCount)")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .background(Color.black.opacity(0.28))
+                    .clipShape(Capsule())
+                    .padding(.leading, 4)
+                    .padding(.bottom, 6)
                 }
             }
         }

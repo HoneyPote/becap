@@ -256,17 +256,14 @@ extension CalendarPhotoPagerView {
         }
     }
 
-    @ViewBuilder
     private func voteBubble(for count: Int) -> some View {
-        if count > 0 {
-            Text("\(count)")
-                .font(.caption2.bold())
-                .foregroundColor(.white)
-                .padding(6)
-                .background(Color.pink.opacity(0.85))
-                .clipShape(Circle())
-                .offset(x: 8, y: -8)
-        }
+        Text("\(count)")
+            .font(.caption2.bold())
+            .foregroundColor(count > 0 ? .white : .black.opacity(0.75))
+            .padding(6)
+            .background((count > 0 ? Color.pink.opacity(0.85) : Color.white.opacity(0.35)))
+            .clipShape(Circle())
+            .offset(x: 8, y: -8)
     }
 
     private func handleJokerTap(for state: PhotoJokerState) {
