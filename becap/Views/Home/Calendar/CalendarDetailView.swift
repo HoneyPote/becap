@@ -69,11 +69,6 @@ struct CalendarDetailView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 10)
 
-                if let jokerStatus = viewModel.currentUserJokerStatus {
-                    jokerShortcutButton(status: jokerStatus)
-                        .padding(.horizontal, 16)
-                }
-
                 // Apple-style month grid adapted to challenge length
                 monthGrid
 
@@ -197,12 +192,25 @@ struct CalendarDetailView: View {
                 Spacer()
 
                 HStack(spacing: 12) {
+                    if let jokerStatus = viewModel.currentUserJokerStatus {
+                        jokerHeaderButton(status: jokerStatus)
+                    }
+
                     GlassCircleIcon(systemName: "bell.fill")
-                        .onTapGesture { showNotifSheet = true }
+                        .onTapGesture {
+                            showJokerBubble = false
+                            showNotifSheet = true
+                        }
                     GlassCircleIcon(systemName: "square.and.arrow.up.fill")
-                        .onTapGesture { presentShareSheet() }
+                        .onTapGesture {
+                            showJokerBubble = false
+                            presentShareSheet()
+                        }
                     GlassCircleIcon(systemName: "person.2.fill")
-                        .onTapGesture { showParticipantsSheet = true }
+                        .onTapGesture {
+                            showJokerBubble = false
+                            showParticipantsSheet = true
+                        }
                 }
                 .sheet(isPresented: $showNotifSheet, onDismiss: { viewModel.fetchInfos() }) {
                     NotificationSettingsView(challenge: viewModel.challenge)
@@ -342,37 +350,48 @@ extension CalendarDetailView {
     }
 
     @ViewBuilder
-    private func jokerShortcutButton(status: (total: Int, remaining: Int)) -> some View {
+    private func jokerHeaderButton(status: (total: Int, remaining: Int)) -> some View {
+        let borderColor = showJokerBubble ? Color.white.opacity(0.6) : Color.white.opacity(0.19)
+        let borderWidth: CGFloat = showJokerBubble ? 1.2 : 0.7
+
         Button {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
-                showJokerBubble.toggle()
+                let willShow = !showJokerBubble
+                showJokerBubble = willShow
+                if willShow {
+                    selectedGridCell = nil
+                }
             }
         } label: {
-            GlassCard {
-                HStack(spacing: 16) {
-                    JokerIconView(size: 34,
-                                  fillColor: .white,
-                                  isDimmed: status.remaining == 0)
+            ZStack {
+                Circle()
+                    .fill(.ultraThinMaterial)
+                    .frame(width: 38, height: 38)
+                    .overlay(
+                        Circle()
+                            .stroke(borderColor, lineWidth: borderWidth)
+                    )
+                    .shadow(color: Color.black.opacity(0.19), radius: 5, x: 0, y: 7)
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Mes jokers")
-                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            .foregroundColor(.white)
-
-                        Text("\(status.remaining) restants / \(status.total) au total")
-                            .font(.system(size: 13, weight: .medium, design: .rounded))
-                            .foregroundColor(.white.opacity(0.75))
-                    }
-
-                    Spacer()
-
-                    Image(systemName: showJokerBubble ? "chevron.down" : "chevron.up")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white.opacity(0.8))
+                JokerIconView(size: 22,
+                              fillColor: .white,
+                              isDimmed: status.remaining == 0)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if status.total > 0 {
+                    Text("\(status.remaining)")
+                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.black.opacity(0.55))
+                        .clipShape(Capsule())
+                        .offset(x: 2, y: 4)
                 }
             }
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Afficher mes jokers")
     }
 
     private func openInitialPhotoIfNeeded() {

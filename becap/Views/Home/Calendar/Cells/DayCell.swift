@@ -57,7 +57,7 @@ struct DayCell: View {
                 }
                 .padding(.bottom, -8)
             }
-            .frame(height: 64)
+            .frame(height: 72)
             .opacity(isWithinChallenge ? 1.0 : 0.38)
             // badge photos en haut-droite
             .overlay(alignment: .topTrailing) {
