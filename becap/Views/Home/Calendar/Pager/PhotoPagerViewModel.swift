@@ -25,8 +25,16 @@ final class PhotoStore: ObservableObject {
     }
 
     private func makeKey(for photo: ChallengePhoto) -> String {
-        return "\(photo.authorUid)_\(photo.date.timeIntervalSince1970)"
-    }
+          if let photoId = photo.id, !photoId.isEmpty {
+              return photoId
+          }
+
+          let challengeComponent = photo.challengeId ?? "unknown"
+          let timestamp = photo.createdAt.timeIntervalSince1970
+
+          return "\(challengeComponent)_\(photo.authorUid)_\(timestamp)"
+      
+  }
 }
 
 final class PhotoViewModel: ObservableObject, Identifiable {

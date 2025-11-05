@@ -2,36 +2,69 @@
 //  NotificationService.swift
 //  becap
 //
-//  Created by Victor Derveaux on 18/08/2025.
+//  Created by Adam Mabrouki on 18/08/2025.
 //
 
 import Foundation
 import FirebaseFirestore
 import OneSignalFramework
 
-class NotificationService {
+final class NotificationService {
     static let shared = NotificationService()
 
-    private let db = Firestore.firestore()
+    private let db: Firestore
+    private let userManager: UserManager
+    private var pushObserver: PushObserver?
+
+    // MARK: - OneSignal constants
+    private let onesignalAppId = "58d11a0f-cf16-4555-b258-c94d6afa0af3"
+
+    private let onesignalRestAuth = "os_v2_app_ldirud6pczcvlmsyzfgwv6qk6oegzpycmmwetwftglf7ekq3wdyevbaby37ptlxae5kw2wvqjbvyzedrbnxdghv5rel5uehv56fe6fi"
+
+    init(db: Firestore = .firestore(), userManager: UserManager = .shared) {
+        self.db = db
+        self.userManager = userManager
+    }
+
+    // MARK: - Setup
+
+    func setupOneSignal(didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) {
+        OneSignal.Debug.setLogLevel(.LL_VERBOSE)
+        OneSignal.initialize(onesignalAppId, withLaunchOptions: launchOptions)
+
+        OneSignal.Notifications.requestPermission({ accepted in
+            print("🔔 User accepted notifications: \(accepted)")
+        }, fallbackToSettings: false)
+
+        // ✅ Login immédiat si on a déjà l’UID
+        if let uid = userManager.currentUser?.id, !uid.isEmpty {
+            OneSignal.login(uid)
+        } else {
+            OneSignal.logout()
+        }
+
+        // ✅ Un SEUL observer ici (supprime celui de l’AppDelegate)
+        let observer = PushObserver()
+        OneSignal.User.pushSubscription.addObserver(observer)
+        self.pushObserver = observer
+
+        // ✅ Fallback: persister le playerId s’il arrive un poil plus tard
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) { [weak self] in
+            guard let self else { return }
+            if let uid = self.userManager.currentUser?.id, !uid.isEmpty,
+               let pid = OneSignal.User.pushSubscription.id {
+                print("✅ [Fallback] playerId OneSignal : \(pid)")
+                self.setOneSignalPushId(to: uid)
+            } else {
+                print("⚠️ [Fallback] Pas de playerId ou pas d’UID pour persister")
+            }
+        }
+
+        print("📡 OneSignal setup done. id: \(OneSignal.User.pushSubscription.id ?? "nil")")
+    }
 
     var currentOneSignalPushId: String? {
         OneSignal.User.pushSubscription.id
-    }
-
-    func setupOneSignal(didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) {
-        // Enable verbose logging for debugging (remove in production)
-        OneSignal.Debug.setLogLevel(.LL_VERBOSE)
-        // Initialize with your OneSignal App ID
-        OneSignal.initialize("58d11a0f-cf16-4555-b258-c94d6afa0af3", withLaunchOptions: launchOptions)
-        // Use this method to prompt for push notifications.
-        // We recommend removing this method after testing and instead use In-App Messages to prompt for notification permission.
-        OneSignal.Notifications.requestPermission({ accepted in
-            print("User accepted notifications: \(accepted)")
-        }, fallbackToSettings: false)
-
-        // 🔄 Ajout de l'observer
-        // TODO: À voir si on a besoin de ça, j'ai fait en sorte qu'on refresh le playerId constamment avant l'affichage de MainTabView, est-ce que c'est pas suffisant ? -> En faisant le test de relancer l'application sur deux simu différents avec le même compte, le playerId se change bien même sans l'observer. À confirmer si c'est le bon test à faire.
-//        OneSignal.User.pushSubscription.addObserver(PushObserver())
     }
 
     func loginOneSignalUser(with userId: String) {
@@ -43,141 +76,233 @@ class NotificationService {
     }
 
     func setOneSignalPushId(to userId: String) {
-        guard let oneSignalPushId = self.currentOneSignalPushId else { return }
-
-        let ref = db.collection("users").document(userId)
-
-        ref.setData(["onesignalPlayerId": oneSignalPushId], merge: true)
+        guard let oneSignalPushId = currentOneSignalPushId else { return }
+        db.collection("users").document(userId).setData(["onesignalPlayerId": oneSignalPushId], merge: true)
     }
+    func sendPhotoNotification(to participantIds: [String],
+                               authorName: String,
+                               challengeTitle: String) async {
+        do {
+            // Exclure l’auteur, dédupliquer
+            let selfUid = userManager.currentUser?.id
+            let externalIds = Array(Set(participantIds.filter { $0 != selfUid }))
 
-    func sendPhotoNotification(to participantIds: [String], authorName: String, challengeTitle: String) async {
-        guard let participantOneSignalPushIds = try? await fetchOneSignalPushIds(userIds: participantIds),
-              !participantOneSignalPushIds.isEmpty else {
-            print("❌ Impossible de trouver le playerId OneSignal pour les participants")
-            return
+            if externalIds.isEmpty {
+                print("⚠️ sendPhotoNotification: aucun destinataire (participants == auteur ou vide).")
+                return
+            }
+
+            // Récupérer playerIds (exclut l’appareil courant)
+            let playerIds = try await fetchOneSignalPushIds(userIds: externalIds)
+
+            let headings = [
+                "en": "New post in \"\(challengeTitle)\"",
+                "fr": "Nouveau post dans \"\(challengeTitle)\""
+            ]
+            let contents = [
+                "en": "\(authorName) added a new photo!",
+                "fr": "\(authorName) a posté une nouvelle photo !"
+            ]
+
+            print("📬 PHOTO → externalIds=\(externalIds) playerIds=\(playerIds)")
+
+            // Passe par le même helper que like/comment
+            sendForUser(externalIds: externalIds,
+                        playerIds: playerIds,
+                        headings: headings,
+                        contents: contents,
+                        userIdForCleanup: externalIds.first ?? "",
+                        context: "sendPhotoNotification")
+        } catch {
+            print("❌ Erreur sendPhotoNotification: \(error)")
         }
-
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": participantOneSignalPushIds,
-                                      "headings": [
-                                        "en": "Nouveau post dans \"\(challengeTitle)\"",
-                                        "fr": "Nouveau post dans \"\(challengeTitle)\""
-                                      ],
-                                      "contents": [
-                                        "en": "\(authorName) a posté une nouvelle photo !",
-                                        "fr": "\(authorName) a posté une nouvelle photo !"
-                                      ],
-                                      "ios_sound": "default"]
-
-        sendUrlRequestNotification(payload: payload)
     }
 
+    // MARK: - LIKE notification
     func sendLikeNotification(to authorUid: String, from userName: String, challengeTitle: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
-            return
-        }
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3",
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": ["en": "Nouvelle mention J’aime !",
-                                                   "fr": "Nouvelle mention J’aime !"],
-                                      "contents": ["en": "\(userName) a liké ta photo dans \"\(challengeTitle)\"",
-                                                   "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""],
-                                      "ios_sound": "default"]
+        let headings = ["en": "New like!", "fr": "Nouvelle mention J’aime !"]
+        let contents = ["en": "\(userName) liked your photo in \"\(challengeTitle)\"",
+                        "fr": "\(userName) a liké ta photo dans \"\(challengeTitle)\""]
 
-        sendUrlRequestNotification(payload: payload)
+        print("🔔 LIKE → authorUid=\(authorUid) playerIds=\(playerIds)")
+        sendForUser(externalIds: [authorUid],
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: authorUid,
+                    context: "sendLikeNotification")
     }
 
+    // MARK: - COMMENT notification
     func sendCommentNotification(to authorUid: String,
                                  from userName: String,
                                  challengeTitle: String,
                                  commentText: String) async {
-        guard let authorOneSignalPushId = try? await fetchOneSignalPushIds(userIds: [authorUid]).first else {
-            print("❌ Impossible de trouver le playerId OneSignal pour l’auteur \(authorUid)")
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
+
+        let headings = ["en": "New comment 💬", "fr": "Nouveau commentaire 💬"]
+        let contents = ["en": "\(userName) commented your photo in \"\(challengeTitle)\": \"\(commentText)\"",
+                        "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""]
+
+        print("🔔 COMMENT → authorUid=\(authorUid) playerIds=\(playerIds)")
+        sendForUser(externalIds: [authorUid],
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: authorUid,
+                    context: "sendCommentNotification")
+    }
+
+    // MARK: - Firestore fetch
+    func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
+        var ids: [String] = []
+        let currentId = excludeCurrentUser ? userManager.currentUser?.id : nil
+
+        for uid in userIds {
+            let snap = try await db.collection("users").document(uid).getDocument()
+            guard let data = snap.data(),
+                  let pid = data["onesignalPlayerId"] as? String,
+                  !pid.isEmpty else {
+                print("⚠️ Aucun playerId pour uid=\(uid)")
+                continue
+            }
+            if let currentId, uid == currentId {
+                print("ℹ️ Ignoré playerId courant pour \(uid)")
+                continue
+            }
+            ids.append(pid)
+            print("✅ Trouvé playerId : \(pid) pour uid : \(uid)")
+        }
+        return ids
+    }
+
+    // MARK: - Core send helpers
+    private func sendForUser(externalIds: [String],
+                             playerIds: [String],
+                             headings: [String: String],
+                             contents: [String: String],
+                             userIdForCleanup: String,
+                             context: String) {
+        // 1️⃣ D’abord tenter via playerIds (plus simple, pas de target_channel requis)
+        if !playerIds.isEmpty {
+            let payload: [String: Any] = [
+                "app_id": onesignalAppId,
+                "include_player_ids": playerIds,
+                "headings": headings,
+                "contents": contents,
+                "ios_sound": "default"
+            ]
+            sendUrlRequestNotification(payload: payload, context: context) { invalid in
+                guard !invalid.isEmpty else { return }
+                print("⛔️ \(context) invalid_player_ids: \(invalid) → purge + retry via external_id")
+
+                self.handleInvalidPlayerIds(invalid, for: userIdForCleanup)
+
+                // 2️⃣ Retry via alias (external_id) — EXIGE target_channel
+                let retryPayload: [String: Any] = [
+                    "app_id": self.onesignalAppId,
+                    "include_aliases": ["external_id": [userIdForCleanup]],
+                    "target_channel": "push",
+                    "headings": headings,
+                    "contents": contents,
+                    "ios_sound": "default"
+                ]
+                self.sendUrlRequestNotification(payload: retryPayload,
+                                                context: context + " [retry-alias]") { _ in }
+            }
             return
         }
 
-        let payload: [String: Any] = ["app_id": "58d11a0f-cf16-4555-b258-c94d6afa0af3", // ✅ Ton app ID OneSignal
-                                      "include_player_ids": [authorOneSignalPushId],
-                                      "headings": [
-                                        "en": "Nouveau commentaire 💬",
-                                        "fr": "Nouveau commentaire 💬"
-                                      ],
-                                      "contents": [
-                                        "en": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\"",
-                                        "fr": "\(userName) a commenté ta photo dans \"\(challengeTitle)\" : \"\(commentText)\""
-                                      ],
-                                      "ios_sound": "default"]
+        // 3️⃣ Si aucun playerId dispo, on passe direct par alias (external_id) — avec target_channel
+        if !externalIds.isEmpty {
+            let payload: [String: Any] = [
+                "app_id": onesignalAppId,
+                "include_aliases": ["external_id": externalIds],
+                "target_channel": "push",
+                "headings": headings,
+                "contents": contents,
+                "ios_sound": "default"
+            ]
+            sendUrlRequestNotification(payload: payload, context: context) { _ in }
+            return
+        }
 
-        sendUrlRequestNotification(payload: payload)
+        print("⚠️ \(context): aucun target valide (ni playerIds, ni externalIds).")
     }
 
-    func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
-        var playerIds: [String] = []
-
-        for userId in userIds {
-            let snap = try await db.collection("users").document(userId).getDocument()
-
-            if let data = snap.data(),
-               let playerId = data["onesignalPlayerId"] as? String,
-               !playerId.isEmpty {
-                playerIds.append(playerId)
-                print("✅ Trouvé playerId : \(playerId) pour uid : \(userId)")
+    private func handleInvalidPlayerIds(_ invalidIds: [String], for userId: String) {
+        guard !invalidIds.isEmpty else { return }
+        db.collection("users").document(userId).updateData([
+            "onesignalPlayerId": FieldValue.delete()
+        ]) { err in
+            if let err = err {
+                print("⚠️ Purge playerId Firestore échouée: \(err)")
             } else {
-                print("⚠️ Aucun playerId OneSignal pour uid : \(userId)")
+                print("✅ playerId périmé supprimé pour \(userId)")
             }
         }
-
-        if excludeCurrentUser {
-            return playerIds.filter { $0 != currentOneSignalPushId }
-        }
-
-        return playerIds
     }
 
-    private func sendUrlRequestNotification(payload: [String: Any]) {
+    private func sendUrlRequestNotification(payload: [String: Any],
+                                            context: String,
+                                            onInvalidPlayers: @escaping ([String]) -> Void) {
         let url = URL(string: "https://onesignal.com/api/v1/notifications")!
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.setValue(onesignalRestAuth, forHTTPHeaderField: "Authorization")
+        req.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
 
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Basic os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mxcvfhmnbcuijvwhdlo64mje7ovicdd6wbq36toy6lyley5gnfxdnz3wi2q3dzvehqlyjk5meujeni", forHTTPHeaderField: "Authorization")
-        request.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
+        URLSession.shared.dataTask(with: req) { data, resp, err in
+            if let err = err {
+                print("❌ \(context) error: \(err)")
+                return
+            }
 
-        URLSession.shared.dataTask(with: request) { data, response, error in
-            if let error = error {
-                print("❌ Push notification erreur : \(error)")
+            let code = (resp as? HTTPURLResponse)?.statusCode ?? -1
+            let body = data.flatMap { String(data: $0, encoding: .utf8) } ?? ""
+            print("📦 \(context) status=\(code)")
+            print("↪︎ \(context) body=\(body)")
+
+            guard let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                onInvalidPlayers([])
+                return
             }
-            if let httpResponse = response as? HTTPURLResponse {
-                print("OneSignal status : \(httpResponse.statusCode)")
+
+            if let errors = json["errors"] as? [String: Any],
+               let invalid = errors["invalid_player_ids"] as? [String],
+               !invalid.isEmpty {
+                onInvalidPlayers(invalid)
+            } else {
+                onInvalidPlayers([])
             }
-            if let data = data, let body = String(data: data, encoding: .utf8) {
-                print("Réponse OneSignal : \(body)")
-            }
+            
         }.resume()
     }
 }
 
-//class PushObserver: NSObject, OSPushSubscriptionObserver {
-//    func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
-//        guard let playerId = state.current.id else {
-//            print("⚠️ Aucun playerId détecté.")
-//            return
-//        }
-//
-//        print("🔄 Nouveau playerId détecté : \(playerId)")
-//
-//        if let userId = UserManager.shared.currentUser?.id {
-//            Firestore.firestore().collection("users").document(userId).updateData([
-//                "onesignalPlayerId": playerId
-//            ]) { error in
-//                if let error = error {
-//                    print("❌ Erreur Firestore : \(error)")
-//                } else {
-//                    print("✅ playerId mis à jour")
-//                }
-//            }
-//        }
-//    }
-//}
+// MARK: - PushObserver
+final class PushObserver: NSObject, OSPushSubscriptionObserver {
+    func onPushSubscriptionDidChange(state: OSPushSubscriptionChangedState) {
+        guard let playerId = state.current.id else {
+            print("⚠️ Aucun playerId détecté.")
+            return
+        }
+
+        print("🔄 Nouveau playerId détecté : \(playerId)")
+
+        if let userId = UserManager.shared.currentUser?.id {
+            Firestore.firestore().collection("users").document(userId)
+                .updateData(["onesignalPlayerId": playerId]) { error in
+                    if let error = error {
+                        print("❌ Erreur Firestore : \(error)")
+                    } else {
+                        print("✅ playerId mis à jour pour \(userId)")
+                    }
+                }
+        }
+    }
+}

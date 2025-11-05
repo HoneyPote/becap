@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import OneSignalFramework
 
 protocol ChallengeManagerProtocol {
     var currentUser: User? { get }
@@ -259,7 +260,7 @@ extension ChallengeManager {
               let currentUserId = currentUser.id,
               let challengeId = photo.challengeId,
               let photoId = photo.id else { return }
-
+        if photo.authorUid == currentUserId { return }
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             challengeService.likePhoto(challengeId: challengeId, photoId: photoId, userId: currentUserId) { error in
                 if let error {
@@ -556,10 +557,25 @@ extension ChallengeManager {
 // MARK: - Observers
 extension ChallengeManager {
     private func observeCurrentUser() {
-        userManager.$currentUser
+             userManager.$currentUser
             .receive(on: DispatchQueue.main)
             .sink { [weak self] currentUser in
                 self?.currentUser = currentUser
+
+                if let uid = currentUser?.id, !uid.isEmpty {
+                    OneSignal.login(uid)
+
+                    // 🔄 si déjà présent, on persiste; sinon on attend 1s
+                    if let _ = OneSignal.User.pushSubscription.id {
+                        NotificationService.shared.setOneSignalPushId(to: uid)
+                    } else {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            NotificationService.shared.setOneSignalPushId(to: uid)
+                        }
+                    }
+                } else {
+                    OneSignal.logout()
+                }
             }
             .store(in: &cancellables)
     }
