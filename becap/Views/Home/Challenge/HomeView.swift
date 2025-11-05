@@ -98,7 +98,9 @@ struct HomeView: View {
                 hasPresentedJoinForDeepLink = false
                 isResolvingDeepLink = false
                 hasLoadedChallengesForPendingDeepLink = false
-                deepLinkedPhotoId = nil
+                if !navigateToDeepLinkedChallenge {
+                    deepLinkedPhotoId = nil
+                }
                 return
             }
 
@@ -266,12 +268,21 @@ extension HomeView {
     private var deepLinkNavigationDestination: some View {
         if let challenge = deepLinkedChallenge {
             CalendarDetailView(challenge: challenge, initialPhotoId: deepLinkedPhotoId)
+                .id(calendarDetailIdentity(for: challenge, photoId: deepLinkedPhotoId))
                 .onDisappear {
                     deepLinkedPhotoId = nil
                 }
         } else {
             EmptyView()
         }
+    }
+
+    private func calendarDetailIdentity(for challenge: Challenge, photoId: String?) -> String {
+        let base = challenge.id ?? "challenge-detail"
+        if let photoId, !photoId.isEmpty {
+            return "\(base)|photo:\(photoId)"
+        }
+        return "\(base)|calendar"
     }
 
     private func beginResolvingDeepLink(for challengeId: String) {

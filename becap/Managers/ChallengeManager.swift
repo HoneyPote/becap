@@ -287,6 +287,11 @@ extension ChallengeManager {
 
         let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
 
+        guard photo.authorUid != currentUserId else {
+            print("ℹ️ Auto-like détecté – pas de notification envoyée.")
+            return
+        }
+
         await self.notificationService.sendLikeNotification(to: photo.authorUid,
                                                             from: currentUser.name,
                                                             challengeTitle: challengeTitle,
@@ -337,6 +342,11 @@ extension ChallengeManager {
         }
 
         let challengeTitle = self.challenges.first(where: { $0.id == challengeId })?.title ?? ""
+
+        guard photo.authorUid != currentUserId else {
+            print("ℹ️ Commentaire personnel détecté – pas de notification envoyée.")
+            return
+        }
 
         await notificationService.sendCommentNotification(to: photo.authorUid,
                                                           from: currentUser.name,
