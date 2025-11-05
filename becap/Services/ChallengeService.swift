@@ -24,8 +24,10 @@ protocol ChallengeServiceProtocol {
     // Photos
     func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void)
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void)
+    @discardableResult
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration?
+    @discardableResult
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration?
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -496,7 +498,8 @@ extension ChallengeService {
         }
     }
 
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) {
+    @discardableResult
+    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration? {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -505,27 +508,32 @@ extension ChallengeService {
             .collection(collecComments)
 
 
-        ref.order(by: "timestamp").addSnapshotListener { snapshot, error in
+        let listener = ref.order(by: "timestamp").addSnapshotListener { snapshot, error in
             guard let documents = snapshot?.documents else { return onUpdate([]) }
 
             let comments = documents.compactMap { try? $0.data(as: PhotoCommentModel.self) }
 
             onUpdate(comments)
         }
+
+        return listener
     }
 
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) {
+    @discardableResult
+    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration? {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
             .document(photoId)
 
-        ref.addSnapshotListener { snapshot, error in
+        let listener = ref.addSnapshotListener { snapshot, error in
             guard let updatedPhoto = try? snapshot?.data(as: ChallengePhoto.self) else { return onUpdate(nil) }
 
             onUpdate(updatedPhoto)
         }
+
+        return listener
     }
 }
 

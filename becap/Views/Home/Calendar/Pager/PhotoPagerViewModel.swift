@@ -6,35 +6,76 @@
 //
 
 import Foundation
+import FirebaseFirestore
 
 final class PhotoStore: ObservableObject {
     static let shared = PhotoStore()
 
-    private var cache: [String: PhotoViewModel] = [:]
+    private struct CacheEntry {
+        let viewModel: PhotoViewModel
+        var lastAccess: Date
+    }
+
+    private let maxCacheSize = 40
+    private var cache: [String: CacheEntry] = [:]
+    private let lock = NSLock()
 
     func getViewModel(for photo: ChallengePhoto) -> PhotoViewModel {
         let key = makeKey(for: photo)
 
-        if let existing = cache[key] {
-            return existing
-        } else {
-            let vm = PhotoViewModel(photo: photo)
-            cache[key] = vm
-            return vm
+        lock.lock()
+        defer { lock.unlock() }
+
+        if var entry = cache[key] {
+            entry.lastAccess = Date()
+            cache[key] = entry
+            return entry.viewModel
+        }
+
+        let vm = PhotoViewModel(photo: photo)
+        cache[key] = CacheEntry(viewModel: vm, lastAccess: Date())
+        trimIfNeeded()
+
+        return vm
+    }
+
+    func removeViewModel(for photo: ChallengePhoto) {
+        let key = makeKey(for: photo)
+
+        lock.lock()
+        defer { lock.unlock() }
+
+        if let entry = cache.removeValue(forKey: key) {
+            entry.viewModel.invalidate()
         }
     }
 
     private func makeKey(for photo: ChallengePhoto) -> String {
-          if let photoId = photo.id, !photoId.isEmpty {
-              return photoId
-          }
+        if let photoId = photo.id, !photoId.isEmpty {
+            return photoId
+        }
 
-          let challengeComponent = photo.challengeId ?? "unknown"
-          let timestamp = photo.createdAt.timeIntervalSince1970
+        let challengeComponent = photo.challengeId ?? "unknown"
+        let timestamp = photo.createdAt.timeIntervalSince1970
 
-          return "\(challengeComponent)_\(photo.authorUid)_\(timestamp)"
-      
-  }
+        return "\(challengeComponent)_\(photo.authorUid)_\(timestamp)"
+    }
+
+    private func trimIfNeeded() {
+        guard cache.count > maxCacheSize else { return }
+
+        let overflow = cache.count - maxCacheSize
+        let keysToRemove = cache
+            .sorted { $0.value.lastAccess < $1.value.lastAccess }
+            .prefix(overflow)
+            .map { $0.key }
+
+        for key in keysToRemove {
+            if let entry = cache.removeValue(forKey: key) {
+                entry.viewModel.invalidate()
+            }
+        }
+    }
 }
 
 final class PhotoViewModel: ObservableObject, Identifiable {
@@ -45,6 +86,8 @@ final class PhotoViewModel: ObservableObject, Identifiable {
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
+    private var likesListener: ListenerRegistration?
+    private var commentsListener: ListenerRegistration?
 
     var photoFormattedDate: String {
         let dateFormatter = DateFormatter()
@@ -63,6 +106,10 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         self.challengeManager = challengeManager
 
         listenToPost()
+    }
+
+    deinit {
+        invalidate()
     }
 
     func like() {
@@ -103,7 +150,10 @@ final class PhotoViewModel: ObservableObject, Identifiable {
     }
 
     private func listenToLikes(photoId: String, challengeId: String) {
-        challengeService.listenToPhoto(challengeId: challengeId, photoId: photoId) { [weak self] updated in
+        likesListener = challengeService.listenToPhoto(
+            challengeId: challengeId,
+            photoId: photoId
+        ) { [weak self] updated in
             guard let updated else { return }
 
             self?.likes = updated.likes ?? []
@@ -111,9 +161,19 @@ final class PhotoViewModel: ObservableObject, Identifiable {
     }
 
     private func listenToComments(photoId: String, challengeId: String) {
-        challengeService.listenToComments(challengeId: challengeId, photoId: photoId) { [weak self] updated in
+        commentsListener = challengeService.listenToComments(
+            challengeId: challengeId,
+            photoId: photoId
+        ) { [weak self] updated in
             self?.comments = updated
         }
+    }
+
+    func invalidate() {
+        likesListener?.remove()
+        likesListener = nil
+        commentsListener?.remove()
+        commentsListener = nil
     }
 }
 
@@ -162,6 +222,7 @@ class PhotoPagerViewModel: ObservableObject {
 
                 await MainActor.run {
                     self.photoViewModels.removeAll(where: { $0.photo.id == deletedPhoto.id })
+                    PhotoStore.shared.removeViewModel(for: deletedPhoto)
 
                     if !self.photoViewModels.isEmpty {
                         if selectedIndex > 0 {
