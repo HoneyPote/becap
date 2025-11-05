@@ -33,9 +33,11 @@ struct CalendarDetailView: View {
     @State private var isShareSheetPresented = false
     @State private var shareItems: [Any] = []
     @State private var pagerInfo: PagerInfo?
+    @State private var pendingInitialPhotoId: String?
 
-    init(challenge: Challenge) {
+    init(challenge: Challenge, initialPhotoId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
+        _pendingInitialPhotoId = State(initialValue: initialPhotoId)
     }
 
     var body: some View {
@@ -100,6 +102,19 @@ struct CalendarDetailView: View {
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
+        .onAppear {
+            if viewModel.doneLoadingPhotos {
+                openInitialPhotoIfNeeded()
+            }
+        }
+        .onChange(of: viewModel.doneLoadingPhotos) { isDone in
+            if isDone {
+                openInitialPhotoIfNeeded()
+            }
+        }
+        .onChange(of: viewModel.allPhotos) { _ in
+            openInitialPhotoIfNeeded()
+        }
     }
 
     // MARK: - Month Grid (w/ precomputed counts)
@@ -235,5 +250,25 @@ struct CalendarDetailView: View {
         guard let items = ChallengeShareBuilder.makeShareItems(for: viewModel.challenge) else { return }
         shareItems = items
         isShareSheetPresented = true
+    }
+}
+
+extension CalendarDetailView {
+    private func openInitialPhotoIfNeeded() {
+        guard viewModel.doneLoadingPhotos,
+              let photoId = pendingInitialPhotoId else { return }
+
+        guard let photo = viewModel.allPhotos.first(where: { $0.id == photoId }) else {
+            return
+        }
+
+        let cells = viewModel.buildDetailcells(for: nil)
+        guard let cell = cells.first(where: { sameDay($0.date, photo.date) }),
+              let index = cell.photos.firstIndex(where: { $0.id == photoId }) else {
+            return
+        }
+
+        pagerInfo = PagerInfo(photos: cell.photos, index: index, date: cell.date)
+        pendingInitialPhotoId = nil
     }
 }

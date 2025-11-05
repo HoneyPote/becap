@@ -186,10 +186,8 @@ extension ChallengeService {
                                    date: Date(),
                                    createdAt: Date())
 
-        // Save in Firestore
-        try savePhoto(photo, challengeId: challengeId)
-
-        return photo
+        // Save in Firestore et retourner l'objet enrichi avec son identifiant
+        return try savePhoto(photo, challengeId: challengeId)
     }
 
     func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto] {
@@ -259,7 +257,8 @@ extension ChallengeService {
         }
     }
 
-    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws {
+    @discardableResult
+    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws -> ChallengePhoto {
         let docRef = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -269,6 +268,7 @@ extension ChallengeService {
         var photoToSave = photo
         photoToSave.id = docRef.documentID
         try docRef.setData(from: photoToSave)
+        return photoToSave
     }
 }
 
