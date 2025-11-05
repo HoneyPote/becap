@@ -19,7 +19,7 @@ final class NotificationService {
     // MARK: - OneSignal constants
     private let onesignalAppId = "58d11a0f-cf16-4555-b258-c94d6afa0af3"
 
-    private let onesignalRestAuth = "os_v2_app_ldirud6pczcvlmsyzfgwv6qk6oiecbj3sske4ieap7msi543a56yaks3ghbdivkuxfh2hbbtaracfanruth7orseejknhusiijtuxrq"
+    private let onesignalRestAuth = "os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mdymcjkj64uamemug3e46hkgmhn2fwya6tkvxdfbgbt7j4qqopygq4jy6qewdzaum7ksd7gnnghzhy"
 
     init(db: Firestore = .firestore(), userManager: UserManager = .shared) {
         self.db = db
