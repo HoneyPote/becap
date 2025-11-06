@@ -97,37 +97,22 @@ struct CalendarDetailView: View {
         }
         .overlayPreferenceValue(JokerButtonAnchorKey.self) { anchor in
             GeometryReader { proxy in
-                if showJokerBubble,
-                   let status = viewModel.currentUserJokerStatus,
-                   let anchor {
-                    let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
-                    let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160.0
+                Group {
+                    if showJokerBubble,
+                       let status = viewModel.currentUserJokerStatus,
+                       let anchor {
+                        let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
 
-                    ZStack {
-                        Color.black.opacity(0.001)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation { showJokerBubble = false }
-                            }
-
-                        BubbleOverlay {
+                        JokerBubbleContainer(rect: rect,
+                                             measuredSize: jokerBubbleSize,
+                                             onHide: { withAnimation { showJokerBubble = false } },
+                                             onSizeChange: updateJokerBubbleSize) {
                             jokerBubbleContent(status: status)
                         }
-                        .background(
-                            GeometryReader { bubbleProxy in
-                                Color.clear
-                                    .onAppear { updateJokerBubbleSize(bubbleProxy.size) }
-                                    .onChange(of: bubbleProxy.size) { updateJokerBubbleSize($0) }
-                            }
-                        )
-                        .position(x: rect.midX,
-                                  y: rect.maxY + measuredHeight / 2 + 8)
-                        .transition(.scale.combined(with: .opacity))
+                    } else {
+                        Color.clear
+                            .allowsHitTesting(false)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else {
-                    Color.clear
-                        .allowsHitTesting(false)
                 }
             }
         }
@@ -454,5 +439,50 @@ private struct JokerButtonAnchorKey: PreferenceKey {
 
     static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
         value = nextValue() ?? value
+    }
+}
+
+private struct JokerBubbleContainer<Content: View>: View {
+    let rect: CGRect
+    let measuredSize: CGSize
+    let onHide: () -> Void
+    let onSizeChange: (CGSize) -> Void
+    let content: () -> Content
+
+    init(rect: CGRect,
+         measuredSize: CGSize,
+         onHide: @escaping () -> Void,
+         onSizeChange: @escaping (CGSize) -> Void,
+         @ViewBuilder content: @escaping () -> Content) {
+        self.rect = rect
+        self.measuredSize = measuredSize
+        self.onHide = onHide
+        self.onSizeChange = onSizeChange
+        self.content = content
+    }
+
+    var body: some View {
+        let fallbackHeight: CGFloat = measuredSize.height > 0 ? measuredSize.height : 160
+
+        return ZStack {
+            Color.black.opacity(0.001)
+                .ignoresSafeArea()
+                .onTapGesture(perform: onHide)
+
+            BubbleOverlay {
+                content()
+            }
+            .background(
+                GeometryReader { bubbleProxy in
+                    Color.clear
+                        .onAppear { onSizeChange(bubbleProxy.size) }
+                        .onChange(of: bubbleProxy.size) { onSizeChange($0) }
+                }
+            )
+            .position(x: rect.midX,
+                      y: rect.maxY + fallbackHeight / 2 + 8)
+            .transition(.scale.combined(with: .opacity))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
