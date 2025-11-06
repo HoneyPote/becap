@@ -35,6 +35,7 @@ struct CalendarDetailView: View {
     @State private var pagerInfo: PagerInfo?
     @State private var pendingInitialPhotoId: String?
     @State private var showJokerBubble = false
+    @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
 
     init(challenge: Challenge, initialPhotoId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -75,26 +76,33 @@ struct CalendarDetailView: View {
                 Spacer(minLength: 0)
             }
         }
+        .coordinateSpace(name: "CalendarDetailRoot")
         // Bubble with the inline grid
         .overlay {
-            ZStack {
-                if let cell = selectedGridCell {
-                    ZStack {
-                        // tap-catcher UNDER the bubble
-                        Color.black.opacity(0.001)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation { selectedGridCell = nil }
-                            }
-
-                        BubbleOverlay {
-                            buildGridPhotos(cell: cell)
+            if let cell = selectedGridCell {
+                ZStack {
+                    // tap-catcher UNDER the bubble
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation { selectedGridCell = nil }
                         }
-                        .transition(.scale.combined(with: .opacity))
-                    }
-                }
 
-                if showJokerBubble, let jokerStatus = viewModel.currentUserJokerStatus {
+                    BubbleOverlay {
+                        buildGridPhotos(cell: cell)
+                    }
+                    .transition(.scale.combined(with: .opacity))
+                }
+            }
+        }
+        .overlayPreferenceValue(JokerButtonAnchorKey.self) { anchor in
+            GeometryReader { proxy in
+                if showJokerBubble,
+                   let status = viewModel.currentUserJokerStatus,
+                   let anchor {
+                    let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
+                    let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160.0
+
                     ZStack {
                         Color.black.opacity(0.001)
                             .ignoresSafeArea()
@@ -103,10 +111,23 @@ struct CalendarDetailView: View {
                             }
 
                         BubbleOverlay {
-                            jokerBubbleContent(status: jokerStatus)
+                            jokerBubbleContent(status: status)
                         }
+                        .background(
+                            GeometryReader { bubbleProxy in
+                                Color.clear
+                                    .onAppear { updateJokerBubbleSize(bubbleProxy.size) }
+                                    .onChange(of: bubbleProxy.size) { updateJokerBubbleSize($0) }
+                            }
+                        )
+                        .position(x: rect.midX,
+                                  y: rect.maxY + measuredHeight / 2 + 8)
                         .transition(.scale.combined(with: .opacity))
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    Color.clear
+                        .allowsHitTesting(false)
                 }
             }
         }
@@ -390,6 +411,7 @@ extension CalendarDetailView {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Afficher mes jokers")
+        .anchorPreference(key: JokerButtonAnchorKey.self, value: .bounds) { $0 }
     }
 
     private func openInitialPhotoIfNeeded() {
@@ -408,5 +430,29 @@ extension CalendarDetailView {
 
         pagerInfo = PagerInfo(photos: cell.photos, index: index, date: cell.date)
         pendingInitialPhotoId = nil
+    }
+
+    private func updateJokerBubbleSize(_ size: CGSize) {
+        guard size.width > 0, size.height > 0 else { return }
+
+        let normalized = CGSize(width: size.width.rounded(.toNearestOrEven),
+                                height: size.height.rounded(.toNearestOrEven))
+
+        guard abs(jokerBubbleSize.width - normalized.width) > 0.5 ||
+                abs(jokerBubbleSize.height - normalized.height) > 0.5 else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            jokerBubbleSize = normalized
+        }
+    }
+}
+
+private struct JokerButtonAnchorKey: PreferenceKey {
+    static var defaultValue: Anchor<CGRect>? = nil
+
+    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
+        value = nextValue() ?? value
     }
 }
