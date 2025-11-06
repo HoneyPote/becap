@@ -238,7 +238,6 @@ extension CalendarPhotoPagerView {
         let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
 
         let icon = JokerIconView(size: 40,
-                                  fillColor: .white,
                                   isDimmed: state.isConfirmed)
 
         let decorated = icon

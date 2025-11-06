@@ -314,7 +314,6 @@ extension CalendarDetailView {
                 ForEach(0..<displayCount, id: \.self) { index in
                     let isActive = index < min(status.remaining, displayCount)
                     JokerIconView(size: 26,
-                                  fillColor: .white,
                                   isDimmed: !isActive)
                 }
 
@@ -374,7 +373,6 @@ extension CalendarDetailView {
                     .shadow(color: Color.black.opacity(0.19), radius: 5, x: 0, y: 7)
 
                 JokerIconView(size: 22,
-                              fillColor: .white,
                               isDimmed: status.remaining == 0)
             }
             .overlay(alignment: .bottomTrailing) {

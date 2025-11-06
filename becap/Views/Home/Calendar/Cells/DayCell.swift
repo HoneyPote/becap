@@ -79,7 +79,6 @@ struct DayCell: View {
                 if hasJokerUsage {
                     HStack(spacing: 4) {
                         JokerIconView(size: 20,
-                                      fillColor: .white,
                                       isDimmed: true)
                             .frame(width: 20, height: 20)
                         Text("\(jokerCount)")

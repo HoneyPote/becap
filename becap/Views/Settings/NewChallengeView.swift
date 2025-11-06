@@ -79,7 +79,6 @@ struct NewChallengeView: View {
                                 ForEach(0..<iconCount, id: \.self) { index in
                                     let isActive = index < min(viewModel.nombreJokers, iconCount)
                                     JokerIconView(size: 28,
-                                                  fillColor: .white,
                                                   isDimmed: !isActive)
                                         .opacity(viewModel.nombreJokers == 0 ? 0.25 : 1.0)
                                 }

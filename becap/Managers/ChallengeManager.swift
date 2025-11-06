@@ -649,8 +649,27 @@ extension ChallengeManager {
 
         progress.currentStreak = calculateStreak(from: progress.validatedDays)
 
+        let newMedals = detectNewMedals(from: progress, challengeId: challengeId)
+        if !newMedals.isEmpty {
+            progress.medals.append(contentsOf: newMedals)
+        }
+
         await rewardService.persistProgress(progress, for: challengeId)
+
+        if !newMedals.isEmpty {
+            await rewardService.addMedals(to: userId, medals: newMedals)
+        }
+
         _ = try? await accountManager.updateCurrentUser(with: userId)
+
+        if !newMedals.isEmpty {
+            for medal in newMedals {
+                await MainActor.run {
+                    alertManager.show(medal: medal, challengeId: challengeId)
+                    triggerLocalNotification(for: medal)
+                }
+            }
+        }
     }
 
     private func triggerLocalNotification(for medal: UserMedal) {

@@ -52,7 +52,6 @@ struct ParticipantCardView: View {
                         ForEach(0..<displayCount, id: \.self) { index in
                             let isActive = index < min(stats.remainingJokers, displayCount)
                             JokerIconView(size: 26,
-                                          fillColor: .white,
                                           isDimmed: !isActive)
                         }
 
