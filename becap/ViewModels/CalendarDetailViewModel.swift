@@ -23,9 +23,23 @@ struct Participant: Hashable {
     }
 }
 
+struct CalendarDayJokerUsage: Identifiable, Hashable {
+    let id: String
+    let participantId: String
+    let participantName: String
+    let participantPhotoURL: String?
+    let declaredByAuthor: Bool
+    let voterIds: [String]
+    let voterNames: [String]
+    let photoId: String?
+
+    var voteCount: Int { voterIds.count }
+}
+
 struct CalendarDetailCell: Hashable,Identifiable {
     var date: Date
     var photos: [ChallengePhoto]
+    var jokers: [CalendarDayJokerUsage]
     var isToday: Bool
 
     var id: Date { date }
@@ -88,17 +102,48 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func buildDetailcells(for selectedParticipant: Participant? = nil) -> [CalendarDetailCell] {
+        let calendar = Calendar.current
+        let participantMap = Dictionary(uniqueKeysWithValues: participants.map { ($0.id, $0) })
+
         return (0..<challenge.duration).compactMap { day in
-            guard let date = Calendar.current.date(byAdding: .day, value: day, to: challenge.startDate) else {
+            guard let date = calendar.date(byAdding: .day, value: day, to: challenge.startDate) else {
                 return nil
             }
 
             let photos = allPhotos.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date) && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
+                calendar.isDate($0.date, inSameDayAs: date) && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
             }
-            let isToday = Calendar.current.isDateInToday(date)
 
-            return CalendarDetailCell(date: date, photos: photos, isToday: isToday)
+            let jokerUsages: [CalendarDayJokerUsage] = participantProgresses.compactMap { progress in
+                if let selectedParticipant, progress.id != selectedParticipant.id {
+                    return nil
+                }
+
+                guard let jokerProgress = progress.jokerProgress else { return nil }
+
+                let usagesForDay = jokerProgress.confirmedUsages.filter { calendar.isDate($0.date, inSameDayAs: date) }
+                guard !usagesForDay.isEmpty else { return nil }
+
+                let participant = participantMap[progress.id]
+
+                return usagesForDay.map { usage in
+                    CalendarDayJokerUsage(id: usage.id,
+                                          participantId: progress.id,
+                                          participantName: participant?.name ?? "Participant",
+                                          participantPhotoURL: participant?.photoURL,
+                                          declaredByAuthor: usage.declaredByAuthor,
+                                          voterIds: usage.voters,
+                                          voterNames: usage.voters.compactMap { participantMap[$0]?.name },
+                                          photoId: usage.photoId)
+                }
+            }.flatMap { $0 }
+
+            let isToday = calendar.isDateInToday(date)
+
+            return CalendarDetailCell(date: date,
+                                      photos: photos,
+                                      jokers: jokerUsages.sorted(by: { $0.participantName.localizedCaseInsensitiveCompare($1.participantName) == .orderedAscending }),
+                                      isToday: isToday)
         }
     }
 

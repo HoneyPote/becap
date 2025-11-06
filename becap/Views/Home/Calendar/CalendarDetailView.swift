@@ -97,22 +97,40 @@ struct CalendarDetailView: View {
         }
         .overlayPreferenceValue(JokerButtonAnchorKey.self) { anchor in
             GeometryReader { proxy in
-                Group {
-                    if showJokerBubble,
-                       let status = viewModel.currentUserJokerStatus,
-                       let anchor {
-                        let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
+                if showJokerBubble,
+                   let status = viewModel.currentUserJokerStatus,
+                   let anchor {
+                    let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
+                    let measuredWidth = jokerBubbleSize.width > 0 ? jokerBubbleSize.width : 240
+                    let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160
 
-                        JokerBubbleContainer(rect: rect,
-                                             measuredSize: jokerBubbleSize,
-                                             onHide: { withAnimation { showJokerBubble = false } },
-                                             onSizeChange: updateJokerBubbleSize) {
+                    let minX = measuredWidth / 2 + 16
+                    let maxX = proxy.size.width - measuredWidth / 2 - 16
+                    let positionedX = max(min(rect.midX, maxX), minX)
+                    let positionedY = rect.maxY + measuredHeight / 2 + 8
+
+                    ZStack {
+                        Color.black.opacity(0.001)
+                            .ignoresSafeArea()
+                            .onTapGesture {
+                                withAnimation { showJokerBubble = false }
+                            }
+
+                        BubbleOverlay {
                             jokerBubbleContent(status: status)
                         }
-                    } else {
-                        Color.clear
-                            .allowsHitTesting(false)
+                        .background(
+                            GeometryReader { bubbleProxy in
+                                Color.clear
+                                    .onAppear { updateJokerBubbleSize(bubbleProxy.size) }
+                                    .onChange(of: bubbleProxy.size) { updateJokerBubbleSize($0) }
+                            }
+                        )
+                        .position(x: positionedX, y: positionedY)
+                        .transition(.scale.combined(with: .opacity))
+                        .zIndex(2)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
         }
@@ -170,8 +188,8 @@ struct CalendarDetailView: View {
             onSelectDate: { date in
                 let day = startOfDay(date)
 
-                if let cell = cells.first(where: { sameDay($0.date, day) }),
-                   !cell.photos.isEmpty {
+                    if let cell = cells.first(where: { sameDay($0.date, day) }),
+                       (!cell.photos.isEmpty || !cell.jokers.isEmpty) {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                         selectedGridCell = cell
                         showJokerBubble = false
@@ -275,7 +293,6 @@ struct CalendarDetailView: View {
 
     private func buildGridPhotos(cell: CalendarDetailCell) -> some View {
         GridPhotosInline(cell: cell,
-                         challengeTitle: viewModel.challenge.title,
                          getParticipant: { viewModel.getParticipant(for: $0) },
                          onClose: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
@@ -439,50 +456,5 @@ private struct JokerButtonAnchorKey: PreferenceKey {
 
     static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
         value = nextValue() ?? value
-    }
-}
-
-private struct JokerBubbleContainer<Content: View>: View {
-    let rect: CGRect
-    let measuredSize: CGSize
-    let onHide: () -> Void
-    let onSizeChange: (CGSize) -> Void
-    let content: () -> Content
-
-    init(rect: CGRect,
-         measuredSize: CGSize,
-         onHide: @escaping () -> Void,
-         onSizeChange: @escaping (CGSize) -> Void,
-         @ViewBuilder content: @escaping () -> Content) {
-        self.rect = rect
-        self.measuredSize = measuredSize
-        self.onHide = onHide
-        self.onSizeChange = onSizeChange
-        self.content = content
-    }
-
-    var body: some View {
-        let fallbackHeight: CGFloat = measuredSize.height > 0 ? measuredSize.height : 160
-
-        return ZStack {
-            Color.black.opacity(0.001)
-                .ignoresSafeArea()
-                .onTapGesture(perform: onHide)
-
-            BubbleOverlay {
-                content()
-            }
-            .background(
-                GeometryReader { bubbleProxy in
-                    Color.clear
-                        .onAppear { onSizeChange(bubbleProxy.size) }
-                        .onChange(of: bubbleProxy.size) { onSizeChange($0) }
-                }
-            )
-            .position(x: rect.midX,
-                      y: rect.maxY + fallbackHeight / 2 + 8)
-            .transition(.scale.combined(with: .opacity))
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }

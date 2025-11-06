@@ -32,7 +32,7 @@ struct DayCell: View {
 
     var body: some View {
         Button {
-            if !photoCountIsNil { Haptics.lightTap() }
+            if !photoCountIsNil || hasJokerUsage { Haptics.lightTap() }
             tap()
         } label: {
             ZStack {
