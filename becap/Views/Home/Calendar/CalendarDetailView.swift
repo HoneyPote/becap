@@ -236,6 +236,19 @@ struct CalendarDetailView: View {
                             presentShareSheet()
                         }
                     GlassCircleIcon(systemName: "person.2.fill")
+                        .overlay(alignment: .topTrailing) {
+                            if viewModel.chatHasUnreadMessages {
+                                Circle()
+                                    .fill(Color.red)
+                                    .frame(width: 12, height: 12)
+                                    .overlay(
+                                        Circle()
+                                            .stroke(Color.white, lineWidth: 1.2)
+                                    )
+                                    .offset(x: 6, y: -6)
+                                    .accessibilityHidden(true)
+                            }
+                        }
                         .onTapGesture {
                             showJokerBubble = false
                             showParticipantsSheet = true

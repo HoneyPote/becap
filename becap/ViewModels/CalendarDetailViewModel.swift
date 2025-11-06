@@ -114,29 +114,33 @@ class CalendarDetailViewModel: ObservableObject {
                 calendar.isDate($0.date, inSameDayAs: date) && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
             }
 
-            let jokerUsages: [CalendarDayJokerUsage] = participantProgresses.compactMap { progress in
+            let jokerUsages: [CalendarDayJokerUsage] = participantProgresses.flatMap { progress -> [CalendarDayJokerUsage] in
                 if let selectedParticipant, progress.id != selectedParticipant.id {
-                    return nil
+                    return []
                 }
 
-                guard let jokerProgress = progress.jokerProgress else { return nil }
+                guard let jokerProgress = progress.jokerProgress else { return [] }
 
-                let usagesForDay = jokerProgress.confirmedUsages.filter { calendar.isDate($0.date, inSameDayAs: date) }
-                guard !usagesForDay.isEmpty else { return nil }
+                let usagesForDay = jokerProgress.confirmedUsages.filter {
+                    calendar.isDate($0.date, inSameDayAs: date)
+                }
+                guard !usagesForDay.isEmpty else { return [] }
 
                 let participant = participantMap[progress.id]
 
                 return usagesForDay.map { usage in
-                    CalendarDayJokerUsage(id: usage.id,
-                                          participantId: progress.id,
-                                          participantName: participant?.name ?? "Participant",
-                                          participantPhotoURL: participant?.photoURL,
-                                          declaredByAuthor: usage.declaredByAuthor,
-                                          voterIds: usage.voters,
-                                          voterNames: usage.voters.compactMap { participantMap[$0]?.name },
-                                          photoId: usage.photoId)
+                    CalendarDayJokerUsage(
+                        id: usage.id,
+                        participantId: progress.id,
+                        participantName: participant?.name ?? "Participant",
+                        participantPhotoURL: participant?.photoURL,
+                        declaredByAuthor: usage.declaredByAuthor,
+                        voterIds: usage.voters,
+                        voterNames: usage.voters.compactMap { participantMap[$0]?.name },
+                        photoId: usage.photoId
+                    )
                 }
-            }.flatMap { $0 }
+            }
 
             let isToday = calendar.isDateInToday(date)
 
