@@ -14,6 +14,7 @@ struct CalendarMonthGrid: View {
     let selectedDate: Date?
     let photoCountByDay: [Date: Int]
     let jokerCountByDay: [Date: Int]
+    let currentUserJokerDays: Set<Date>
     let onSelectDate: (Date) -> Void
 
     private let calendar = Calendar.current
@@ -26,12 +27,14 @@ struct CalendarMonthGrid: View {
          selectedDate: Date?,
          photoCountByDay: [Date: Int],
          jokerCountByDay: [Date: Int],
+         currentUserJokerDays: Set<Date>,
          onSelectDate: @escaping (Date) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
         self.selectedDate = selectedDate
         self.photoCountByDay = photoCountByDay
         self.jokerCountByDay = jokerCountByDay
+        self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
 
         let calendar = Calendar.current
@@ -75,6 +78,7 @@ struct CalendarMonthGrid: View {
                             let day = calendar.startOfDay(for: item.date)
                             let count = photoCountByDay[day] ?? 0
                             let jokerCount = jokerCountByDay[day] ?? 0
+                            let currentUserUsedJoker = currentUserJokerDays.contains(day)
                             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
 
                             DayCell(
@@ -82,6 +86,7 @@ struct CalendarMonthGrid: View {
                                 dayNumber: item.dayNumber,               // ⬅️ passe le n° de défi
                                 photoCount: count,
                                 jokerCount: jokerCount,
+                                currentUserUsedJoker: currentUserUsedJoker,
                                 isToday: calendar.isDateInToday(day),
                                 isWithinChallenge: true,
                                 isSelected: isSelected
@@ -92,7 +97,7 @@ struct CalendarMonthGrid: View {
                                 Text("Jour")
                                     .font(.system(size: 10, weight: .semibold, design: .rounded))
                                     .foregroundColor(.white.opacity(0.55))
-                                    .padding(.bottom, jokerCount > 0 ? 22 : 6)
+                                    .padding(.bottom, 6)
                                     .allowsHitTesting(false)
                             }
                         }

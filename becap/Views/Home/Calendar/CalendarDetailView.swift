@@ -184,12 +184,27 @@ struct CalendarDetailView: View {
 
         let jokerCountByDay = viewModel.jokerUsageCounts(for: selectedParticipant)
 
+        let currentUserJokerDays: Set<Date> = {
+            guard let currentUserId = viewModel.currentUserId else { return [] }
+
+            if let selectedParticipant, selectedParticipant.id != currentUserId {
+                return []
+            }
+
+            guard let usages = viewModel.currentUserProgress?.jokerProgress?.confirmedUsages, !usages.isEmpty else {
+                return []
+            }
+
+            return Set(usages.map { startOfDay($0.date) })
+        }()
+
         return CalendarMonthGrid(
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
             selectedDate: selectedGridCell?.date,
             photoCountByDay: photoCountByDay,
             jokerCountByDay: jokerCountByDay,
+            currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
                 let day = startOfDay(date)
 
