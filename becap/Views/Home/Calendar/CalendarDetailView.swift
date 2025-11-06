@@ -36,6 +36,7 @@ struct CalendarDetailView: View {
     @State private var pendingInitialPhotoId: String?
     @State private var showJokerBubble = false
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
+    @State private var jokerButtonFrame: CGRect = .zero
 
     init(challenge: Challenge, initialPhotoId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -95,19 +96,23 @@ struct CalendarDetailView: View {
                 }
             }
         }
-        .overlayPreferenceValue(JokerButtonAnchorKey.self) { anchor in
-            GeometryReader { proxy in
-                if showJokerBubble,
-                   let status = viewModel.currentUserJokerStatus,
-                   let anchor {
-                    let rect = proxy[anchor, in: .named("CalendarDetailRoot")]
+        .overlay {
+            if showJokerBubble,
+               let status = viewModel.currentUserJokerStatus,
+               jokerButtonFrame != .zero {
+                GeometryReader { proxy in
                     let measuredWidth = jokerBubbleSize.width > 0 ? jokerBubbleSize.width : 240
                     let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160
 
                     let minX = measuredWidth / 2 + 16
                     let maxX = proxy.size.width - measuredWidth / 2 - 16
-                    let positionedX = max(min(rect.midX, maxX), minX)
-                    let positionedY = rect.maxY + measuredHeight / 2 + 8
+                    let desiredX = jokerButtonFrame.midX
+                    let positionedX = max(min(desiredX, maxX), minX)
+
+                    let desiredY = jokerButtonFrame.maxY + measuredHeight / 2 + 8
+                    let minY = measuredHeight / 2 + 16
+                    let maxY = proxy.size.height - measuredHeight / 2 - 16
+                    let positionedY = max(min(desiredY, maxY), minY)
 
                     ZStack {
                         Color.black.opacity(0.001)
@@ -413,7 +418,17 @@ extension CalendarDetailView {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Afficher mes jokers")
-        .anchorPreference(key: JokerButtonAnchorKey.self, value: .bounds) { $0 }
+        .background(
+            GeometryReader { proxy in
+                let frame = proxy.frame(in: .named("CalendarDetailRoot"))
+
+                Color.clear
+                    .onAppear {
+                        updateJokerButtonFrame(frame)
+                    }
+                    .onChange(of: frame) { updateJokerButtonFrame($0) }
+            }
+        )
     }
 
     private func openInitialPhotoIfNeeded() {
@@ -449,12 +464,22 @@ extension CalendarDetailView {
             jokerBubbleSize = normalized
         }
     }
-}
 
-private struct JokerButtonAnchorKey: PreferenceKey {
-    static var defaultValue: Anchor<CGRect>? = nil
+    private func updateJokerButtonFrame(_ frame: CGRect) {
+        guard frame.width > 0, frame.height > 0 else { return }
 
-    static func reduce(value: inout Anchor<CGRect>?, nextValue: () -> Anchor<CGRect>?) {
-        value = nextValue() ?? value
+        let normalized = CGRect(x: frame.origin.x.rounded(.toNearestOrEven),
+                                y: frame.origin.y.rounded(.toNearestOrEven),
+                                width: frame.size.width.rounded(.toNearestOrEven),
+                                height: frame.size.height.rounded(.toNearestOrEven))
+
+        guard abs(jokerButtonFrame.midX - normalized.midX) > 0.5 ||
+                abs(jokerButtonFrame.midY - normalized.midY) > 0.5 else {
+            return
+        }
+
+        DispatchQueue.main.async {
+            jokerButtonFrame = normalized
+        }
     }
 }
