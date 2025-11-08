@@ -26,7 +26,13 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                PetrolSkyHeroBackground()
+                Image(homeBackgroundImageName)
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
 
                 VStack(alignment: .center) {
                     Text("⛿ BE CAP ⛿")
@@ -321,5 +327,11 @@ extension HomeView {
             hasPresentedJoinForDeepLink = true
             deepLinkRouter.clearJoin()
         }
+    }
+}
+
+private extension HomeView {
+    var homeBackgroundImageName: String {
+        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "epicPic"
     }
 }

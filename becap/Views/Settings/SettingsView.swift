@@ -32,7 +32,13 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient.petrolToSky.ignoresSafeArea()
+                Image("iphone_wallpaper_lake")
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
 
                 ScrollView {
                     VStack(spacing: 24) {

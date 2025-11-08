@@ -23,48 +23,57 @@ struct GroupChatView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        if displayedMessages.isEmpty {
-                            emptyState
-                        } else {
-                            LazyVStack(alignment: .leading, spacing: 16) {
-                                ForEach(displayedMessages) { message in
-                                    GroupChatMessageRow(
-                                        message: message,
-                                        isCurrentUser: message.senderId == currentUserId,
-                                        currentUserId: currentUserId,
-                                        availableReactions: availableReactions,
-                                        onToggleReaction: { reaction in
-                                            Task {
-                                                await onToggleReaction(message, reaction)
+            ZStack {
+                Image("iphone_wallpaper_forest")
+                    .resizable()
+                    .scaledToFill()
+                    .ignoresSafeArea()
+
+                Color.black.opacity(0.25)
+                    .ignoresSafeArea()
+
+                VStack(spacing: 0) {
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            if displayedMessages.isEmpty {
+                                emptyState
+                            } else {
+                                LazyVStack(alignment: .leading, spacing: 16) {
+                                    ForEach(displayedMessages) { message in
+                                        GroupChatMessageRow(
+                                            message: message,
+                                            isCurrentUser: message.senderId == currentUserId,
+                                            currentUserId: currentUserId,
+                                            availableReactions: availableReactions,
+                                            onToggleReaction: { reaction in
+                                                Task {
+                                                    await onToggleReaction(message, reaction)
+                                                }
                                             }
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
+                                .padding(.horizontal, 20)
+                                .padding(.top, 24)
+                                .padding(.bottom, 16)
                             }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 24)
-                            .padding(.bottom, 16)
+                        }
+                        .onChange(of: displayedMessages.count) { _ in
+                            scrollToBottom(proxy: proxy)
+                        }
+                        .onChange(of: messages) { newValue in
+                            displayedMessages = newValue
+                        }
+                        .onAppear {
+                            displayedMessages = messages
+                            scrollToBottom(proxy: proxy, animated: false)
                         }
                     }
-                    .onChange(of: displayedMessages.count) { _ in
-                        scrollToBottom(proxy: proxy)
-                    }
-                    .onChange(of: messages) { newValue in
-                        displayedMessages = newValue
-                    }
-                    .onAppear {
-                        displayedMessages = messages
-                        scrollToBottom(proxy: proxy, animated: false)
-                    }
-                }
 
-                chatInput
-                    .background(.thinMaterial)
+                    chatInput
+                        .background(.thinMaterial)
+                }
             }
-            .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

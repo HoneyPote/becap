@@ -8,6 +8,45 @@
 import Foundation
 import FirebaseFirestore
 
+enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
+    case sport
+    case dessin
+    case nourriture
+    case course
+    case lecture
+    case autre
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .sport: return "Sport"
+        case .dessin: return "Dessin"
+        case .nourriture: return "Nourriture"
+        case .course: return "Course à pied"
+        case .lecture: return "Lecture"
+        case .autre: return "Autre"
+        }
+    }
+
+    var calendarBackgroundImageName: String {
+        switch self {
+        case .sport:
+            return "iphone_wallpaper_pullup"
+        case .dessin:
+            return "iphone_wallpaper_painter"
+        case .nourriture:
+            return "iphone_wallpaper_chef_clean_bright"
+        case .course:
+            return "iphone_wallpaper_duo_run"
+        case .lecture:
+            return "iphone_wallpaper_reader"
+        case .autre:
+            return "iphone_wallpaper_bridge"
+        }
+    }
+}
+
 enum ChallengeStatus: String {
     case active = "En cours"
     case finished = "Termniné"
@@ -20,6 +59,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var startDate: Date
     var creatorUID: String
     var participantUids: [String]
+    var category: ChallengeCategory? = nil
     var notificationsConfig: [ChallengeNotification]?
     var code: String?
     var jokerConfiguration: ChallengeJokerConfiguration?
@@ -41,6 +81,30 @@ struct Challenge: Identifiable, Codable, Hashable {
 
     static func ==(lhs: Challenge, rhs: Challenge) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title
+    }
+}
+
+extension Challenge {
+    private var calendar: Calendar { Calendar.current }
+
+    var lastDayDate: Date {
+        calendar.date(byAdding: .day,
+                       value: max(duration - 1, 0),
+                       to: startDate) ?? startDate
+    }
+
+    func isLastDay(on date: Date = Date()) -> Bool {
+        calendar.isDate(lastDayDate, inSameDayAs: date)
+    }
+
+    var isLastDayToday: Bool { isLastDay() }
+
+    var calendarBackgroundImageName: String {
+        if isLastDayToday {
+            return "sunset"
+        }
+
+        return category?.calendarBackgroundImageName ?? "photoBg"
     }
 }
 

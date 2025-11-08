@@ -26,6 +26,7 @@ class NewChallengeViewModel: ObservableObject {
             }
         }
     }
+    @Published var categorie: ChallengeCategory = .autre
 
     private let currentUser: User?
 
@@ -116,6 +117,7 @@ class NewChallengeViewModel: ObservableObject {
                          startDate: Date(),
                          creatorUID: userId,
                          participantUids: [userId],
+                         category: categorie,
                          notificationsConfig: config,
                          code: code,
                          jokerConfiguration: jokerConfig)

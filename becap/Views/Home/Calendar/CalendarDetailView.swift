@@ -76,7 +76,7 @@ struct CalendarDetailView: View {
             }
         }
         .background(
-            Image("photoBg")
+            Image(calendarBackgroundImageName)
                 .resizable()
                 .scaledToFill()
                 //.blur(radius: 3)
@@ -356,6 +356,10 @@ struct CalendarDetailView: View {
 }
 
 extension CalendarDetailView {
+    private var calendarBackgroundImageName: String {
+        viewModel.challenge.calendarBackgroundImageName
+    }
+
     @ViewBuilder
     private func jokerBubbleContent(status: (total: Int, remaining: Int)) -> some View {
         VStack(alignment: .leading, spacing: 16) {
