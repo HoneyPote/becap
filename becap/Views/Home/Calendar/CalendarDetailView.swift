@@ -80,7 +80,7 @@ struct CalendarDetailView: View {
                 .resizable()
                 .scaledToFill()
                 //.blur(radius: 3)
-//                .overlay(Color.black.opacity(0.3))
+                .overlay(Color.black.opacity(0.2))
                 .ignoresSafeArea()
         )
         .coordinateSpace(name: "CalendarDetailRoot")
