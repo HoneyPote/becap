@@ -3,6 +3,9 @@
     {
       "filename" : "epicPic.png",
       "idiom" : "universal"
+    },
+    {
+      "idiom" : "vision"
     }
   ],
   "info" : {
