@@ -30,9 +30,11 @@ protocol ChallengeManagerProtocol {
     func commentPhoto(photo: ChallengePhoto, content: String) async throws
 
     // Reward flow
-    func createNewParticipantProgress(userId: String, challengeId: String) async throws
+    func createNewParticipantProgress(userId: String, challenge: Challenge) async throws
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws
     func assignCreationMedalsToUser(_ userId: String) async
+    func declareJokerUsage(for challenge: Challenge, on date: Date, photoId: String?) async throws
+    func toggleJokerVote(for photo: ChallengePhoto) async throws
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
@@ -123,10 +125,10 @@ extension ChallengeManager {
     }
 
     func joinChallenge(_ challenge: Challenge, userId: String) async throws {
-        guard let challengeId = challenge.id else { return }
+        guard challenge.id != nil else { return }
 
         try await updateChallenge(challenge)
-        try await createNewParticipantProgress(userId: userId, challengeId: challengeId)
+        try await createNewParticipantProgress(userId: userId, challenge: challenge)
     }
 
     // Challenges - Privates
@@ -365,12 +367,18 @@ extension ChallengeManager {
 
 // MARK: - Reward flow
 extension ChallengeManager {
-    func createNewParticipantProgress(userId: String, challengeId: String) async throws {
+    func createNewParticipantProgress(userId: String, challenge: Challenge) async throws {
+        guard let challengeId = challenge.id else { return }
+
+        let totalJokers = challenge.jokerConfiguration?.jokersPerParticipant ?? 0
+        let jokerProgress = ParticipantJokerProgress(total: totalJokers)
+
         let userProgress = ParticipantProgress(id: userId,
                                                joinedDate: Date(),
                                                validatedDays: [],
                                                medals: [],
-                                               currentStreak: 0)
+                                               currentStreak: 0,
+                                               jokerProgress: jokerProgress)
 
         try setUserProgress(userId: userId, challengeId: challengeId, progress: userProgress)
     }
@@ -383,6 +391,11 @@ extension ChallengeManager {
         do {
             print("📥 updateProgress lancé pour userId=\(userId), challengeId=\(challengeId)")
             guard var progress = try await fetchProgress(challengeId: challengeId, userId: userId) else { return }
+
+            if progress.jokerProgress == nil {
+                let total = challenge(for: challengeId)?.jokerConfiguration?.jokersPerParticipant ?? 0
+                progress.jokerProgress = ParticipantJokerProgress(total: total)
+            }
 
             guard shouldAppendDay(progress: progress, day: date) else {
                 print("🔁 Journée déjà validée pour \(date)")
@@ -417,6 +430,83 @@ extension ChallengeManager {
         await rewardService.assignCreationMedals(to: userId, createdCount: createdCount)
     }
 
+    func declareJokerUsage(for challenge: Challenge, on date: Date, photoId: String?) async throws {
+        guard let challengeId = challenge.id,
+              let currentUser,
+              let currentUserId = currentUser.id,
+              (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
+
+        let voters = [currentUserId]
+
+        if let photoId {
+            let state = PhotoJokerState(declaredByAuthor: true,
+                                        voters: voters,
+                                        isConfirmed: true,
+                                        confirmedAt: Date())
+            try await challengeService.updatePhotoJokerState(challengeId: challengeId,
+                                                             photoId: photoId,
+                                                             state: state)
+        }
+
+        try await consumeJoker(for: currentUserId,
+                               in: challenge,
+                               on: date,
+                               photoId: photoId,
+                               declaredByAuthor: true,
+                               voters: voters)
+    }
+
+    func toggleJokerVote(for photo: ChallengePhoto) async throws {
+        guard let challengeId = photo.challengeId,
+              let photoId = photo.id,
+              let currentUser,
+              let currentUserId = currentUser.id else { return }
+
+        let resolvedChallenge: Challenge
+        if let localChallenge = challenge(for: challengeId) {
+            resolvedChallenge = localChallenge
+        } else if let fetchedChallenge = try? await fetchChallenge(by: challengeId) {
+            resolvedChallenge = fetchedChallenge
+        } else {
+            return
+        }
+
+        guard (resolvedChallenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
+
+        var state = photo.jokerState ?? PhotoJokerState()
+
+        if state.isConfirmed {
+            print("ℹ️ Joker déjà confirmé pour cette photo")
+            return
+        }
+
+        if state.voters.contains(currentUserId) {
+            state.voters.removeAll { $0 == currentUserId }
+        } else {
+            state.voters.append(currentUserId)
+        }
+
+        let participantsCount = resolvedChallenge.participantUids.count
+        let requiredVotes = participantsCount <= 2 ? participantsCount : (participantsCount / 2 + 1)
+        let isConfirmed = state.voters.count >= requiredVotes
+
+        state.isConfirmed = isConfirmed
+        state.confirmedAt = isConfirmed ? Date() : nil
+
+        try await challengeService.updatePhotoJokerState(challengeId: challengeId,
+                                                         photoId: photoId,
+                                                         state: state)
+
+        if isConfirmed {
+            try await consumeJoker(for: photo.authorUid,
+                                   in: resolvedChallenge,
+                                   on: photo.date,
+                                   photoId: photoId,
+                                   declaredByAuthor: state.declaredByAuthor,
+                                   voters: state.voters)
+        }
+    }
+
     // Reward flow - Privates
 
     private func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
@@ -425,6 +515,14 @@ extension ChallengeManager {
 
     private func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
         return try await challengeService.fetchProgress(challengeId: challengeId, userId: userId)
+    }
+
+    private func challenge(for id: String) -> Challenge? {
+        challenges.first { $0.id == id }
+    }
+
+    private func fetchChallenge(by id: String) async throws -> Challenge? {
+        try await challengeService.fetchAllChallenges().first(where: { $0.id == id })
     }
 
     private func shouldAppendDay(progress: ParticipantProgress, day: Date) -> Bool {
@@ -513,6 +611,65 @@ extension ChallengeManager {
         }
 
         return medals
+    }
+
+    private func consumeJoker(for userId: String,
+                              in challenge: Challenge,
+                              on date: Date,
+                              photoId: String?,
+                              declaredByAuthor: Bool,
+                              voters: [String]) async throws {
+        guard let challengeId = challenge.id else { return }
+
+        guard var progress = try await fetchProgress(challengeId: challengeId, userId: userId) else {
+            print("❌ Impossible de récupérer la progression pour appliquer le joker")
+            return
+        }
+
+        var jokerProgress = progress.jokerProgress
+            ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
+
+        let alreadyRecorded = photoId != nil && (jokerProgress.usages.contains { $0.photoId == photoId })
+
+        if !alreadyRecorded && jokerProgress.remaining <= 0 {
+            print("⚠️ Aucun joker restant pour l'utilisateur \(userId)")
+            return
+        }
+
+        jokerProgress.registerConfirmedUsage(on: date,
+                                             photoId: photoId,
+                                             declaredByAuthor: declaredByAuthor,
+                                             voters: voters)
+
+        progress.jokerProgress = jokerProgress
+
+        if shouldAppendDay(progress: progress, day: date) {
+            progress.validatedDays.append(date)
+        }
+
+        progress.currentStreak = calculateStreak(from: progress.validatedDays)
+
+        let newMedals = detectNewMedals(from: progress, challengeId: challengeId)
+        if !newMedals.isEmpty {
+            progress.medals.append(contentsOf: newMedals)
+        }
+
+        await rewardService.persistProgress(progress, for: challengeId)
+
+        if !newMedals.isEmpty {
+            await rewardService.addMedals(to: userId, medals: newMedals)
+        }
+
+        _ = try? await accountManager.updateCurrentUser(with: userId)
+
+        if !newMedals.isEmpty {
+            for medal in newMedals {
+                await MainActor.run {
+                    alertManager.show(medal: medal, challengeId: challengeId)
+                    triggerLocalNotification(for: medal)
+                }
+            }
+        }
     }
 
     private func triggerLocalNotification(for medal: UserMedal) {

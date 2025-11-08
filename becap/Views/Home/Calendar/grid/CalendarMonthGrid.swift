@@ -13,6 +13,8 @@ struct CalendarMonthGrid: View {
     let days: Int
     let selectedDate: Date?
     let photoCountByDay: [Date: Int]
+    let jokerCountByDay: [Date: Int]
+    let currentUserJokerDays: Set<Date>
     let onSelectDate: (Date) -> Void
 
     private let calendar = Calendar.current
@@ -24,11 +26,15 @@ struct CalendarMonthGrid: View {
          days: Int,
          selectedDate: Date?,
          photoCountByDay: [Date: Int],
+         jokerCountByDay: [Date: Int],
+         currentUserJokerDays: Set<Date>,
          onSelectDate: @escaping (Date) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
         self.selectedDate = selectedDate
         self.photoCountByDay = photoCountByDay
+        self.jokerCountByDay = jokerCountByDay
+        self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
 
         let calendar = Calendar.current
@@ -53,17 +59,17 @@ struct CalendarMonthGrid: View {
         self.trailingEmpty = remainder == 0 ? 0 : (7 - remainder)
     }
 
-    private let cellHeight: CGFloat = 54
+    private let cellHeight: CGFloat = 72
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 16) {
-                VStack(alignment: .leading, spacing: 8) {
+            LazyVStack(spacing: 20) {
+                VStack(alignment: .leading, spacing: 12) {
                     header
 
                     WeekdayHeader()
 
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 10) {
                         ForEach(0..<leadingEmpty, id: \.self) { index in
                             Color.clear.frame(height: cellHeight).id("leading-\(index)")
                         }
@@ -71,27 +77,29 @@ struct CalendarMonthGrid: View {
                         ForEach(dayItems) { item in
                             let day = calendar.startOfDay(for: item.date)
                             let count = photoCountByDay[day] ?? 0
+                            let jokerCount = jokerCountByDay[day] ?? 0
+                            let currentUserUsedJoker = currentUserJokerDays.contains(day)
                             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
 
                             DayCell(
                                 date: day,
                                 dayNumber: item.dayNumber,               // ⬅️ passe le n° de défi
                                 photoCount: count,
+                                jokerCount: jokerCount,
+                                currentUserUsedJoker: currentUserUsedJoker,
                                 isToday: calendar.isDateInToday(day),
                                 isWithinChallenge: true,
                                 isSelected: isSelected
                             ) {
                                 onSelectDate(day)
                             }
-
-
-                             .overlay(alignment: .bottom) {
-                                 Text("Jour")
-                                     .font(.system(size: 10, weight: .semibold, design: .rounded))
-                                     .foregroundColor(.white.opacity(0.55))
-                                     .padding(.bottom, 2)
-                                     .allowsHitTesting(false)
-                             }
+                            .overlay(alignment: .bottom) {
+                                Text("Jour")
+                                    .font(.system(size: 10, weight: .semibold, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.55))
+                                    .padding(.bottom, 6)
+                                    .allowsHitTesting(false)
+                            }
                         }
 
                         ForEach(0..<trailingEmpty, id: \.self) { index in

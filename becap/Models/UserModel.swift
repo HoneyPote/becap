@@ -33,4 +33,5 @@ struct ParticipantProgress: Identifiable, Codable {
     var validatedDays: [Date]
     var medals: [UserMedal]
     var currentStreak: Int
+    var jokerProgress: ParticipantJokerProgress?
 }

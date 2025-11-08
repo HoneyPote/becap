@@ -535,6 +535,18 @@ extension ChallengeService {
 
         return listener
     }
+
+    func updatePhotoJokerState(challengeId: String, photoId: String, state: PhotoJokerState) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .document(photoId)
+
+        try await ref.updateData([
+            "jokerState": try Firestore.Encoder().encode(state)
+        ])
+    }
 }
 
 import FirebaseAuth

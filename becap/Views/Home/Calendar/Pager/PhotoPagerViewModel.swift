@@ -81,6 +81,7 @@ final class PhotoStore: ObservableObject {
 final class PhotoViewModel: ObservableObject, Identifiable {
     @Published var likes: [String]
     @Published var comments: [PhotoCommentModel] = []
+    @Published var jokerState: PhotoJokerState
 
     let photo: ChallengePhoto
 
@@ -102,6 +103,7 @@ final class PhotoViewModel: ObservableObject, Identifiable {
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared) {
         self.photo = photo
         self.likes = photo.likes ?? []
+        self.jokerState = photo.jokerState ?? PhotoJokerState()
         self.challengeService = challengeService
         self.challengeManager = challengeManager
 
@@ -142,6 +144,20 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         }
     }
 
+    func toggleJokerVote() {
+        Task {
+            try await challengeManager.toggleJokerVote(for: photo)
+        }
+    }
+
+    func declareJokerUsage(in challenge: Challenge) {
+        Task {
+            try await challengeManager.declareJokerUsage(for: challenge,
+                                                        on: photo.date,
+                                                        photoId: photo.id)
+        }
+    }
+
     private func listenToPost() {
         guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
 
@@ -157,6 +173,7 @@ final class PhotoViewModel: ObservableObject, Identifiable {
             guard let updated else { return }
 
             self?.likes = updated.likes ?? []
+            self?.jokerState = updated.jokerState ?? PhotoJokerState()
         }
     }
 
@@ -188,6 +205,7 @@ class PhotoPagerViewModel: ObservableObject {
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
+    let challenge: Challenge
 
     var photoFormattedDate: String {
         selectedPhotoVM.photoFormattedDate
@@ -199,12 +217,30 @@ class PhotoPagerViewModel: ObservableObject {
         return selectedPhotoVM.photo.authorUid == currentUserId
     }
 
+    var canToggleJokerVote: Bool {
+        guard let currentUserId = challengeManager.currentUser?.id else { return false }
+
+        return currentUserId != selectedPhotoVM.photo.authorUid
+    }
+
+    var canDeclareJoker: Bool {
+        guard let currentUserId = challengeManager.currentUser?.id else { return false }
+
+        return currentUserId == selectedPhotoVM.photo.authorUid
+    }
+
+    var selectedJokerState: PhotoJokerState {
+        selectedPhotoVM.jokerState
+    }
+
     init(challengeService: ChallengeServiceProtocol = ChallengeService.shared,
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared,
          photos: [ChallengePhoto],
-         selectedPhotoIndex: Int = 0) {
+         selectedPhotoIndex: Int = 0,
+         challenge: Challenge) {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
+        self.challenge = challenge
 
         // Créé un cache de l'ensemble des VM pour chaque photo et évite de les récréer à chaque ouverture de la pagerView
         let photoViewModels = photos.map { PhotoStore.shared.getViewModel(for: $0) }
@@ -253,6 +289,51 @@ class PhotoPagerViewModel: ObservableObject {
         selectedPhotoVM.unlike()
         // Force reload de la vue -> obligatoire car selectedPhotoVM.unlike() n'est pas observé par la vue
         reloadView()
+    }
+
+    func toggleJokerVote() {
+        guard canToggleJokerVote,
+              let currentUserId = challengeManager.currentUser?.id else { return }
+
+        var state = selectedPhotoVM.jokerState
+
+        if state.voters.contains(currentUserId) {
+            state.voters.removeAll { $0 == currentUserId }
+        } else {
+            state.voters.append(currentUserId)
+        }
+
+        let participantCount = max(1, challenge.participantUids.count)
+        let requiredVotes = participantCount <= 2 ? participantCount : (participantCount / 2 + 1)
+        let isConfirmed = state.voters.count >= requiredVotes
+
+        state.isConfirmed = isConfirmed
+        state.confirmedAt = isConfirmed ? Date() : nil
+
+        selectedPhotoVM.jokerState = state
+        objectWillChange.send()
+
+        selectedPhotoVM.toggleJokerVote()
+    }
+
+    func declareJokerUsage() {
+        guard canDeclareJoker,
+              let currentUserId = challengeManager.currentUser?.id else { return }
+
+        var state = selectedPhotoVM.jokerState
+        state.declaredByAuthor = true
+
+        if !state.voters.contains(currentUserId) {
+            state.voters.append(currentUserId)
+        }
+
+        state.isConfirmed = true
+        state.confirmedAt = Date()
+
+        selectedPhotoVM.jokerState = state
+        objectWillChange.send()
+
+        selectedPhotoVM.declareJokerUsage(in: challenge)
     }
 
     func buildCommentFormattedDate(date: Date) -> String {

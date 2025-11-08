@@ -9,10 +9,23 @@ import SwiftUI
 import UserNotifications
 
 class NewChallengeViewModel: ObservableObject {
+    private static let defaultDuration = 30
+
     @Published var nom: String = ""
-    @Published var duree: Int = 30
+    @Published var duree: Int = defaultDuration {
+        didSet { updateSuggestedJokersIfNeeded() }
+    }
     @Published var heureNotification: Date = Date()
     @Published var isLoading: Bool = false
+    @Published var nombreJokers: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {
+        didSet {
+            if shouldIgnoreJokerUpdate {
+                shouldIgnoreJokerUpdate = false
+            } else if nombreJokers != oldValue {
+                userCustomizedJokerCount = true
+            }
+        }
+    }
 
     private let currentUser: User?
 
@@ -51,7 +64,7 @@ class NewChallengeViewModel: ObservableObject {
                       let newChallengeId = newChallenge.id else { return }
 
                 try await challengeManager.createNewParticipantProgress(userId: currentUserId,
-                                                                        challengeId: newChallengeId)
+                                                                        challenge: newChallenge)
 
                 await challengeManager.assignCreationMedalsToUser(currentUserId)
 
@@ -95,6 +108,8 @@ class NewChallengeViewModel: ObservableObject {
         }
         let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
 
+        let jokerConfig = nombreJokers > 0 ? ChallengeJokerConfiguration(jokersPerParticipant: nombreJokers) : nil
+
         return Challenge(id: nil,
                          title: nom,
                          duration: duree,
@@ -102,6 +117,34 @@ class NewChallengeViewModel: ObservableObject {
                          creatorUID: userId,
                          participantUids: [userId],
                          notificationsConfig: config,
-                         code: code)
+                         code: code,
+                         jokerConfiguration: jokerConfig)
     }
+
+    private func updateSuggestedJokersIfNeeded() {
+        guard !userCustomizedJokerCount else { return }
+
+        shouldIgnoreJokerUpdate = true
+        nombreJokers = NewChallengeViewModel.suggestedJokerCount(for: duree)
+    }
+
+    private static func suggestedJokerCount(for duration: Int) -> Int {
+        switch duration {
+        case ..<7:
+            return 0
+        case 7:
+            return 1
+        case 8...14:
+            return 2
+        case 15...21:
+            return 3
+        case 22...35:
+            return 4
+        default:
+            return max(4, Int(round(Double(duration) / 7.0)))
+        }
+    }
+
+    private var userCustomizedJokerCount = false
+    private var shouldIgnoreJokerUpdate = false
 }
