@@ -107,7 +107,7 @@ private extension DayCell {
         }
 
         let baseColor: Color = isToday ? Color.green.opacity(0.85)
-                                       : Color.white.opacity(isWithinChallenge ? 0.08 : 0.03)
+                                       : Color.white.opacity(isWithinChallenge ? 0.28 : 0.13)
 
         return LinearGradient(colors: [baseColor, baseColor], startPoint: .top, endPoint: .bottom)
     }

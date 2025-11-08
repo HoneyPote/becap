@@ -88,7 +88,7 @@ struct GridPhotosInline: View {
 
                     if hasJokers {
                         VStack(alignment: .leading, spacing: 12) {
-                            Text("Jokers utilisés")
+                            Text("Jokers utilisés 🟣")
                                 .font(.system(.headline, design: .rounded).weight(.semibold))
                                 .foregroundColor(.white)
 

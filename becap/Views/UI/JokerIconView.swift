@@ -35,7 +35,7 @@ struct JokerIconView: View {
                 .renderingMode(.original)
                 .interpolation(.high)
                 .scaledToFit()
-                .frame(width: size * 0.62, height: size * 0.62)
+                .frame(width: size * 1.2, height: size * 1.2)
                 .shadow(color: .black.opacity(isDimmed ? 0.0 : 0.25),
                         radius: size * 0.12,
                         x: 0,

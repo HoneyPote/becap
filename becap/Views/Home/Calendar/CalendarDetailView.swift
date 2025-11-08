@@ -45,8 +45,6 @@ struct CalendarDetailView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient.petrolToSky.ignoresSafeArea()
-
             VStack(spacing: 10) {
                 header
 
@@ -77,6 +75,14 @@ struct CalendarDetailView: View {
                 Spacer(minLength: 0)
             }
         }
+        .background(
+            Image("photoBg")
+                .resizable()
+                .scaledToFill()
+                //.blur(radius: 3)
+//                .overlay(Color.black.opacity(0.3))
+                .ignoresSafeArea()
+        )
         .coordinateSpace(name: "CalendarDetailRoot")
         // Bubble with the inline grid
         .overlay {
