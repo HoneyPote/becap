@@ -32,9 +32,8 @@ struct NewChallengeView: View {
                         .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
                         .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 36)
-                        .padding(.horizontal, 18)
 
                     GlassCard {
                         VStack(alignment: .leading, spacing: 12) {
