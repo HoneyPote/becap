@@ -17,6 +17,7 @@ struct DefiCell: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(Color(red: 0.98, green: 0.80, blue: 0.36))
                 .shadow(radius: 5, x: 0, y: 5)
+                .opacity(0.95)
 
             VStack(spacing: 8) {
                 Text(challenge.title)
@@ -39,6 +40,7 @@ struct DefiCell: View {
                 .background(challenge.status == .active
                             ? Color(red: 0.55, green: 0.82, blue: 0.61)
                             : Color(red: 1.0, green: 0.71, blue: 0.81))
+                .cornerRadius(10)
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 10)

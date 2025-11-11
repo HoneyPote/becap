@@ -1,10 +1,3 @@
-//
-//  GroupChatView.swift
-//  becap
-//
-//  Created by OpenAI on 05/08/2025.
-//
-
 import SwiftUI
 
 struct GroupChatView: View {
@@ -37,9 +30,7 @@ struct GroupChatView: View {
                                         currentUserId: currentUserId,
                                         availableReactions: availableReactions,
                                         onToggleReaction: { reaction in
-                                            Task {
-                                                await onToggleReaction(message, reaction)
-                                            }
+                                            Task { await onToggleReaction(message, reaction) }
                                         }
                                     )
                                 }
@@ -64,7 +55,16 @@ struct GroupChatView: View {
                 chatInput
                     .background(.thinMaterial)
             }
-            .background(LinearGradient.petrolToSky.ignoresSafeArea())
+            // 🖼️ Nouveau background appliqué au container
+            .background(
+                Image("chat")
+                    .resizable()
+                    .scaledToFill()
+                    .scaleEffect(0.92, anchor: .center)
+                    .offset(x: -35)// léger dé-zoom centré
+                    .overlay(Color.black.opacity(0.25))  // voile sombre
+                    .ignoresSafeArea()
+            )
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -128,8 +128,7 @@ struct GroupChatView: View {
                     .foregroundColor(.white)
                     .frame(width: 44, height: 44)
                     .background(
-                        Circle()
-                            .fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
+                        Circle().fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
                     )
             }
             .disabled(isSendDisabled)
@@ -145,18 +144,12 @@ struct GroupChatView: View {
     private func sendMessage() {
         let trimmed = messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
-
-        let toSend = trimmed
         messageDraft = ""
-
-        Task {
-            await onSendMessage(toSend)
-        }
+        Task { await onSendMessage(trimmed) }
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
         guard let lastId = displayedMessages.last?.id else { return }
-
         DispatchQueue.main.async {
             withAnimation(animated ? .easeOut(duration: 0.25) : nil) {
                 proxy.scrollTo(lastId, anchor: .bottom)

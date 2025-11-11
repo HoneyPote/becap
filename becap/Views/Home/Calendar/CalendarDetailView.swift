@@ -63,6 +63,7 @@ struct CalendarDetailView: View {
                                      ? Color(red: 0.55, green: 0.82, blue: 0.61)
                                      : Color(red: 1.0, green: 0.71, blue: 0.81))
 
+
                 participantFilter
                     .frame(height: 42)
                     .padding(.horizontal, 14)
@@ -76,11 +77,12 @@ struct CalendarDetailView: View {
             }
         }
         .background(
-            Image("photoBg")
+            Image(calendarBackgroundImageName)
                 .resizable()
                 .scaledToFill()
                 //.blur(radius: 3)
                 .overlay(Color.black.opacity(0.2))
+                .offset(x: -20)
                 .ignoresSafeArea()
         )
         .coordinateSpace(name: "CalendarDetailRoot")
@@ -356,6 +358,10 @@ struct CalendarDetailView: View {
 }
 
 extension CalendarDetailView {
+    private var calendarBackgroundImageName: String {
+        viewModel.challenge.calendarBackgroundImageName
+    }
+
     @ViewBuilder
     private func jokerBubbleContent(status: (total: Int, remaining: Int)) -> some View {
         VStack(alignment: .leading, spacing: 16) {
