@@ -287,15 +287,7 @@ final class NotificationService {
 
     private func handleInvalidPlayerIds(_ invalidIds: [String], for userId: String) {
         guard !invalidIds.isEmpty else { return }
-        db.collection("users").document(userId).updateData([
-            "onesignalPlayerId": FieldValue.delete()
-        ]) { err in
-            if let err = err {
-                print("⚠️ Purge playerId Firestore échouée: \(err)")
-            } else {
-                print("✅ playerId périmé supprimé pour \(userId)")
-            }
-        }
+        print("⚠️ Détection d'IDs OneSignal invalides \(invalidIds) pour l'utilisateur \(userId), mais la clé est conservée.")
     }
 
     private func sendUrlRequestNotification(payload: [String: Any],
