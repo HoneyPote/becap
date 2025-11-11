@@ -25,47 +25,58 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Image(homeBackgroundImageName)
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
+            VStack(alignment: .center) {
+                Text("⛿ BE CAP ⛿")
+                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+                    .foregroundColor(.white)
+                    .padding(.top, 42)
+                    .padding(.bottom, 12)
+                    .padding(.horizontal, 24)
 
-                Color.black.opacity(0.25)
-                    .ignoresSafeArea()
-
-                VStack(alignment: .center) {
-                    Text("⛿ BE CAP ⛿")
-                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                        .textCase(.uppercase)
-                        .foregroundColor(.white)
-                        .padding(.top, 42)
-                        .padding(.bottom, 12)
-                        .padding(.horizontal, 24)
-
-                    ScrollView {
-                        VStack(alignment: .leading, spacing: .zero) {
-                            joinCreateChallengeSection
-
-                            challengeListSection
-                        }
-                        .padding(.top, 0)
-                        .padding(.horizontal)
+                ScrollView {
+                    VStack(alignment: .leading, spacing: .zero) {
+                        joinCreateChallengeSection
+                        challengeListSection
                     }
+                    .padding(.horizontal)
                 }
-
+            }
+            // Overlays (au-dessus du contenu)
+            .overlay {
                 if let error = viewModel.deleteChallengeError {
                     deleteChallengeErrorView(error: error)
                 }
+            }
+            .overlay(alignment: .top) {
                 if viewModel.showReportSuccessToast {
                     reportSuccessToast
                 }
             }
-            .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
-                deleteChallengeConfirmationAlert
-            }
+            // 🖼️ Background image + voile sombre
+            .background(
+                ZStack {
+                    // Filler: covers edges at any ratio
+                    Image(homeBackgroundImageName)
+                        .resizable()
+                        .scaledToFill()
+                        .blur(radius: 12)
+                        .ignoresSafeArea()
+
+                    // Sharp layer, slightly zoomed out
+                    Image(homeBackgroundImageName)
+                        .resizable()
+                        .scaledToFill()
+                        .offset(x: -25) // 0.85–0.95 depending on taste
+                        .ignoresSafeArea()
+
+                    // Global dark veil
+                    Color.black.opacity(0.15).ignoresSafeArea()
+                }
+                .allowsHitTesting(false)
+            )
             .navigationBarHidden(true)
-            .background(deepLinkNavigationLink)
+            .background(deepLinkNavigationLink) // lien de deep link caché
         }
         .refreshable { viewModel.refreshChallenges() }
         .sheet(isPresented: $showJoinView) {
@@ -80,11 +91,8 @@ struct HomeView: View {
                 isSubmitting: $viewModel.isSubmittingReport,
                 errorMessage: $viewModel.reportErrorMessage,
                 onSubmit: { reason, details in
-                    viewModel.submitReport(reason: reason, details: details)
-                },
-                onCancel: {
-                    viewModel.cancelReport()
-                }
+                    viewModel.submitReport(reason: reason, details: details) },
+                onCancel: { viewModel.cancelReport() }
             )
         }
         .overlay(alignment: .top) {
@@ -104,12 +112,9 @@ struct HomeView: View {
                 hasPresentedJoinForDeepLink = false
                 isResolvingDeepLink = false
                 hasLoadedChallengesForPendingDeepLink = false
-                if !navigateToDeepLinkedChallenge {
-                    deepLinkedPhotoId = nil
-                }
+                if !navigateToDeepLinkedChallenge { deepLinkedPhotoId = nil }
                 return
             }
-
             hasPresentedJoinForDeepLink = false
             beginResolvingDeepLink(for: challengeId)
         }
@@ -132,14 +137,14 @@ struct HomeView: View {
         .onChange(of: viewModel.challenges) { _ in
             guard isResolvingDeepLink,
                   let challengeId = deepLinkRouter.pendingCalendarChallengeId else { return }
-
             hasLoadedChallengesForPendingDeepLink = true
             attemptNavigationToChallenge(withId: challengeId, allowJoinFallback: true)
         }
         .onChange(of: showJoinView) { isPresented in
-            if !isPresented {
-                isResolvingDeepLink = false
-            }
+            if !isPresented { isResolvingDeepLink = false }
+        }
+        .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
+            deleteChallengeConfirmationAlert
         }
     }
 
@@ -188,26 +193,18 @@ struct HomeView: View {
     }
 
     private var challengeCreatedToast: some View {
-        // TODO: Améliorer je sais pas trop comment
         ToastView(message: "Défi créé avec succès 🎉", type: .success)
             .onAppear {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                    withAnimation {
-                        showCreationToast = false
-                    }
+                    withAnimation { showCreationToast = false }
                 }
             }
     }
 
     private var deleteChallengeConfirmationAlert: some View {
         Group {
-            Button("Delete", role: .destructive) {
-                viewModel.performDelete()
-            }
-
-            Button("Cancel", role: .cancel) {
-                viewModel.cancelDelete()
-            }
+            Button("Delete", role: .destructive) { viewModel.performDelete() }
+            Button("Cancel", role: .cancel) { viewModel.cancelDelete() }
         }
     }
 
@@ -235,7 +232,7 @@ struct HomeView: View {
                 .padding(.leading, 4)
                 Spacer()
             }
-            .padding(.bottom, 38)
+            .padding(.bottom, 88)
         }
         .onAppear { viewModel.onAppearDeleteChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -249,9 +246,7 @@ struct HomeView: View {
                 .padding(.bottom, 40)
                 .onAppear {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-                        withAnimation {
-                            viewModel.showReportSuccessToast = false
-                        }
+                        withAnimation { viewModel.showReportSuccessToast = false }
                     }
                 }
         }
@@ -275,9 +270,7 @@ extension HomeView {
         if let challenge = deepLinkedChallenge {
             CalendarDetailView(challenge: challenge, initialPhotoId: deepLinkedPhotoId)
                 .id(calendarDetailIdentity(for: challenge, photoId: deepLinkedPhotoId))
-                .onDisappear {
-                    deepLinkedPhotoId = nil
-                }
+                .onDisappear { deepLinkedPhotoId = nil }
         } else {
             EmptyView()
         }
@@ -313,7 +306,6 @@ extension HomeView {
             navigateToDeepLinkedChallenge = true
             hasPresentedJoinForDeepLink = false
             deepLinkJoinCode = nil
-
             isResolvingDeepLink = false
 
             deepLinkRouter.clearChallengeNavigation()

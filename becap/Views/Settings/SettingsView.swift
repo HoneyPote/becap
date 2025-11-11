@@ -32,14 +32,7 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                Image("iphone_wallpaper_lake")
-                    .resizable()
-                    .scaledToFill()
-                    .ignoresSafeArea()
-
-                Color.black.opacity(0.25)
-                    .ignoresSafeArea()
-
+                // --- CONTENU ---
                 ScrollView {
                     VStack(spacing: 24) {
                         HStack {
@@ -52,26 +45,70 @@ struct SettingsView: View {
                         }
 
                         if let currentUser = viewModel.currentUser {
-                            GlassCard {
-                                headerProfile(user: currentUser)
-                            }
+                            GlassCard { headerProfile(user: currentUser) }
+                                .padding(.horizontal)
+                        }
+
+                        GlassCard { medalSection }
                             .padding(.horizontal)
-                        }
 
-                        GlassCard {
-                            medalSection
-                        }
-                        .padding(.horizontal)
-
-                        GlassCard {
-                            navigationList
-                        }
-                        .padding(.horizontal)
+                        GlassCard { navigationList }
+                            .padding(.horizontal)
                     }
                     .padding(.vertical)
                     .padding(.bottom, 70 + 16)
                 }
+
+                // --- TOASTS EN BAS ---
+                .overlay(alignment: .bottom) {
+                    if showReportSuccessToast || viewModel.accountDeletionError != nil {
+                        VStack(spacing: 16) {
+                            if showReportSuccessToast {
+                                ToastView(message: "Signalement envoyé. Merci !", type: .success)
+                                    .onAppear { scheduleReportSuccessDismissal() }
+                            }
+                            if let deletionError = viewModel.accountDeletionError {
+                                ToastView(message: deletionError, type: .error)
+                                    .onAppear {
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                                            withAnimation { viewModel.accountDeletionError = nil }
+                                        }
+                                    }
+                            }
+                        }
+                        .padding(.bottom, 40)
+                    }
+                }
+
+                // --- OVERLAY LOADING SUPPRESSION COMPTE ---
+                .overlay {
+                    if viewModel.isDeletingAccount {
+                        ZStack {
+                            Color.black.opacity(0.35).ignoresSafeArea()
+                            VStack(spacing: 16) {
+                                ProgressView()
+                                Text("Suppression du compte…")
+                                    .font(.system(.headline, design: .rounded))
+                                    .foregroundColor(.white)
+                            }
+                            .padding(28)
+                            .background(Color.black.opacity(0.65))
+                            .cornerRadius(16)
+                        }
+                        .transition(.opacity)
+                    }
+                }
             }
+            // 🖼️ Background image + voile sombre (en dehors du contenu)
+            .background(
+                Image("iphone_wallpaper_lake")
+                    .resizable()
+                    .scaledToFill()
+                    .overlay(Color.black.opacity(0.25))
+                    .offset(x: -23)
+                    .ignoresSafeArea()
+            )
+
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {
@@ -90,44 +127,6 @@ struct SettingsView: View {
                 Button("Annuler", role: .cancel) {}
             } message: {
                 Text("Cette action supprimera votre compte, vos données de profil et votre historique de défis. Cette action est irréversible.")
-            }
-            .overlay(alignment: .bottom) {
-                if showReportSuccessToast || viewModel.accountDeletionError != nil {
-                    VStack(spacing: 16) {
-                        if showReportSuccessToast {
-                            ToastView(message: "Signalement envoyé. Merci !", type: .success)
-                                .onAppear { scheduleReportSuccessDismissal() }
-                        }
-
-                        if let deletionError = viewModel.accountDeletionError {
-                            ToastView(message: deletionError, type: .error)
-                                .onAppear {
-                                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-                                        withAnimation { viewModel.accountDeletionError = nil }
-                                    }
-                                }
-                        }
-                    }
-                    .padding(.bottom, 40)
-                }
-            }
-            .overlay {
-                if viewModel.isDeletingAccount {
-                    ZStack {
-                        Color.black.opacity(0.35).ignoresSafeArea()
-
-                        VStack(spacing: 16) {
-                            ProgressView()
-                            Text("Suppression du compte…")
-                                .font(.system(.headline, design: .rounded))
-                                .foregroundColor(.white)
-                        }
-                        .padding(28)
-                        .background(Color.black.opacity(0.65))
-                        .cornerRadius(16)
-                    }
-                    .transition(.opacity)
-                }
             }
         }
         .task {
@@ -150,16 +149,13 @@ struct SettingsView: View {
                 onSubmit: { reason, details in
                     submitReport(for: challenge, reason: reason, details: details)
                 },
-                onCancel: {
-                    cancelReport()
-                }
+                onCancel: { cancelReport() }
             )
         }
     }
 
     // MARK: - Header (wrapper)
 
-    // Keep this thin; heavier UI is in subviews below to avoid type-check blowups.
     private func headerProfile(user: User) -> some View {
         VStack(spacing: 12) {
             ProfileAvatarView(name: user.name, photoURL: user.photoURL)
@@ -187,9 +183,7 @@ struct SettingsView: View {
                 medalCount: medals.count,
                 participantName: viewModel.currentUser?.name ?? "Vous",
                 onTap: {
-                    if !sorted.isEmpty {
-                        showingMedalsPopover = true
-                    }
+                    if !sorted.isEmpty { showingMedalsPopover = true }
                 }
             )
             .popover(isPresented: $showingMedalsPopover, arrowEdge: .top) {
@@ -197,17 +191,13 @@ struct SettingsView: View {
             }
         }
         .onChange(of: medals.count) { count in
-            if count == 0 {
-                showingMedalsPopover = false
-            }
+            if count == 0 { showingMedalsPopover = false }
         }
     }
 
     private var navigationList: some View {
         VStack(spacing: 14) {
-            Button {
-                showReportSelector = true
-            } label: {
+            Button { showReportSelector = true } label: {
                 Label("Signaler un défi", systemImage: "exclamationmark.bubble")
                     .font(.system(.headline, design: .rounded).weight(.semibold))
                     .foregroundColor(.orange)
@@ -223,9 +213,7 @@ struct SettingsView: View {
                     .padding(.vertical, 6)
             }
 
-            Button(role: .destructive) {
-                showingLogoutAlert = true
-            } label: {
+            Button(role: .destructive) { showingLogoutAlert = true } label: {
                 Label("Déconnexion", systemImage: "arrow.backward.circle")
                     .font(.system(.headline, design: .rounded).weight(.semibold))
                     .foregroundColor(.red)
@@ -233,9 +221,7 @@ struct SettingsView: View {
                     .padding(.vertical, 6)
             }
 
-            Button(role: .destructive) {
-                showingDeleteAccountDialog = true
-            } label: {
+            Button(role: .destructive) { showingDeleteAccountDialog = true } label: {
                 Label("Supprimer mon compte", systemImage: "person.crop.circle.badge.xmark")
                     .font(.system(.headline, design: .rounded).weight(.semibold))
                     .foregroundColor(.red)
@@ -252,9 +238,8 @@ struct SettingsView: View {
         defer { isUploadingAvatar = false }
 
         do {
-            // Prefer Data to avoid image decode surprises across formats
             if let data = try await item.loadTransferable(type: Data.self) {
-                try await viewModel.updateAvatar(data: data) // <-- implement in your VM
+                try await viewModel.updateAvatar(data: data)
             } else {
                 print("⚠️ Impossible de charger l'image sélectionnée.")
             }
@@ -270,7 +255,6 @@ struct SettingsView: View {
         Task {
             do {
                 try await reportManager.submitChallengeReport(challenge: challenge, reason: reason, details: details)
-
                 await MainActor.run {
                     self.isSubmittingReport = false
                     self.challengeToReport = nil
@@ -293,9 +277,7 @@ struct SettingsView: View {
 
     private func scheduleReportSuccessDismissal() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            withAnimation {
-                showReportSuccessToast = false
-            }
+            withAnimation { showReportSuccessToast = false }
         }
     }
 }
@@ -342,9 +324,7 @@ private struct AvatarEditor: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             AvatarCircle(avatarUrl: avatarUrl)
-                .overlay(
-                    Circle().stroke(.white.opacity(0.25), lineWidth: 0.7)
-                )
+                .overlay(Circle().stroke(.white.opacity(0.25), lineWidth: 0.7))
 
             PhotosPicker(selection: $avatarItem, matching: .images) {
                 Image(systemName: "camera.fill")
@@ -359,9 +339,7 @@ private struct AvatarEditor: View {
             .disabled(isUploading)
         }
         .overlay {
-            if isUploading {
-                ProgressView().progressViewStyle(.circular)
-            }
+            if isUploading { ProgressView().progressViewStyle(.circular) }
         }
         .onChange(of: avatarItem) { item in
             guard let item else { return }
@@ -414,18 +392,13 @@ private struct ProfileAvatarView: View {
         ZStack {
             Circle()
                 .fill(Color.white.opacity(0.18))
-                .overlay(
-                    Circle()
-                        .stroke(Color.white.opacity(0.25), lineWidth: 0.8)
-                )
+                .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 0.8))
 
             if let photoURL, let url = URL(string: photoURL) {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .success(let image):
-                        image
-                            .resizable()
-                            .scaledToFill()
+                        image.resizable().scaledToFill()
                     case .empty:
                         ProgressView()
                     case .failure:

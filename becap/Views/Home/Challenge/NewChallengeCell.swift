@@ -16,6 +16,7 @@ struct NewChallengeCell: View {
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color(red: 1.0, green: 0.71, blue: 0.81))
                     .shadow(radius: 1, x: 0, y: 4)
+                    .opacity(0.95)
 
                 VStack(spacing: 8) {
                     Image(systemName: "plus")

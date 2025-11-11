@@ -63,6 +63,7 @@ struct CalendarDetailView: View {
                                      ? Color(red: 0.55, green: 0.82, blue: 0.61)
                                      : Color(red: 1.0, green: 0.71, blue: 0.81))
 
+
                 participantFilter
                     .frame(height: 42)
                     .padding(.horizontal, 14)
@@ -81,6 +82,7 @@ struct CalendarDetailView: View {
                 .scaledToFill()
                 //.blur(radius: 3)
                 .overlay(Color.black.opacity(0.2))
+                .offset(x: -20)
                 .ignoresSafeArea()
         )
         .coordinateSpace(name: "CalendarDetailRoot")
