@@ -34,8 +34,12 @@ class NewChallengeViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
     private let alertManager: GlobalAlertManager
 
+    var trimmedNom: String {
+        nom.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var isFormValid: Bool {
-        !nom.isEmpty
+        !trimmedNom.isEmpty
     }
 
     init(userManager: UserManagerProtocol = UserManager.shared,
@@ -112,7 +116,7 @@ class NewChallengeViewModel: ObservableObject {
         let jokerConfig = nombreJokers > 0 ? ChallengeJokerConfiguration(jokersPerParticipant: nombreJokers) : nil
 
         return Challenge(id: nil,
-                         title: nom,
+                         title: trimmedNom,
                          duration: duree,
                          startDate: Date(),
                          creatorUID: userId,
