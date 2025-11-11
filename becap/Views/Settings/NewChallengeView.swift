@@ -275,6 +275,18 @@ struct NewChallengeView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(.ultraThinMaterial.opacity(0.35))
+                        .clipShape(Circle())
+                }
+            }
             ToolbarItem(placement: .principal) {
                 Text("Nouveau défi")
                     .font(.system(.title2, design: .rounded).weight(.heavy))
