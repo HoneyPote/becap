@@ -28,12 +28,32 @@ struct NewChallengeView: View {
 
             ScrollView {
                 VStack(spacing: 32) {
-                    Text("Créer un défi")
-                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.top, 36)
+                     HStack {
+                         // Bouton croix à gauche
+                         Button(action: { dismiss() }) {
+                             Image(systemName: "xmark")
+                                 .font(.system(size: 18, weight: .bold))
+                                 .foregroundColor(.white)
+                                 .padding(10)
+                                 .background(.ultraThinMaterial)
+                                 .clipShape(Circle())
+                                 .shadow(color: .black.opacity(0.25), radius: 5, x: 0, y: 3)
+                         }
+                         .buttonStyle(.plain)
+
+                         Spacer()
+
+                         // Titre centré
+                         Text("Créer un défi")
+                             .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                             .foregroundColor(.white)
+                             .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
+
+                         Spacer() 
+                     }
+                     .padding(.horizontal)
+                     .padding(.top, 36)
+
 
                     GlassCard {
                         VStack(alignment: .leading, spacing: 12) {
