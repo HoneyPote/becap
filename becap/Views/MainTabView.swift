@@ -78,9 +78,14 @@ struct MainTabView: View {
 
 extension LinearGradient {
     static var petrolToSky: LinearGradient {
-        LinearGradient(gradient: Gradient(colors: [Color(hex: "#6190E8"), Color(hex: "#A7BFE8")]),
-                       startPoint: .top,
-                       endPoint: .bottom)
+        LinearGradient(
+            gradient: Gradient(colors: [
+                Color(red: 11/255, green: 44/255, blue: 87/255),   // #0B2C57 - bleu profond (haut)
+                Color(red: 45/255, green: 110/255, blue: 166/255)   // #2D6EA6 - bleu moyen (bas)
+            ]),
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 }
 

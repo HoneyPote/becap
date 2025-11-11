@@ -44,6 +44,36 @@ struct NewChallengeView: View {
 
                     GlassCard {
                         VStack(alignment: .leading, spacing: 18) {
+                            Text("Type de défi")
+                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                .foregroundColor(.white)
+
+                            Menu {
+                                ForEach(ChallengeCategory.allCases, id: \.self) { category in
+                                    Button(category.displayName) {
+                                        viewModel.categorie = category
+                                    }
+                                }
+                            } label: {
+                                HStack {
+                                    Text(viewModel.categorie.displayName)
+                                        .font(.system(.body, design: .rounded))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 14, weight: .semibold))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                                .padding(14)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(.ultraThinMaterial)
+                                .cornerRadius(12)
+                            }
+                        }
+                    }
+
+                    GlassCard {
+                        VStack(alignment: .leading, spacing: 18) {
                             Text("Durée (jours)")
                                 .font(.system(.headline, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
