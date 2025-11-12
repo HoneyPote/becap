@@ -9,6 +9,8 @@ import SwiftUI
 #if canImport(UIKit)
 import UIKit
 #endif
+import AVKit
+import AVFoundation
 
 struct NewPostView: View {
     @StateObject private var viewModel: NewPostViewModel = NewPostViewModel()
@@ -166,8 +168,12 @@ struct NewPostView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
-                    LinearGradient(colors: [Color(hex: "5A5AF7"), Color(hex: "8E54E9")], startPoint: .leading, endPoint: .trailing)
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    LinearGradient(
+                        colors: [Color(hex: "5A5AF7"), Color(hex: "8E54E9")],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 )
                 .overlay(
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -282,7 +288,7 @@ struct NewPostView: View {
                     }
                 }
             } else {
-                AnimatedCaptureButton {
+                CaptureButton {
                     showCamera = true
                 }
             }
@@ -397,18 +403,36 @@ private struct PressableButtonStyle: ButtonStyle {
     }
 }
 
-private struct AnimatedCaptureButton: View {
+private struct CaptureButton: View {
     let action: () -> Void
 
     private let cornerRadius: CGFloat = 20
 
+    @StateObject private var videoController = LoopingPlayerController(
+        resourceCandidates: [
+            "dégradé_violet_animé",
+            "degrade_violet_anime"
+        ],
+        fileExtension: "mp4"
+    )
+
     var body: some View {
         Button(action: action) {
-            AnimatedCaptureBackground(cornerRadius: cornerRadius)
-                .overlay(content)
-                .frame(height: 140)
+            ZStack {
+                LoopingVideoBackground(player: videoController.player)
+                content
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.22), radius: 18, x: 0, y: 14)
         }
         .buttonStyle(PressableButtonStyle(scale: 0.965))
+        .onAppear { videoController.play() }
+        .onDisappear { videoController.pause() }
     }
 
     private var content: some View {
@@ -430,89 +454,90 @@ private struct AnimatedCaptureButton: View {
     }
 }
 
-private struct AnimatedCaptureBackground: View {
-    let cornerRadius: CGFloat
-
-    private let gradientColors: [Color] = [
-        Color(hex: "5A5AF7"),
-        Color(hex: "8E54E9"),
-        Color(hex: "FF8FB1"),
-        Color(hex: "5A5AF7")
-    ]
+private struct LoopingVideoBackground: View {
+    let player: AVQueuePlayer?
 
     var body: some View {
-        TimelineView(.animation) { timeline in
-            let cycleDuration: Double = 5
-            let time = timeline.date.timeIntervalSinceReferenceDate.remainder(dividingBy: cycleDuration)
-            let progress = time / cycleDuration
-            let angle = progress * 2 * Double.pi
-
-            let start = UnitPoint(
-                x: 0.5 + 0.45 * cos(angle),
-                y: 0.5 + 0.45 * sin(angle)
-            )
-
-            let end = UnitPoint(
-                x: 0.5 + 0.45 * cos(angle + Double.pi),
-                y: 0.5 + 0.45 * sin(angle + Double.pi)
-            )
-
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: animatedColors(for: progress),
-                        startPoint: start,
-                        endPoint: end
-                    )
+        Group {
+            if let player {
+                LoopingPlayerView(player: player)
+                    .overlay(Color.black.opacity(0.25))
+            } else {
+                LinearGradient(
+                    colors: [Color(hex: "5A5AF7"), Color(hex: "8E54E9")],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                )
-                .shadow(color: Color(hex: "5A5AF7").opacity(0.24), radius: 18, x: 0, y: 12)
+            }
         }
-    }
-
-    private func animatedColors(for progress: Double) -> [Color] {
-        let shifted = progress * Double(gradientColors.count - 1)
-        let baseIndex = Int(shifted)
-        let blendAmount = shifted - Double(baseIndex)
-
-        var colors: [Color] = []
-        for offset in 0..<(gradientColors.count - 1) {
-            let fromIndex = (baseIndex + offset) % (gradientColors.count - 1)
-            let toIndex = (fromIndex + 1) % (gradientColors.count - 1)
-
-            let fromColor = gradientColors[fromIndex]
-            let toColor = gradientColors[toIndex]
-
-            let blended = Color(
-                red: fromColor.components.red + (toColor.components.red - fromColor.components.red) * blendAmount,
-                green: fromColor.components.green + (toColor.components.green - fromColor.components.green) * blendAmount,
-                blue: fromColor.components.blue + (toColor.components.blue - fromColor.components.blue) * blendAmount,
-                opacity: 1
-            )
-
-            colors.append(blended)
-        }
-
-        colors.append(colors.first ?? gradientColors.first ?? .white)
-        return colors
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-private extension Color {
-    var components: (red: Double, green: Double, blue: Double, opacity: Double) {
-        #if canImport(UIKit)
-        let uiColor = UIColor(self)
-        var red: CGFloat = 0
-        var green: CGFloat = 0
-        var blue: CGFloat = 0
-        var alpha: CGFloat = 0
-        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        return (Double(red), Double(green), Double(blue), Double(alpha))
-        #else
-        return (0, 0, 0, 0)
-        #endif
+private final class LoopingPlayerController: ObservableObject {
+    let player: AVQueuePlayer?
+    private var looper: AVPlayerLooper?
+
+    init(resourceCandidates: [String], fileExtension: String) {
+        var selectedURL: URL?
+        for name in resourceCandidates {
+            if let url = Bundle.main.url(forResource: name, withExtension: fileExtension) {
+                selectedURL = url
+                break
+            }
+        }
+
+        if let selectedURL {
+            let asset = AVAsset(url: selectedURL)
+            let item = AVPlayerItem(asset: asset)
+            let queuePlayer = AVQueuePlayer()
+            queuePlayer.actionAtItemEnd = .none
+            queuePlayer.isMuted = true
+            queuePlayer.volume = 0
+
+            self.player = queuePlayer
+            self.looper = AVPlayerLooper(player: queuePlayer, templateItem: item)
+        } else {
+            self.player = nil
+        }
+    }
+
+    func play() {
+        player?.play()
+    }
+
+    func pause() {
+        player?.pause()
+        player?.seek(to: .zero)
+    }
+}
+
+private struct LoopingPlayerView: UIViewRepresentable {
+    let player: AVQueuePlayer
+
+    func makeUIView(context: Context) -> PlayerContainerView {
+        let view = PlayerContainerView()
+        view.playerLayer.player = player
+        view.playerLayer.videoGravity = .resizeAspectFill
+        return view
+    }
+
+    func updateUIView(_ uiView: PlayerContainerView, context: Context) {
+        if uiView.playerLayer.player !== player {
+            uiView.playerLayer.player = player
+        }
+    }
+
+    static func dismantleUIView(_ uiView: PlayerContainerView, coordinator: ()) {
+        uiView.playerLayer.player = nil
+    }
+}
+
+private final class PlayerContainerView: UIView {
+    override static var layerClass: AnyClass { AVPlayerLayer.self }
+
+    var playerLayer: AVPlayerLayer {
+        // swiftlint:disable:next force_cast
+        return layer as! AVPlayerLayer
     }
 }
