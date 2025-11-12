@@ -15,7 +15,7 @@ struct NewPostView: View {
 
     var body: some View {
         NavigationView {
-            ScrollView {
+            ScrollView(showsIndicators: false) {
                 VStack(spacing: 28) {
                     headerSection
 
@@ -52,56 +52,131 @@ struct NewPostView: View {
     }
 
     private var headerSection: some View {
-        HStack {
-            Spacer()
-            Text("Nouveau Post")
-                .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                .foregroundColor(.white)
-                .padding(.horizontal, 20)
-            Spacer()
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 16) {
+                GlassCircleIcon(systemName: "sparkles")
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Créer un nouveau post")
+                        .font(.system(.title, design: .rounded).weight(.heavy))
+                        .foregroundStyle(.white)
+
+                    Text("Partage ton énergie et inspire ton équipe en quelques secondes.")
+                        .font(.system(.subheadline, design: .rounded).weight(.medium))
+                        .foregroundColor(.white.opacity(0.75))
+                }
+
+                Spacer()
+            }
+
+            Divider()
+                .background(Color.white.opacity(0.15))
         }
+        .padding(.horizontal, 4)
     }
 
     private var challengePickerSection: some View {
-        HStack(spacing: 12) {
-            Text("Défi:").font(.subheadline.bold())
-                .font(.system(.headline, design: .rounded).weight(.heavy))
-                .textCase(.uppercase)
-                .foregroundColor(.white)
-            Spacer()
-            Picker("", selection: $viewModel.selectedChallenge) {
-                ForEach(viewModel.challenges) { challenge in
-                    Text(challenge.title).tag(Optional(challenge))
-                }
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Choisis ton défi")
+                    .font(.system(.headline, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+                    .foregroundColor(.white)
+
+                Text("Reste concentré en sélectionnant le challenge à alimenter aujourd'hui.")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.72))
             }
-            .pickerStyle(.segmented)
-            .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
+
+            if viewModel.challenges.isEmpty {
+                VStack(alignment: .leading, spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.yellow)
+
+                    Text("Aucun défi actif pour le moment")
+                        .font(.system(.body, design: .rounded).weight(.medium))
+                        .foregroundColor(.white)
+
+                    Text("Rejoins ou crée un défi pour publier tes prochaines victoires !")
+                        .font(.system(.footnote, design: .rounded))
+                        .foregroundColor(.white.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 14)
+                .padding(.horizontal, 16)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+                )
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 14) {
+                        ForEach(viewModel.challenges) { challenge in
+                            ChallengeChip(
+                                title: challenge.title,
+                                subtitle: challenge.category?.displayName,
+                                isSelected: viewModel.selectedChallenge == challenge
+                            )
+                            .onTapGesture {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                                    viewModel.selectedChallenge = challenge
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+                .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
+            }
         }
         .padding(4)
     }
 
     private var uploadSection: some View {
-        Button {
-            viewModel.uploadMedia()
-        } label: {
-            HStack {
-                if viewModel.isUploadingPost {
-                    ProgressView().progressViewStyle(CircularProgressViewStyle())
-                } else {
-                    Image(systemName: "square.and.arrow.down.fill")
-                    Text("Partager le post")
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Et partage ta story ✨")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white.opacity(0.85))
+
+            Button {
+                viewModel.uploadMedia()
+            } label: {
+                HStack(spacing: 12) {
+                    if viewModel.isUploadingPost {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    } else {
+                        Image(systemName: "paperplane.fill")
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+
+                    Text(viewModel.isUploadingPost ? "Publication en cours..." : "Partager le post")
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .textCase(.uppercase)
                         .foregroundColor(.white)
-
                 }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(colors: [Color(hex: "5A5AF7"), Color(hex: "8E54E9")], startPoint: .leading, endPoint: .trailing)
+                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                )
+                .shadow(color: Color(hex: "8E54E9").opacity(0.35), radius: 16, x: 0, y: 8)
+                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
-            .padding(.top, 8)
-            .padding(.bottom, 8)
-            .padding(.horizontal, 20 )
+            .buttonStyle(PressableButtonStyle())
+            .disabled(viewModel.isUploadingPost)
+            .opacity(viewModel.isUploadingPost ? 0.85 : 1.0)
         }
-        .buttonStyle(.plain)
-        .opacity(viewModel.isUploadingPost ? 0.8 : 1.0)
         .padding(4)
     }
 
@@ -109,16 +184,31 @@ struct NewPostView: View {
         VStack(spacing: 20) {
             if let media = viewModel.selectedMedia {
                 VStack {
-                    Button(role: .destructive) {
-                        viewModel.eraseMedia()
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            viewModel.eraseMedia()
+                        }
                     } label: {
-                        Label("Supprimer le média enregistré", systemImage: "trash")
-                            .font(.system(.body, design: .rounded).weight(.medium))
+                        HStack(spacing: 10) {
+                            Image(systemName: "trash")
+                                .font(.system(size: 18, weight: .semibold))
+                            Text("Supprimer le média enregistré")
+                                .font(.system(.body, design: .rounded).weight(.semibold))
+                        }
+                        .padding(.vertical, 12)
+                        .frame(maxWidth: .infinity)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.red.opacity(0.18))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.red.opacity(0.3), lineWidth: 1)
+                        )
+                        .foregroundColor(.white)
                     }
-                    .frame(maxWidth: .infinity, minHeight: 35)
-                    .background(.thinMaterial)
-                    .cornerRadius(14)
-                    .shadow(color: Color.blue.opacity(0.38), radius: 10, x: 0, y: 3)
+                    .buttonStyle(PressableButtonStyle(scale: 0.96))
+                    .padding(.bottom, 4)
 
                     HStack(spacing: .zero) {
                         switch media {
@@ -126,11 +216,11 @@ struct NewPostView: View {
                             Image(uiImage: uiImage)
                                 .resizable()
                                 .scaledToFit()
-                                .frame(maxHeight: 200)
-                                .cornerRadius(14)
-                                .shadow(radius: 6)
-                                .overlay(RoundedRectangle(cornerRadius: 14)
-                                    .stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
+                                .frame(maxHeight: 220)
+                                .cornerRadius(18)
+                                .shadow(color: Color.black.opacity(0.3), radius: 12, x: 0, y: 12)
+                                .overlay(RoundedRectangle(cornerRadius: 18)
+                                    .stroke(Color.white.opacity(0.25), lineWidth: 1.2))
                                 .modifier(ShakeEffect(animatableData: viewModel.shakeImage ? 1 : 0))
                         case .video(let data):
                             if let thumbnailImage = data.thumbnailImage {
@@ -138,15 +228,19 @@ struct NewPostView: View {
                                     Image(uiImage: thumbnailImage)
                                         .resizable()
                                         .scaledToFit()
-                                        .frame(height: 200)
-                                        .cornerRadius(12)
+                                        .frame(height: 220)
+                                        .cornerRadius(18)
 
                                     Image(systemName: "play.circle.fill")
                                         .font(.system(size: 60))
                                         .foregroundColor(.white.opacity(0.85))
                                 }
-                                .padding()
-                                .shadow(radius: 6)
+                                .padding(6)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .fill(Color.black.opacity(0.15))
+                                )
+                                .shadow(color: Color.black.opacity(0.35), radius: 16, x: 0, y: 16)
                             }
                         }
                     }
@@ -165,17 +259,21 @@ struct NewPostView: View {
                                     .ignoresSafeArea()
                             }
 
-                            Text("Fermer")
-                                .font(.headline)
-                                .foregroundColor(.white)
-                                .frame(maxWidth: .infinity)
-                                .padding()
-                                .background(Color.gray.opacity(0.7))
-                                .cornerRadius(14)
-                                .padding(.horizontal, 32)
-                                .padding(.bottom, 40)
-                                .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-                                .onTapGesture { showMediaPreview = false }
+                            Button {
+                                showMediaPreview = false
+                            } label: {
+                                Text("Fermer")
+                                    .font(.headline)
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding()
+                                    .background(Color.black.opacity(0.55))
+                                    .cornerRadius(16)
+                                    .padding(.horizontal, 32)
+                                    .padding(.bottom, 40)
+                                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                            }
+                            .buttonStyle(PressableButtonStyle(scale: 0.95))
                         }
                         .interactiveDismissDisabled(true)
                     }
@@ -183,31 +281,70 @@ struct NewPostView: View {
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 48))
-                        .foregroundColor(.white.opacity(0.6))
+                        .fill(Color.white.opacity(0.06))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+                        )
+
+                    VStack(spacing: 12) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 46, weight: .medium))
+                            .foregroundColor(.white.opacity(0.65))
+
+                        Text("Ajoute un souvenir visuel")
+                            .font(.system(.footnote, design: .rounded).weight(.medium))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
                 }
-                .frame(height: 170)
+                .frame(height: 190)
             }
 
-            HStack(spacing: 10) {
-                Image(systemName: "camera")
-                    .font(.system(size: 23, weight: .medium))
-                    .foregroundColor(.white)
-                Text(viewModel.takePhotoButtonLabel)
-                    .font(.system(.body, design: .rounded).weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundColor(.white)
+            Button {
+                showCamera = true
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "camera.fill")
+                        .font(.system(size: 22, weight: .semibold))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(viewModel.takePhotoButtonLabel)
+                            .font(.system(.body, design: .rounded).weight(.heavy))
+                            .textCase(.uppercase)
+
+                        Text("Capture une photo ou une vidéo inspirante")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    Spacer()
+                }
+                .foregroundColor(.white)
+                .padding(.vertical, 16)
+                .padding(.horizontal, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.1))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 14, x: 0, y: 10)
             }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .background(.thinMaterial)
-            .cornerRadius(14)
-            .shadow(color: Color.blue.opacity(0.38), radius: 10, x: 0, y: 3)
-            .onTapGesture { showCamera = true }
+            .buttonStyle(PressableButtonStyle())
 
             TextField("Description (optionnelle)", text: $viewModel.descriptionText)
-                .textFieldStyle(RoundedBorderTextFieldStyle())
+                .padding(.vertical, 14)
+                .padding(.horizontal, 18)
+                .background(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+                .foregroundColor(.white)
+                .font(.system(.body, design: .rounded))
         }
         .padding(4)
     }
@@ -236,5 +373,58 @@ struct NewPostView: View {
                 Spacer()
             }
         }
+    }
+}
+
+private struct ChallengeChip: View {
+    let title: String
+    let subtitle: String?
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(title)
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundColor(.white)
+                .lineLimit(2)
+                .multilineTextAlignment(.leading)
+
+            if let subtitle {
+                Text(subtitle)
+                    .font(.system(.caption, design: .rounded).weight(.medium))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+        }
+        .padding(.vertical, 14)
+        .padding(.horizontal, 16)
+        .frame(minWidth: 160, alignment: .leading)
+        .background(background)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(isSelected ? Color.white.opacity(0.6) : Color.white.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
+        )
+        .shadow(color: isSelected ? Color(hex: "8E54E9").opacity(0.35) : Color.black.opacity(0.12), radius: isSelected ? 14 : 8, x: 0, y: isSelected ? 12 : 6)
+        .scaleEffect(isSelected ? 1.03 : 1)
+    }
+
+    private var background: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: isSelected ? [Color(hex: "5A5AF7"), Color(hex: "8E54E9")] : [Color.white.opacity(0.08), Color.white.opacity(0.04)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+    }
+}
+
+private struct PressableButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
     }
 }
