@@ -98,7 +98,7 @@ class NotificationManager {
 
     private func notificationID(for challenge: Challenge, dayIndex: Int, time: Date) -> String {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
-        let idStr = challenge.id ?? "noid"
+        let idStr = challenge.id
         return "challenge-\(idStr)-day-\(dayIndex)-h\(comps.hour ?? 0)m\(comps.minute ?? 0)"
     }
 

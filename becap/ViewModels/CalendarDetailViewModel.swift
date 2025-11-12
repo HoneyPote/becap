@@ -38,7 +38,7 @@ struct CalendarDayJokerUsage: Identifiable, Hashable {
 
 struct CalendarDetailCell: Hashable,Identifiable {
     var date: Date
-    var photos: [ChallengePhoto]
+    var posts: [ChallengePost]
     var jokers: [CalendarDayJokerUsage]
     var isToday: Bool
 
@@ -46,9 +46,9 @@ struct CalendarDetailCell: Hashable,Identifiable {
 }
 
 class CalendarDetailViewModel: ObservableObject {
-    @Published var allPhotos: [ChallengePhoto] = []
+    @Published var allPosts: [ChallengePost] = []
     @Published var detailCells: [CalendarDetailCell]?
-    @Published var doneLoadingPhotos: Bool = false
+    @Published var doneLoadingPosts: Bool = false
     @Published var selectedPagerInfo: PagerInfo?
     @Published var participants: [Participant] = []
     @Published var participantProgresses: [ParticipantProgress] = []
@@ -69,34 +69,34 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func fetchInfos() {
-        self.doneLoadingPhotos = false
+        self.doneLoadingPosts = false
 
         Task {
-            async let photosTask = try fetchPhotos()
+            async let postsTask = try fetchPosts()
             async let allParticipants = try buildParticipants()
             async let progressesTask = try fetchParticipantProgresses()
             async let chatTask = try fetchChatMessages()
 
-            let (photos, participants, progresses, chatMessages) = try await (photosTask, allParticipants, progressesTask, chatTask)
+            let (posts, participants, progresses, chatMessages) = try await (postsTask, allParticipants, progressesTask, chatTask)
 
             await MainActor.run {
-                self.updatePhotos(photos)
+                self.updatePosts(posts)
                 self.participants = participants
                 self.participantProgresses = progresses
                 self.updateChat(messages: chatMessages)
-                self.doneLoadingPhotos = true
+                self.doneLoadingPosts = true
             }
         }
     }
 
-    func canDeletePhoto(photos: [ChallengePhoto]) -> Bool {
+    func canDeletePost(posts: [ChallengePost]) -> Bool {
         guard let currentUser = challengeManager.currentUser, let currentUserId = currentUser.id else { return false }
 
-        return photos.first?.authorUid == currentUserId
+        return posts.first?.authorUid == currentUserId
     }
 
     func detailButtonClicked(cell: CalendarDetailCell) {
-        if !cell.photos.isEmpty {
+        if !cell.posts.isEmpty {
             buildPagerInfo(cell: cell)
         }
     }
@@ -110,8 +110,9 @@ class CalendarDetailViewModel: ObservableObject {
                 return nil
             }
 
-            let photos = allPhotos.filter {
-                calendar.isDate($0.date, inSameDayAs: date) && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
+            let posts = allPosts.filter {
+                Calendar.current.isDate($0.date, inSameDayAs: date)
+                && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
             }
 
             let jokerUsages: [CalendarDayJokerUsage] = participantProgresses.flatMap { progress -> [CalendarDayJokerUsage] in
@@ -145,7 +146,7 @@ class CalendarDetailViewModel: ObservableObject {
             let isToday = calendar.isDateInToday(date)
 
             return CalendarDetailCell(date: date,
-                                      photos: photos,
+                                      posts: posts,
                                       jokers: jokerUsages.sorted(by: { $0.participantName.localizedCaseInsensitiveCompare($1.participantName) == .orderedAscending }),
                                       isToday: isToday)
         }
@@ -181,8 +182,8 @@ class CalendarDetailViewModel: ObservableObject {
         return counts
     }
 
-    func deletePhoto(_ photoId: String) {
-        self.allPhotos.removeAll(where: { $0.id == photoId })
+    func deletePost(_ postId: String) {
+        self.allPosts.removeAll(where: { $0.id == postId })
     }
 
     func getParticipant(for uid: String) -> Participant? {
@@ -242,17 +243,13 @@ class CalendarDetailViewModel: ObservableObject {
 
     @MainActor
     func markChatAsRead() {
-        guard let challengeId = challenge.id else { return }
-
-        challengeManager.markChatAsRead(for: challengeId)
+        challengeManager.markChatAsRead(for: challenge.id)
         chatHasUnreadMessages = false
     }
 
     func sendChatMessage(content: String) async {
-        guard let challengeId = challenge.id else { return }
-
         do {
-            try await challengeManager.sendChatMessage(content, challengeId: challengeId)
+            try await challengeManager.sendChatMessage(content, challengeId: challenge.id)
             let messages = try await fetchChatMessages()
 
             await MainActor.run {
@@ -267,8 +264,7 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func toggleReaction(_ reaction: String, for message: ChallengeChatMessage) async {
-        guard let challengeId = challenge.id,
-              let userId = challengeManager.currentUser?.id else { return }
+        guard let userId = challengeManager.currentUser?.id else { return }
 
         do {
             let latestMessages = try await fetchChatMessages()
@@ -282,13 +278,13 @@ class CalendarDetailViewModel: ObservableObject {
 
             if userHasReaction {
                 try await challengeManager.removeChatReaction(reaction,
-                                                             from: targetMessage,
-                                                             challengeId: challengeId,
-                                                             userId: userId)
+                                                              from: targetMessage,
+                                                              challengeId: challenge.id,
+                                                              userId: userId)
             } else {
                 try await challengeManager.addChatReaction(reaction,
                                                            to: targetMessage,
-                                                           challengeId: challengeId,
+                                                           challengeId: challenge.id,
                                                            userId: userId)
             }
 
@@ -325,43 +321,30 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
-        guard let challengeId = challenge.id else { return [] }
-
-        return try await challengeManager.fetchParticipantsProgress(for: challengeId)
+        return try await challengeManager.fetchParticipantsProgress(for: challenge.id)
     }
 
     private func fetchChatMessages() async throws -> [ChallengeChatMessage] {
-        guard let challengeId = challenge.id else { return [] }
-
-        return try await challengeManager.fetchChatMessages(for: challengeId)
+        return try await challengeManager.fetchChatMessages(for: challenge.id)
     }
 
     private func buildPagerInfo(cell: CalendarDetailCell) {
-        selectedPagerInfo = PagerInfo(photos: cell.photos, index: 0, date: cell.date)
+        selectedPagerInfo = PagerInfo(posts: cell.posts, index: 0, date: cell.date)
     }
 
-    private func fetchPhotos() async throws -> [ChallengePhoto] {
-        guard let challengeId = challenge.id else { return [] }
-
-        return try await challengeManager.loadPhotos(from: challengeId)
+    private func fetchPosts() async throws -> [ChallengePost] {
+        return try await challengeManager.loadPosts(from: challenge.id)
     }
 
-    private func updatePhotos(_ photos: [ChallengePhoto]) {
-        self.allPhotos = photos
+    private func updatePosts(_ posts: [ChallengePost]) {
+        self.allPosts = posts
     }
 
     @MainActor
     private func updateChat(messages: [ChallengeChatMessage]) {
         self.chatMessages = messages
 
-        guard let challengeId = challenge.id else {
-            self.chatHasUnreadMessages = false
-            return
-        }
-
-        self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(
-            for: challengeId,
-            latestMessageDate: messages.last?.createdAt
-        )
+        self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(for: challenge.id,
+                                                                        latestMessageDate: messages.last?.createdAt)
     }
 }

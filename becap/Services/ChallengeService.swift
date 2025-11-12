@@ -8,7 +8,7 @@
 import Foundation
 import FirebaseFirestore
 import FirebaseStorage
-import FirebaseAuth
+import AVFoundation
 
 enum ChallengeServiceError: Error {
     case invalidImageData(String)
@@ -21,13 +21,12 @@ protocol ChallengeServiceProtocol {
     func updateChallenge(_ challenge: Challenge) async throws
     func deleteChallenge(challengeId: String) async throws
 
-    // Photos
-    func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto
-    func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto]
-    @discardableResult
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration?
-    @discardableResult
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration?
+    // Posts
+    func fetchPosts(for challengeId: String) async throws -> [ChallengePost]
+    func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost
+    func deletePost(_ post: ChallengePost) async throws
+    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) -> ListenerRegistration?
+    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) -> ListenerRegistration?
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -68,7 +67,7 @@ extension ChallengeService {
             let snapshot = try await firestoreDB.collection(collecChallenges).getDocuments()
             let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
 
-            return challenges
+            return challenges.filter { $0.id != "" }
         } catch {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
@@ -89,12 +88,7 @@ extension ChallengeService {
     }
 
     func updateChallenge(_ challenge: Challenge) async throws {
-        guard let challengeId = challenge.id else {
-            print("❌ Challenge ID manquant")
-            return
-        }
-
-        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+        let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
 
         do {
             try ref.setData(from: challenge) { error in
@@ -110,11 +104,11 @@ extension ChallengeService {
     }
 
     func deleteChallenge(challengeId: String) async throws {
-        let challengePhotos = try await fetchPhotos(for: challengeId)
+        let challengePosts = try await fetchPosts(for: challengeId)
 
         // 1. Supprimer les photos dans Storage + Firestore
-        for photo in challengePhotos {
-            try await deletePhoto(photo)
+        for post in challengePosts {
+            try await deletePost(post)
         }
 
         // 2. Supprimer les documents collecParticipants dans Firestore
@@ -161,9 +155,106 @@ extension ChallengeService {
     }
 }
 
-// MARK: - Photos
+// MARK: - Posts
 extension ChallengeService {
-    func uploadPhoto(image: UIImage, challengeId: String, author: User, description: String?) async throws -> ChallengePhoto {
+    func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost {
+        guard let authorId = author.id else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
+
+        var challengeMedia: ChallengeMedia?
+
+        switch rawMedia {
+        case .image(let uiImage):
+            let firestoreImageUrl = try await saveImageToStorage(image: uiImage, challengeId: challengeId, authorId: authorId)
+            challengeMedia = .image(url: firestoreImageUrl.absoluteString)
+        case .video(let data):
+            let firestoreVideoUrls = try await saveVideoToStorage(data: data, challengeId: challengeId, authorId: authorId)
+            let videoData = ChallengeMedia.VideoData(videoURL: firestoreVideoUrls.videoUrl.absoluteString,
+                                                     thumbnailURL: firestoreVideoUrls.thmbnailUrl?.absoluteString)
+            challengeMedia = .video(videoData)
+        }
+
+        guard let challengeMedia else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
+
+        let post = ChallengePost(challengeId: challengeId,
+                                 authorUid: authorId,
+                                 authorName: author.name,
+                                 description: description,
+                                 date: Date(),
+                                 //                                 createdAt: Date(),
+                                 media: challengeMedia)
+
+        try savePostToFirebase(post, challengeId: challengeId)
+
+        return post
+    }
+
+    func fetchPosts(for challengeId: String) async throws -> [ChallengePost] {
+        let allPosts = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .getDocuments()
+
+        return allPosts.documents.compactMap { try? $0.data(as: ChallengePost.self) }
+    }
+
+    func deletePost(_ post: ChallengePost) async throws {
+        try await deletePostInStorage(post: post)
+        try await deletePostInFirestore(post: post)
+    }
+
+    // Privates
+
+    private func saveVideoToStorage(data: ChallengeRawMedia.VideoRawData,
+                                    challengeId: String,
+                                    authorId: String) async throws -> (videoUrl: URL, thmbnailUrl: URL?) {
+        let mediaUuid = UUID().uuidString
+        let folder = "\(mediaUuid)"
+
+        /// Video
+        let videoFileName = "\(mediaUuid).mp4"
+        let videoRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(videoFileName)")
+        let compressedVideoURL = try await compressVideo(inputURL: data.url)
+
+        _ = try await videoRef.putFileAsync(from: compressedVideoURL, metadata: nil)
+
+        let downloadedVideoUrl = try await videoRef.downloadURL()
+
+        /// Thumbnail
+        var downloadedThumbnailUrl: URL?
+        if let thumbnailImage = data.thumbnailImage {
+            let resizedImage = thumbnailImage.resized(toMaxWidth: 720)
+
+            guard let data = resizedImage.jpegData(compressionQuality: 0.6) else {
+                throw ChallengeServiceError.invalidImageData("Invalid image data")
+            }
+
+            let thumbnailFileName = "\(mediaUuid).jpg"
+            let thumbnailRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(thumbnailFileName)")
+
+            _ = try await thumbnailRef.putDataAsync(data, metadata: nil)
+
+            downloadedThumbnailUrl = try await thumbnailRef.downloadURL()
+        }
+
+        return (downloadedVideoUrl, downloadedThumbnailUrl)
+    }
+
+    private func compressVideo(inputURL: URL) async throws -> URL {
+        let asset = AVURLAsset(url: inputURL)
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+            throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
+        }
+
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mp4")
+
+        try await exportSession.export(to: outputURL, as: .mp4)
+
+        return outputURL
+    }
+
+    private func saveImageToStorage(image: UIImage, challengeId: String, authorId: String) async throws -> URL {
         let resizedImage = image.resized(toMaxWidth: 720)
 
         guard let data = resizedImage.jpegData(compressionQuality: 0.6) else {
@@ -171,46 +262,31 @@ extension ChallengeService {
         }
 
         let fileName = "\(UUID().uuidString).jpg"
-        let ref = firebaseStorage.reference().child("photos/\(challengeId)/\(author.id ?? "unknown")/\(fileName)")
+        let ref = firebaseStorage.reference().child("photos/\(challengeId)/\(authorId)/\(fileName)")
 
         // Upload image to Storage
         _ = try await ref.putDataAsync(data, metadata: nil)
 
         // Get download URL
-        let url = try await ref.downloadURL()
-
-        // Create photo object
-        let photo = ChallengePhoto(challengeId: challengeId,
-                                   authorUid: author.id ?? "",
-                                   authorName: author.name,
-                                   imageUrl: url.absoluteString,
-                                   description: description,
-                                   date: Date(),
-                                   createdAt: Date())
-
-        // Save in Firestore et retourner l'objet enrichi avec son identifiant
-        return try savePhoto(photo, challengeId: challengeId)
+        return try await ref.downloadURL()
     }
 
-    func fetchPhotos(for challengeId: String) async throws -> [ChallengePhoto] {
-        let allPhotos = try await firestoreDB
-            .collection(collecChallenges)
-            .document(challengeId)
-            .collection(collecPhotos)
-            .getDocuments()
+    private func deletePostInStorage(post: ChallengePost) async throws {
+        switch post.media {
+        case .image(let urlString):
+            try await deleteStorageFile(at: urlString)
 
-        return allPhotos.documents.compactMap { try? $0.data(as: ChallengePhoto.self) }
+        case .video(let videoData):
+            try await deleteStorageFile(at: videoData.videoURL)
+
+            if let thumbURL = videoData.thumbnailURL {
+                try await deleteStorageFile(at: thumbURL)
+            }
+        }
     }
 
-    func deletePhoto(_ photo: ChallengePhoto) async throws {
-        try await deletePhotosInStorage(photo: photo)
-        try await deletePhotoInFirestore(photo: photo)
-    }
-
-    // Privates
-
-    private func deletePhotosInStorage(photo: ChallengePhoto) async throws {
-        let ref = firebaseStorage.reference(forURL: photo.imageUrl)
+    private func deleteStorageFile(at urlString: String) async throws {
+        let ref = firebaseStorage.reference(forURL: urlString)
 
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             ref.delete { error in
@@ -223,17 +299,16 @@ extension ChallengeService {
         }
     }
 
-    private func deletePhotoInFirestore(photo: ChallengePhoto) async throws {
-        guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
-
-        let photoRef = firestoreDB
+    // TODO: Différencier photo et vidéo pour adapter ref
+    private func deletePostInFirestore(post: ChallengePost) async throws {
+        let postRef = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(post.challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(post.id)
 
         // 1. Supprimer les commentaires de la photo
-        let snapshot = try await photoRef.collection(collecComments).getDocuments()
+        let snapshot = try await postRef.collection(collecComments).getDocuments()
 
         for doc in snapshot.documents {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
@@ -249,7 +324,7 @@ extension ChallengeService {
 
         // 2. Supprimer la photo principale
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            photoRef.delete { error in
+            postRef.delete { error in
                 if let error = error {
                     continuation.resume(throwing: error)
                 } else {
@@ -259,18 +334,14 @@ extension ChallengeService {
         }
     }
 
-    @discardableResult
-    private func savePhoto(_ photo: ChallengePhoto, challengeId: String) throws -> ChallengePhoto {
+    private func savePostToFirebase(_ post: ChallengePost, challengeId: String) throws {
         let docRef = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
             .document()
 
-        var photoToSave = photo
-        photoToSave.id = docRef.documentID
-        try docRef.setData(from: photoToSave)
-        return photoToSave
+		try docRef.setData(from: post)
     }
 }
 
@@ -434,9 +505,7 @@ extension ChallengeService {
                     "times": notif.times.map { Timestamp(date: $0) }] as [String : Any]
         }
 
-        guard let challengeId = challenge.id else { return }
-
-        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+        let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
 
         ref.updateData([
             "notificationsConfig": firestoreConfig
@@ -446,26 +515,26 @@ extension ChallengeService {
     }
 }
 
-// MARK: - Like/Unlike Photo
+// MARK: - Like/Unlike Post
 extension ChallengeService {
-    func likePhoto(challengeId: String, photoId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
+    func likePost(challengeId: String, postId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
 
         ref.updateData(["likes": FieldValue.arrayUnion([userId])]) { error in
             completion?(error)
         }
     }
 
-    func unlikePhoto(challengeId: String, photoId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
+    func unlikePost(challengeId: String, postId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
 
         ref.updateData(["likes": FieldValue.arrayRemove([userId])]) { error in
             completion?(error)
@@ -475,7 +544,7 @@ extension ChallengeService {
 
 // MARK: - Comments
 extension ChallengeService {
-    func addComment(photoId: String,
+    func addComment(postId: String,
                     content: String,
                     challengeId: String,
                     userId: String,
@@ -490,7 +559,7 @@ extension ChallengeService {
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
             .collection(collecComments)
 
         ref.addDocument(data: commentData) { error in
@@ -498,20 +567,19 @@ extension ChallengeService {
         }
     }
 
-    @discardableResult
-    func listenToComments(challengeId: String, photoId: String, onUpdate: @escaping ([PhotoCommentModel]) -> Void) -> ListenerRegistration? {
+    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) -> ListenerRegistration? {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
             .collection(collecComments)
 
 
         let listener = ref.order(by: "timestamp").addSnapshotListener { snapshot, error in
             guard let documents = snapshot?.documents else { return onUpdate([]) }
 
-            let comments = documents.compactMap { try? $0.data(as: PhotoCommentModel.self) }
+            let comments = documents.compactMap { try? $0.data(as: PostCommentModel.self) }
 
             onUpdate(comments)
         }
@@ -519,18 +587,17 @@ extension ChallengeService {
         return listener
     }
 
-    @discardableResult
-    func listenToPhoto(challengeId: String, photoId: String, onUpdate: @escaping (ChallengePhoto?) -> Void) -> ListenerRegistration? {
+    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) -> ListenerRegistration? {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
 
         let listener = ref.addSnapshotListener { snapshot, error in
-            guard let updatedPhoto = try? snapshot?.data(as: ChallengePhoto.self) else { return onUpdate(nil) }
+            guard let updatedPost = try? snapshot?.data(as: ChallengePost.self) else { return onUpdate(nil) }
 
-            onUpdate(updatedPhoto)
+            onUpdate(updatedPost)
         }
 
         return listener
@@ -574,7 +641,9 @@ extension ChallengeService {
             .updateData(["photoURL": url.absoluteString])
 
         // 5) (Optionnel) Supprimer l’ancien fichier pour éviter d’encombrer le bucket
-        if let prev = previousURL, let prevRef = try? Storage.storage().reference(forURL: prev) {
+        if let prev = previousURL {
+            let prevRef = firebaseStorage.reference(forURL: prev)
+
             try? await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
                 prevRef.delete { _ in c.resume() } // on ignore l’erreur si le fichier n’existe plus
             }

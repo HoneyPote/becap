@@ -1,5 +1,5 @@
 //
-//  CameraView.swift
+//  NewPostViewModel.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 19/07/2025.
@@ -9,25 +9,25 @@ import SwiftUI
 import Combine
 import AVFoundation
 
-class CameraViewModel: ObservableObject {
+class NewPostViewModel: ObservableObject {
     @Published var selectedChallenge: Challenge?
-    @Published var selectedImage: UIImage?
+    @Published var selectedMedia: ChallengeRawMedia?
     @Published var descriptionText: String = ""
     @Published var shakeChallenge: Bool = false
     @Published var shakeImage: Bool = false
     @Published var toast: Toast = Toast(isShown: false, type: .error, message: "")
-    @Published var isUploadingPhoto: Bool = false
-
-    private let challengeManager: ChallengeManager
+    @Published var isUploadingPost: Bool = false
+    @Published var videoThubmnail: UIImage?
 
     let currentUser: User?
-
-    private var cancellables = Set<AnyCancellable>()
+    private let challengeManager: ChallengeManager
 
     var challenges: [Challenge] = []
     var takePhotoButtonLabel: String {
-        selectedImage == nil ? "Prendre une photo" : "Reprendre une photo"
+        selectedMedia == nil ? "Prendre une photo ou une vidéo" : "Reprendre une photo ou une vidéo"
     }
+
+    private var cancellables = Set<AnyCancellable>()
 
     init(userManager: UserManager = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
@@ -37,51 +37,47 @@ class CameraViewModel: ObservableObject {
         observeChallengesChanges()
     }
 
-    func uploadPhoto() {
-        isUploadingPhoto = true
-        print("🟦 uploadPhoto() appelé")
+    func uploadMedia() {
+        isUploadingPost = true
 
-        guard let challenge = selectedChallenge else {
-            updateToast("Veuillez sélectionner un défi.", type: .error)
+        guard let media = selectedMedia, let challenge = selectedChallenge else {
+            updateToast("Veuillez sélectionner un média et défi.", type: .error)
             withAnimation(.default) { shakeChallenge.toggle() }
-            isUploadingPhoto = false
-            print("❌ Pas de challenge sélectionné")
-            return
-        }
-        guard let image = selectedImage else {
-            updateToast("Veuillez prendre une photo.", type: .error)
-            withAnimation(.default) { shakeImage.toggle() }
-            isUploadingPhoto = false
-            print("❌ Pas d'image sélectionnée")
+            isUploadingPost = false
             return
         }
 
         Task {
             do {
-                try await challengeManager.sendPhotoAndNotify(image: image,
-                                                              challenge: challenge,
-                                                              descriptionText: descriptionText)
+                try await challengeManager.sendPostAndNotify(media: media, challenge: challenge, descriptionText: descriptionText)
+
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
-                    self.selectedImage = nil
+                    self.selectedMedia = nil
                     self.descriptionText = ""
                     self.updateToast("Photo uploaded successfully!", type: .success)
-                    self.isUploadingPhoto = false
+                    self.isUploadingPost = false
                 }
-                print("🟩 uploadPhoto() terminé")
             } catch let error {
                 await MainActor.run {
                     self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
-                    self.isUploadingPhoto = false
+                    self.isUploadingPost = false
                 }
-                print("❌ Erreur lors de l'upload ou la notification : \(error)")
             }
         }
+    }
+
+    func updateSelectedMedia(_ media: ChallengeRawMedia) {
+        selectedMedia = media
     }
 
     func closeToast() {
         toast.timer?.invalidate()
         withAnimation { toast.isShown = false }
+    }
+
+    func eraseMedia() {
+        selectedMedia = nil
     }
 
     // MARK: - Private functions
@@ -104,7 +100,7 @@ class CameraViewModel: ObservableObject {
 }
 
 // MARK: - Observers
-extension CameraViewModel {
+extension NewPostViewModel {
     private func observeChallengesChanges() {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)

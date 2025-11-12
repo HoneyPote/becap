@@ -45,11 +45,11 @@ class HomeViewModel: ObservableObject {
     }
 
     func performDelete() {
-        guard let challenge = challengeToDelete, let challengeId = challenge.id else { return }
+        guard let challenge = challengeToDelete else { return }
 
         Task {
             do {
-                try await challengeManager.deleteChallenge(challengeId)
+                try await challengeManager.deleteChallenge(challenge.id)
 
                 await MainActor.run {
                     self.challengeToDelete = nil

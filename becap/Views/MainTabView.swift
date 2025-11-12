@@ -29,7 +29,7 @@ struct MainTabView: View {
                 case .home:
                     HomeView()
                 case .camera:
-                    CameraView()
+                    NewPostView()
                 case .settings:
                     SettingsView()
                 }

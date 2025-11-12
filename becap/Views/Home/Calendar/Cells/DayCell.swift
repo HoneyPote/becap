@@ -20,7 +20,7 @@ enum Haptics {
 struct DayCell: View {
     let date: Date
     let dayNumber: Int          // ⬅️ nouveau : n° du jour de défi
-    let photoCount: Int
+    let postCount: Int
     let jokerCount: Int
     let currentUserUsedJoker: Bool
     let isToday: Bool
@@ -28,7 +28,7 @@ struct DayCell: View {
     let isSelected: Bool
     let tap: () -> Void
 
-    private var hasPhotos: Bool { photoCount > 0 }
+    private var hasPhotos: Bool { postCount > 0 }
     private var hasJokerUsage: Bool { jokerCount > 0 }
 
     var body: some View {
@@ -66,7 +66,7 @@ struct DayCell: View {
                         HStack(spacing: 4) {
                             Image(systemName: "camera.fill")
                                 .font(.system(size: 9, weight: .bold))
-                            Text("\(photoCount)")
+                            Text("\(postCount)")
                                 .font(.system(size: 10, weight: .bold, design: .rounded))
                         }
                         .padding(.horizontal, 6)

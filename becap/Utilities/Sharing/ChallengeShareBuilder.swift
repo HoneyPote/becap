@@ -64,9 +64,7 @@ enum ChallengeShareBuilder {
             queryItems.append(URLQueryItem(name: "code", value: code))
         }
 
-        if let id = challenge.id {
-            queryItems.append(URLQueryItem(name: "challengeId", value: id))
-        }
+        queryItems.append(URLQueryItem(name: "challengeId", value: challenge.id))
 
         components.queryItems = queryItems.isEmpty ? nil : queryItems
         return components.url

@@ -15,7 +15,7 @@ private func sameDay(_ a: Date, _ b: Date) -> Bool { CAL.isDate(a, equalTo: b, t
 // MARK: - Pager model
 struct PagerInfo: Identifiable {
     let id = UUID()
-    var photos: [ChallengePhoto]
+    var posts: [ChallengePost]
     var index: Int
     let date: Date
 }
@@ -79,7 +79,7 @@ struct CalendarDetailView: View {
             Image("photoBg")
                 .resizable()
                 .scaledToFill()
-                //.blur(radius: 3)
+            //.blur(radius: 3)
                 .overlay(Color.black.opacity(0.2))
                 .ignoresSafeArea()
         )
@@ -103,70 +103,30 @@ struct CalendarDetailView: View {
             }
         }
         .overlay {
-            if showJokerBubble,
-               let status = viewModel.currentUserJokerStatus,
-               jokerButtonFrame != .zero {
-                GeometryReader { proxy in
-                    let measuredWidth = jokerBubbleSize.width > 0 ? jokerBubbleSize.width : 240
-                    let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160
-
-                    let minX = measuredWidth / 2 + 16
-                    let maxX = proxy.size.width - measuredWidth / 2 - 16
-                    let desiredX = jokerButtonFrame.midX
-                    let positionedX = max(min(desiredX, maxX), minX)
-
-                    let desiredY = jokerButtonFrame.maxY + measuredHeight / 2 + 8
-                    let minY = measuredHeight / 2 + 16
-                    let maxY = proxy.size.height - measuredHeight / 2 - 16
-                    let positionedY = max(min(desiredY, maxY), minY)
-
-                    ZStack {
-                        Color.black.opacity(0.001)
-                            .ignoresSafeArea()
-                            .onTapGesture {
-                                withAnimation { showJokerBubble = false }
-                            }
-
-                        BubbleOverlay {
-                            jokerBubbleContent(status: status)
-                        }
-                        .background(
-                            GeometryReader { bubbleProxy in
-                                Color.clear
-                                    .onAppear { updateJokerBubbleSize(bubbleProxy.size) }
-                                    .onChange(of: bubbleProxy.size) { updateJokerBubbleSize($0) }
-                            }
-                        )
-                        .position(x: positionedX, y: positionedY)
-                        .transition(.scale.combined(with: .opacity))
-                        .zIndex(2)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
-            }
+            jockerOverlay
         }
         .sheet(item: $pagerInfo) { info in
-            CalendarPhotoPagerView(photos: info.photos,
-                                   startIndex: info.index,
-                                   challenge: viewModel.challenge,
-                                   getParticipant: { viewModel.getParticipant(for: $0) },
-                                   onDelete: { viewModel.deletePhoto($0) },
-                                   onClose: { pagerInfo = nil })
+            CalendarPostPagerView(posts: info.posts,
+                                  startIndex: info.index,
+                                  challenge: viewModel.challenge,
+                                  getParticipant: { viewModel.getParticipant(for: $0) },
+                                  onDelete: { viewModel.deletePost($0) },
+                                  onClose: { pagerInfo = nil })
         }
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
         .onAppear {
-            if viewModel.doneLoadingPhotos {
+            if viewModel.doneLoadingPosts {
                 openInitialPhotoIfNeeded()
             }
         }
-        .onChange(of: viewModel.doneLoadingPhotos) { isDone in
+        .onChange(of: viewModel.doneLoadingPosts) { isDone in
             if isDone {
                 openInitialPhotoIfNeeded()
             }
         }
-        .onChange(of: viewModel.allPhotos) { _ in
+        .onChange(of: viewModel.allPosts) { _ in
             openInitialPhotoIfNeeded()
         }
         .onChange(of: selectedParticipant) { _ in
@@ -174,15 +134,60 @@ struct CalendarDetailView: View {
         }
     }
 
+    @ViewBuilder
+    private var jockerOverlay: some View {
+        if showJokerBubble,
+           let status = viewModel.currentUserJokerStatus,
+           jokerButtonFrame != .zero {
+            GeometryReader { proxy in
+                let measuredWidth = jokerBubbleSize.width > 0 ? jokerBubbleSize.width : 240
+                let measuredHeight = jokerBubbleSize.height > 0 ? jokerBubbleSize.height : 160
+
+                let minX = measuredWidth / 2 + 16
+                let maxX = proxy.size.width - measuredWidth / 2 - 16
+                let desiredX = jokerButtonFrame.midX
+                let positionedX = max(min(desiredX, maxX), minX)
+
+                let desiredY = jokerButtonFrame.maxY + measuredHeight / 2 + 8
+                let minY = measuredHeight / 2 + 16
+                let maxY = proxy.size.height - measuredHeight / 2 - 16
+                let positionedY = max(min(desiredY, maxY), minY)
+
+                ZStack {
+                    Color.black.opacity(0.001)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation { showJokerBubble = false }
+                        }
+
+                    BubbleOverlay {
+                        jokerBubbleContent(status: status)
+                    }
+                    .background(
+                        GeometryReader { bubbleProxy in
+                            Color.clear
+                                .onAppear { updateJokerBubbleSize(bubbleProxy.size) }
+                                .onChange(of: bubbleProxy.size) { updateJokerBubbleSize($0) }
+                        }
+                    )
+                    .position(x: positionedX, y: positionedY)
+                    .transition(.scale.combined(with: .opacity))
+                    .zIndex(2)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+        }
+    }
+
     // MARK: - Month Grid (w/ precomputed counts)
     private var monthGrid: some View {
         let cells = viewModel.buildDetailcells(for: selectedParticipant)
-        let photoCountByDay: [Date: Int] = {
+        let postCountByDay: [Date: Int] = {
             var map: [Date: Int] = [:]
             map.reserveCapacity(cells.count)
 
             for cell in cells {
-                map[startOfDay(cell.date)] = cell.photos.count
+                map[startOfDay(cell.date)] = cell.posts.count
             }
 
             return map
@@ -208,14 +213,14 @@ struct CalendarDetailView: View {
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
             selectedDate: selectedGridCell?.date,
-            photoCountByDay: photoCountByDay,
+            postCountByDay: postCountByDay,
             jokerCountByDay: jokerCountByDay,
             currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
                 let day = startOfDay(date)
 
-                    if let cell = cells.first(where: { sameDay($0.date, day) }),
-                       (!cell.photos.isEmpty || !cell.jokers.isEmpty) {
+                if let cell = cells.first(where: { sameDay($0.date, day) }),
+                   (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
                     withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                         selectedGridCell = cell
                         showJokerBubble = false
@@ -280,23 +285,23 @@ struct CalendarDetailView: View {
                 }
                 .sheet(isPresented: $showParticipantsSheet) {
                     ParticipantsOverviewView(participants: viewModel.participants,
-                                              photos: viewModel.allPhotos,
-                                              progresses: viewModel.participantProgresses,
-                                              chatMessages: viewModel.chatMessages,
-                                              hasUnreadMessages: viewModel.chatHasUnreadMessages,
-                                              currentUserId: viewModel.currentUserId,
-                                              jokerConfiguration: viewModel.challenge.jokerConfiguration,
-                                              onSendMessage: { message in
-                                                  await viewModel.sendChatMessage(content: message)
-                                              },
-                                              onToggleReaction: { message, reaction in
-                                                  await viewModel.toggleReaction(reaction, for: message)
-                                              },
-                                              onChatOpened: {
-                                                  Task {
-                                                      await viewModel.markChatAsRead()
-                                                  }
-                                              })
+                                             photos: viewModel.allPosts,
+                                             progresses: viewModel.participantProgresses,
+                                             chatMessages: viewModel.chatMessages,
+                                             hasUnreadMessages: viewModel.chatHasUnreadMessages,
+                                             currentUserId: viewModel.currentUserId,
+                                             jokerConfiguration: viewModel.challenge.jokerConfiguration,
+                                             onSendMessage: { message in
+                        await viewModel.sendChatMessage(content: message)
+                    },
+                                             onToggleReaction: { message, reaction in
+                        await viewModel.toggleReaction(reaction, for: message)
+                    },
+                                             onChatOpened: {
+                        Task {
+                            await viewModel.markChatAsRead()
+                        }
+                    })
                 }
                 .sheet(isPresented: $isShareSheetPresented) {
                     if !shareItems.isEmpty {
@@ -331,14 +336,14 @@ struct CalendarDetailView: View {
     }
 
     private func buildGridPhotos(cell: CalendarDetailCell) -> some View {
-        GridPhotosInline(cell: cell,
-                         getParticipant: { viewModel.getParticipant(for: $0) },
-                         onClose: {
+        GridPostsInline(cell: cell,
+                        getParticipant: { viewModel.getParticipant(for: $0) },
+                        onClose: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
                 selectedGridCell = nil
             }
         },
-                         onOpenPager: { info in
+                        onOpenPager: { info in
             withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                 selectedGridCell = nil
             }
@@ -466,20 +471,20 @@ extension CalendarDetailView {
     }
 
     private func openInitialPhotoIfNeeded() {
-        guard viewModel.doneLoadingPhotos,
+        guard viewModel.doneLoadingPosts,
               let photoId = pendingInitialPhotoId else { return }
 
-        guard let photo = viewModel.allPhotos.first(where: { $0.id == photoId }) else {
+        guard let photo = viewModel.allPosts.first(where: { $0.id == photoId }) else {
             return
         }
 
         let cells = viewModel.buildDetailcells(for: nil)
         guard let cell = cells.first(where: { sameDay($0.date, photo.date) }),
-              let index = cell.photos.firstIndex(where: { $0.id == photoId }) else {
+              let index = cell.posts.firstIndex(where: { $0.id == photoId }) else {
             return
         }
 
-        pagerInfo = PagerInfo(photos: cell.photos, index: index, date: cell.date)
+        pagerInfo = PagerInfo(posts: cell.posts, index: index, date: cell.date)
         pendingInitialPhotoId = nil
     }
 

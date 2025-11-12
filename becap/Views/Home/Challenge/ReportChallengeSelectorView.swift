@@ -65,7 +65,7 @@ struct ReportChallengeSelectorView: View {
 #Preview {
     ReportChallengeSelectorView(
         challenges: [
-            Challenge(id: "1", title: "Défi Matinal", duration: 7, startDate: .now, creatorUID: "1", participantUids: ["1"], notificationsConfig: nil, code: "ABC123")
+            Challenge(title: "Défi Matinal", duration: 7, startDate: .now, creatorUID: "1", participantUids: ["1"], notificationsConfig: nil, code: "ABC123")
         ],
         onSelect: { _ in }
     )

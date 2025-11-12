@@ -1,5 +1,5 @@
 //
-//  PhotoPagerViewModel.swift
+//  PostPagerViewModel.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 05/08/2025.
@@ -8,11 +8,11 @@
 import Foundation
 import FirebaseFirestore
 
-final class PhotoStore: ObservableObject {
-    static let shared = PhotoStore()
+final class PostStore: ObservableObject {
+    static let shared = PostStore()
 
     private struct CacheEntry {
-        let viewModel: PhotoViewModel
+        let viewModel: PostViewModel
         var lastAccess: Date
     }
 
@@ -20,8 +20,8 @@ final class PhotoStore: ObservableObject {
     private var cache: [String: CacheEntry] = [:]
     private let lock = NSLock()
 
-    func getViewModel(for photo: ChallengePhoto) -> PhotoViewModel {
-        let key = makeKey(for: photo)
+    func getViewModel(for post: ChallengePost) -> PostViewModel {
+        let key = makeKey(for: post)
 
         lock.lock()
         defer { lock.unlock() }
@@ -32,14 +32,14 @@ final class PhotoStore: ObservableObject {
             return entry.viewModel
         }
 
-        let vm = PhotoViewModel(photo: photo)
+        let vm = PostViewModel(post: post)
         cache[key] = CacheEntry(viewModel: vm, lastAccess: Date())
         trimIfNeeded()
 
         return vm
     }
 
-    func removeViewModel(for photo: ChallengePhoto) {
+    func removeViewModel(for photo: ChallengePost) {
         let key = makeKey(for: photo)
 
         lock.lock()
@@ -50,13 +50,13 @@ final class PhotoStore: ObservableObject {
         }
     }
 
-    private func makeKey(for photo: ChallengePhoto) -> String {
-        if let photoId = photo.id, !photoId.isEmpty {
-            return photoId
-        }
+    private func makeKey(for photo: ChallengePost) -> String {
+//        if let photoId = photo.id, !photoId.isEmpty {
+//            return photoId
+//        }
 
-        let challengeComponent = photo.challengeId ?? "unknown"
-        let timestamp = photo.createdAt.timeIntervalSince1970
+        let challengeComponent = photo.challengeId
+        let timestamp = photo.date.timeIntervalSince1970
 
         return "\(challengeComponent)_\(photo.authorUid)_\(timestamp)"
     }
@@ -78,32 +78,32 @@ final class PhotoStore: ObservableObject {
     }
 }
 
-final class PhotoViewModel: ObservableObject, Identifiable {
+final class PostViewModel: ObservableObject, Identifiable {
     @Published var likes: [String]
-    @Published var comments: [PhotoCommentModel] = []
-    @Published var jokerState: PhotoJokerState
+    @Published var comments: [PostCommentModel] = []
+	@Published var jokerState: PhotoJokerState
 
-    let photo: ChallengePhoto
+    let post: ChallengePost
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
     private var likesListener: ListenerRegistration?
     private var commentsListener: ListenerRegistration?
 
-    var photoFormattedDate: String {
+    var postFormattedDate: String {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "EEEE d MMMM 'à' HH:mm"
         dateFormatter.locale = Locale(identifier: "fr_FR")
 
-        return dateFormatter.string(from: photo.date)
+        return dateFormatter.string(from: post.date)
     }
 
-    init(photo: ChallengePhoto,
+    init(post: ChallengePost,
          challengeService: ChallengeServiceProtocol = ChallengeService.shared,
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared) {
-        self.photo = photo
-        self.likes = photo.likes ?? []
-        self.jokerState = photo.jokerState ?? PhotoJokerState()
+        self.post = post
+        self.likes = post.likes ?? []
+		self.jokerState = post.jokerState ?? PhotoJokerState()
         self.challengeService = challengeService
         self.challengeManager = challengeManager
 
@@ -120,7 +120,7 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         likes.append(currentUserId)
 
         Task {
-            try await challengeManager.likePhoto(photo: photo)
+            try await challengeManager.likePost(post: post)
         }
     }
 
@@ -130,46 +130,41 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         likes.removeAll { $0 == currentUserId }
 
         Task {
-            try await challengeManager.unlikePhoto(photo: photo)
+            try await challengeManager.unlikePost(post: post)
         }
     }
 
-    func addComment(photo: ChallengePhoto, content: String) {
+    func addComment(post: ChallengePost, content: String) {
         let trimmedComment = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedComment.isEmpty else { return }
 
         Task {
-            try await challengeManager.commentPhoto(photo: photo, content: trimmedComment)
+            try await challengeManager.commentPost(post: post, content: trimmedComment)
         }
     }
 
     func toggleJokerVote() {
         Task {
-            try await challengeManager.toggleJokerVote(for: photo)
+            try await challengeManager.toggleJokerVote(for: post)
         }
     }
 
     func declareJokerUsage(in challenge: Challenge) {
         Task {
             try await challengeManager.declareJokerUsage(for: challenge,
-                                                        on: photo.date,
-                                                        photoId: photo.id)
+                                                         on: post.date,
+                                                         photoId: post.id)
         }
     }
 
     private func listenToPost() {
-        guard let photoId = photo.id, let challengeId = photo.challengeId else { return }
-
-        listenToLikes(photoId: photoId, challengeId: challengeId)
-        listenToComments(photoId: photoId, challengeId: challengeId)
+        listenToLikes(postId: post.id, challengeId: post.challengeId)
+        listenToComments(postId: post.id, challengeId: post.challengeId)
     }
 
-    private func listenToLikes(photoId: String, challengeId: String) {
-        likesListener = challengeService.listenToPhoto(
-            challengeId: challengeId,
-            photoId: photoId
-        ) { [weak self] updated in
+    private func listenToLikes(postId: String, challengeId: String) {
+        challengeService.listenToPost(challengeId: challengeId, postId: postId) { [weak self] updated in
             guard let updated else { return }
 
             self?.likes = updated.likes ?? []
@@ -177,11 +172,8 @@ final class PhotoViewModel: ObservableObject, Identifiable {
         }
     }
 
-    private func listenToComments(photoId: String, challengeId: String) {
-        commentsListener = challengeService.listenToComments(
-            challengeId: challengeId,
-            photoId: photoId
-        ) { [weak self] updated in
+    private func listenToComments(postId: String, challengeId: String) {
+        challengeService.listenToComments(challengeId: challengeId, postId: postId) { [weak self] updated in
             self?.comments = updated
         }
     }
@@ -194,12 +186,12 @@ final class PhotoViewModel: ObservableObject, Identifiable {
     }
 }
 
-class PhotoPagerViewModel: ObservableObject {
-    @Published var photoViewModels: [PhotoViewModel]
-    @Published var selectedPhotoVM: PhotoViewModel
+class PostPagerViewModel: ObservableObject {
+    @Published var postViewModels: [PostViewModel]
+    @Published var selectedPostVM: PostViewModel
     @Published var selectedIndex: Int {
         didSet {
-            selectedPhotoVM = photoViewModels[selectedIndex]
+            selectedPostVM = postViewModels[selectedIndex]
         }
     }
 
@@ -207,60 +199,60 @@ class PhotoPagerViewModel: ObservableObject {
     private let challengeManager: ChallengeManagerProtocol
     let challenge: Challenge
 
-    var photoFormattedDate: String {
-        selectedPhotoVM.photoFormattedDate
+    var postFormattedDate: String {
+        selectedPostVM.postFormattedDate
     }
 
-    var canDeletePhoto: Bool {
+    var canDeletePost: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
-        return selectedPhotoVM.photo.authorUid == currentUserId
+        return selectedPostVM.post.authorUid == currentUserId
     }
 
     var canToggleJokerVote: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
-        return currentUserId != selectedPhotoVM.photo.authorUid
+        return currentUserId != selectedPostVM.post.authorUid
     }
 
     var canDeclareJoker: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
-        return currentUserId == selectedPhotoVM.photo.authorUid
+        return currentUserId == selectedPostVM.post.authorUid
     }
 
     var selectedJokerState: PhotoJokerState {
-        selectedPhotoVM.jokerState
+        selectedPostVM.jokerState
     }
 
     init(challengeService: ChallengeServiceProtocol = ChallengeService.shared,
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared,
-         photos: [ChallengePhoto],
-         selectedPhotoIndex: Int = 0,
+         posts: [ChallengePost],
+         selectedPostIndex: Int = 0,
          challenge: Challenge) {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
         self.challenge = challenge
 
         // Créé un cache de l'ensemble des VM pour chaque photo et évite de les récréer à chaque ouverture de la pagerView
-        let photoViewModels = photos.map { PhotoStore.shared.getViewModel(for: $0) }
-        self.selectedIndex = selectedPhotoIndex
-        self.selectedPhotoVM = photoViewModels[selectedPhotoIndex]
-        self.photoViewModels = photoViewModels
+        let postViewModels = posts.map { PostStore.shared.getViewModel(for: $0) }
+        self.selectedIndex = selectedPostIndex
+        self.selectedPostVM = postViewModels[selectedPostIndex]
+        self.postViewModels = postViewModels
     }
 
-    func deletePhoto(isDeleted: @escaping (Bool, ChallengePhoto?) -> Void) {
-        let deletedPhoto = selectedPhotoVM.photo
+    func deletePost(isDeleted: @escaping (Bool, ChallengePost?) -> Void) {
+        let deletedPost = selectedPostVM.post
 
         Task {
             do {
-                try await challengeManager.deletePhoto(deletedPhoto)
+                try await challengeManager.deletePost(deletedPost)
 
                 await MainActor.run {
-                    self.photoViewModels.removeAll(where: { $0.photo.id == deletedPhoto.id })
-                    PhotoStore.shared.removeViewModel(for: deletedPhoto)
+                    self.postViewModels.removeAll(where: { $0.post.id == deletedPost.id })
+					PostStore.shared.removeViewModel(for: deletedPost)
 
-                    if !self.photoViewModels.isEmpty {
+                    if !self.postViewModels.isEmpty {
                         if selectedIndex > 0 {
                             self.selectedIndex = selectedIndex - 1
                         } else {
@@ -268,7 +260,7 @@ class PhotoPagerViewModel: ObservableObject {
                         }
                     }
 
-                    isDeleted(true, deletedPhoto)
+                    isDeleted(true, deletedPost)
                 }
             } catch let error {
                 await MainActor.run {
@@ -280,14 +272,14 @@ class PhotoPagerViewModel: ObservableObject {
     }
 
     func likeAction() {
-        selectedPhotoVM.like()
-        // Force reload de la vue -> obligatoire car selectedPhotoVM.like() n'est pas observé par la vue
+        selectedPostVM.like()
+        // Force reload de la vue -> obligatoire car selectedPostVM.like() n'est pas observé par la vue
         reloadView()
     }
 
     func unlikeAction() {
-        selectedPhotoVM.unlike()
-        // Force reload de la vue -> obligatoire car selectedPhotoVM.unlike() n'est pas observé par la vue
+        selectedPostVM.unlike()
+        // Force reload de la vue -> obligatoire car selectedPostVM.unlike() n'est pas observé par la vue
         reloadView()
     }
 
@@ -295,7 +287,7 @@ class PhotoPagerViewModel: ObservableObject {
         guard canToggleJokerVote,
               let currentUserId = challengeManager.currentUser?.id else { return }
 
-        var state = selectedPhotoVM.jokerState
+        var state = selectedPostVM.jokerState
 
         if state.voters.contains(currentUserId) {
             state.voters.removeAll { $0 == currentUserId }
@@ -310,17 +302,17 @@ class PhotoPagerViewModel: ObservableObject {
         state.isConfirmed = isConfirmed
         state.confirmedAt = isConfirmed ? Date() : nil
 
-        selectedPhotoVM.jokerState = state
+        selectedPostVM.jokerState = state
         objectWillChange.send()
 
-        selectedPhotoVM.toggleJokerVote()
+        selectedPostVM.toggleJokerVote()
     }
 
     func declareJokerUsage() {
         guard canDeclareJoker,
               let currentUserId = challengeManager.currentUser?.id else { return }
 
-        var state = selectedPhotoVM.jokerState
+        var state = selectedPostVM.jokerState
         state.declaredByAuthor = true
 
         if !state.voters.contains(currentUserId) {
@@ -330,10 +322,10 @@ class PhotoPagerViewModel: ObservableObject {
         state.isConfirmed = true
         state.confirmedAt = Date()
 
-        selectedPhotoVM.jokerState = state
+        selectedPostVM.jokerState = state
         objectWillChange.send()
 
-        selectedPhotoVM.declareJokerUsage(in: challenge)
+        selectedPostVM.declareJokerUsage(in: challenge)
     }
 
     func buildCommentFormattedDate(date: Date) -> String {

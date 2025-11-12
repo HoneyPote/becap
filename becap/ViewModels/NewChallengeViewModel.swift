@@ -60,8 +60,7 @@ class NewChallengeViewModel: ObservableObject {
 
         Task {
             do {
-                guard let newChallenge = try await challengeManager.createChallenge(newChallenge),
-                      let newChallengeId = newChallenge.id else { return }
+                guard let newChallenge = try await challengeManager.createChallenge(newChallenge) else { return }
 
                 try await challengeManager.createNewParticipantProgress(userId: currentUserId,
                                                                         challenge: newChallenge)
@@ -110,8 +109,7 @@ class NewChallengeViewModel: ObservableObject {
 
         let jokerConfig = nombreJokers > 0 ? ChallengeJokerConfiguration(jokersPerParticipant: nombreJokers) : nil
 
-        return Challenge(id: nil,
-                         title: nom,
+        return Challenge(title: nom,
                          duration: duree,
                          startDate: Date(),
                          creatorUID: userId,

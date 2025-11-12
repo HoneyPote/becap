@@ -98,14 +98,13 @@ private extension ContentReportReason {
 
 #Preview {
     ReportContentView(
-        challenge: Challenge(id: nil,
-                              title: "Marathon",
-                              duration: 5,
-                              startDate: Date(),
-                              creatorUID: "1",
-                              participantUids: [],
-                              notificationsConfig: nil,
-                              code: nil),
+        challenge: Challenge(title: "Marathon",
+                             duration: 5,
+                             startDate: Date(),
+                             creatorUID: "1",
+                             participantUids: [],
+                             notificationsConfig: nil,
+                             code: nil),
         isSubmitting: .constant(false),
         errorMessage: .constant(nil),
         onSubmit: { _, _ in },

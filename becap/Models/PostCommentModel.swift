@@ -1,5 +1,5 @@
 //
-//  PhotoCommentModel.swift
+//  PostCommentModel.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 06/08/2025.
@@ -8,7 +8,7 @@
 import Foundation
 import FirebaseFirestore
 
-struct PhotoCommentModel: Identifiable, Codable {
+struct PostCommentModel: Identifiable, Codable {
     @DocumentID var id: String?
     let userId: String
     let userName: String

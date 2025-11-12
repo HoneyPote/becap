@@ -110,9 +110,7 @@ struct HomeView: View {
         .onChange(of: deepLinkRouter.pendingPhotoLink) { link in
             guard let link else { return }
 
-            if let challenge = deepLinkedChallenge,
-               let challengeId = challenge.id,
-               challengeId == link.challengeId {
+            if let challenge = deepLinkedChallenge, challenge.id == link.challengeId {
                 deepLinkedPhotoId = link.photoId
             }
 

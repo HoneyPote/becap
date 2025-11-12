@@ -39,7 +39,7 @@ final class SettingsViewModel: ObservableObject {
 
            // Re-fetch user pour pousser la nouvelle photoURL dans UserManager
            if let uid = Auth.auth().currentUser?.uid {
-               try await accountManager.updateCurrentUser(with: uid)
+               _ = try await accountManager.updateCurrentUser(with: uid)
                // Grâce à ton observeCurrentUser(), SettingsView sera rafraîchie
            }
        }

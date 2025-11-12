@@ -1,5 +1,5 @@
 //
-//  CalendarPhotoPagerView.swift
+//  CalendarPostPagerView.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 05/08/2025.
@@ -7,14 +7,15 @@
 
 import SwiftUI
 
-struct CalendarPhotoPagerView: View {
-    @StateObject private var viewModel: PhotoPagerViewModel
+struct CalendarPostPagerView: View {
+    @StateObject private var viewModel: PostPagerViewModel
     @StateObject private var keyboard = KeyboardResponder()
 
     @FocusState private var isTextFieldFocused: Bool
 
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
+	@State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
 
     let getParticipant: (String) -> Participant?
@@ -25,7 +26,7 @@ struct CalendarPhotoPagerView: View {
         case declare
     }
 
-    init(photos: [ChallengePhoto],
+    init(posts: [ChallengePost],
          startIndex: Int = 0,
          challenge: Challenge,
          getParticipant: @escaping (String) -> Participant?,
@@ -35,9 +36,9 @@ struct CalendarPhotoPagerView: View {
         self.onDelete = onDelete
         self.onClose = onClose
 
-        _viewModel = StateObject(wrappedValue: PhotoPagerViewModel(photos: photos,
-                                                                   selectedPhotoIndex: startIndex,
-                                                                   challenge: challenge))
+        _viewModel = StateObject(wrappedValue: PostPagerViewModel(posts: posts,
+                                                                  selectedPostIndex: startIndex,
+                                                                  challenge: challenge))
     }
 
     var body: some View {
@@ -50,15 +51,15 @@ struct CalendarPhotoPagerView: View {
                     .padding(.horizontal, 18)
                     .padding(.bottom, 6)
 
-                if viewModel.photoViewModels.isEmpty {
+                if viewModel.postViewModels.isEmpty {
                     Spacer()
                     Text("Aucune photo")
                         .foregroundColor(.white)
                     Spacer()
                 } else {
                     TabView(selection: $viewModel.selectedIndex) {
-                        ForEach(Array(viewModel.photoViewModels.enumerated()), id: \.element.id) { idx, photoVM in
-                            currentPostContent(photoVM: photoVM)
+                        ForEach(Array(viewModel.postViewModels.enumerated()), id: \.element.id) { idx, postVM in
+                            currentPostContent(postVM: postVM)
                                 .padding(.bottom, 40)
                                 .padding(.horizontal)
                                 .animation(.spring(response: 0.4, dampingFraction: 0.8), value: commentSectionIsShown)
@@ -98,14 +99,14 @@ struct CalendarPhotoPagerView: View {
         }
     }
 
-    private func currentPostContent(photoVM: PhotoViewModel) -> some View {
+    private func currentPostContent(postVM: PostViewModel) -> some View {
         VStack(spacing: 12) {
-            Text(viewModel.photoFormattedDate)
+            Text(viewModel.postFormattedDate)
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
 
-            imageView(for: photoVM)
+            imageView(for: postVM)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
                 .onTapGesture {
                     withAnimation {
@@ -115,7 +116,7 @@ struct CalendarPhotoPagerView: View {
                 }
 
             if !commentSectionIsShown {
-                if let participant = getParticipant(photoVM.photo.authorUid) {
+                if let participant = getParticipant(postVM.post.authorUid) {
                     MedalsSection(medals: participant.medals)
                         .padding(.bottom, 6)
                 }
@@ -143,7 +144,7 @@ struct CalendarPhotoPagerView: View {
                 }
             }
 
-            commentSection(photoVM: photoVM)
+            commentSection(postVM: postVM)
                 .frame(maxHeight: commentSectionIsShown ? 600 : 0)
                 .background(Color.white.opacity(0.05))
                 .clipShape(RoundedRectangle(cornerRadius: 12))
@@ -165,7 +166,7 @@ struct CalendarPhotoPagerView: View {
 
             Spacer()
 
-            Text(viewModel.selectedPhotoVM.photo.authorName)
+            Text(viewModel.selectedPostVM.post.authorName)
                 .font(.system(.title2, design: .rounded).weight(.bold))
                 .foregroundColor(.white)
                 .lineLimit(1)
@@ -173,12 +174,12 @@ struct CalendarPhotoPagerView: View {
 
             Spacer()
 
-            if viewModel.canDeletePhoto {
+            if viewModel.canDeletePost {
                 Button(role: .destructive) {
-                    viewModel.deletePhoto() { isDeleted, deletedPhoto in
-                        guard isDeleted, let deletedPhotoId = deletedPhoto?.id else { return }
+                    viewModel.deletePost() { isDeleted, deletedPost in
+                        guard isDeleted, let deletedPostId = deletedPost?.id else { return }
 
-                        onDelete(deletedPhotoId)
+                        onDelete(deletedPostId)
                     }
                 } label: {
                     Image(systemName: "trash")
@@ -193,26 +194,29 @@ struct CalendarPhotoPagerView: View {
 }
 
 // MARK: Image section
-extension CalendarPhotoPagerView {
-    private func imageView(for photoVM: PhotoViewModel) -> some View {
+extension CalendarPostPagerView {
+    private func imageView(for postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottomLeading) {
-            if let url = URL(string: photoVM.photo.imageUrl) {
-                AsyncCachedImage(url: url)
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxWidth: commentSectionIsShown ? 150 : .infinity)
-                    .clipped()
+            Group {
+                if case .image(let url) = postVM.post.media, let imageUrl = URL(string: url) {
+                    AsyncCachedImage(url: imageUrl)
+                } else if case .video(let data) = postVM.post.media, let videoUrl = URL(string: data.videoURL) {
+                    CustomVideoPlayer(videoURL: videoUrl, thumbnailURL: URL(string: data.thumbnailURL ?? ""))
+                }
             }
+            .frame(maxWidth: commentSectionIsShown ? 150 : .infinity, maxHeight: 490)
+            .clipped()
 
             if !commentSectionIsShown {
                 VStack(alignment: .leading, spacing: 6) {
-                    if let desc = photoVM.photo.description, !desc.isEmpty {
+                    if let desc = postVM.post.description, !desc.isEmpty {
                         Text(desc)
                             .font(.body)
                             .foregroundColor(.white)
                             .shadow(radius: 3)
                     }
 
-                    LikeSection(photoLikes: photoVM.likes,
+                    LikeSection(postLikes: postVM.likes,
                                 likeAction: { _ in viewModel.likeAction() },
                                 unlikeAction: { _ in viewModel.unlikeAction() },
                                 getParticipant: getParticipant)
@@ -277,12 +281,12 @@ extension CalendarPhotoPagerView {
 }
 
 // MARK: Comments section
-extension CalendarPhotoPagerView {
-    private func commentSection(photoVM: PhotoViewModel) -> some View {
+extension CalendarPostPagerView {
+    private func commentSection(postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottom) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
-                    commentList(comments: photoVM.comments)
+                    commentList(comments: postVM.comments)
 
                     Divider().background(Color.white.opacity(0.3))
                 }
@@ -293,13 +297,13 @@ extension CalendarPhotoPagerView {
 
             CommentsInputBar(commentText: $commentText,
                              isTextFieldFocused: $isTextFieldFocused,
-                             onSubmit: { sendComment(photoVM: photoVM) })
-                .frame(maxWidth: .infinity)
-                .animation(.easeOut(duration: 0.25), value: keyboard.keyboardHeight)
+                             onSubmit: { sendComment(postVM: postVM) })
+            .frame(maxWidth: .infinity)
+            .animation(.easeOut(duration: 0.25), value: keyboard.keyboardHeight)
         }
     }
 
-    private func commentList(comments: [PhotoCommentModel] = []) -> some View {
+    private func commentList(comments: [PostCommentModel] = []) -> some View {
         ForEach(comments) { comment in
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 5) {
@@ -320,8 +324,8 @@ extension CalendarPhotoPagerView {
         }
     }
 
-    private func sendComment(photoVM: PhotoViewModel) {
-        photoVM.addComment(photo: photoVM.photo, content: commentText)
+    private func sendComment(postVM: PostViewModel) {
+        postVM.addComment(post: postVM.post, content: commentText)
         resetCommentTextfield()
     }
 

@@ -11,7 +11,7 @@ struct ParticipantsOverviewView: View {
     @Environment(\.dismiss) private var dismiss
 
     let participants: [Participant]
-    let photos: [ChallengePhoto]
+    let photos: [ChallengePost]
     let progresses: [ParticipantProgress]
     let chatMessages: [ChallengeChatMessage]
     let hasUnreadMessages: Bool

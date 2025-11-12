@@ -37,7 +37,7 @@ struct CalendarDayButtonView: View {
                 Spacer()
 
                 HStack(spacing: 6) {
-                    Text("\(cell.photos.count) photo(s)")
+                    Text("\(cell.posts.count) photo(s)")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.8))
 
