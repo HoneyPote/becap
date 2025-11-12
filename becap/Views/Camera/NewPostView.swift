@@ -6,15 +6,15 @@
 //
 
 import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
 
 struct NewPostView: View {
     @StateObject private var viewModel: NewPostViewModel = NewPostViewModel()
 
     @State private var showCamera = false
     @State private var showMediaPreview = false
-    @State private var gradientStart: UnitPoint = .topLeading
-    @State private var gradientEnd: UnitPoint = .bottomTrailing
-    @State private var hasStartedGradient = false
 
     var body: some View {
         NavigationView {
@@ -282,47 +282,9 @@ struct NewPostView: View {
                     }
                 }
             } else {
-                Button {
+                AnimatedCaptureButton {
                     showCamera = true
-                } label: {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 20, style: .continuous)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(hex: "5A5AF7").opacity(0.9),
-                                        Color(hex: "8E54E9").opacity(0.9)
-                                    ],
-                                    startPoint: gradientStart,
-                                    endPoint: gradientEnd
-                                )
-                            )
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                            )
-                            .shadow(color: Color(hex: "5A5AF7").opacity(0.28), radius: 16, x: 0, y: 12)
-
-                        VStack(spacing: 10) {
-                            Image(systemName: "camera.aperture")
-                                .font(.system(size: 42, weight: .semibold))
-                                .foregroundColor(.white)
-
-                            Text("Prendre une photo ou vidéo")
-                                .font(.system(.body, design: .rounded).weight(.semibold))
-                                .foregroundColor(.white.opacity(0.92))
-
-                            Text("Appuie pour capturer ton moment inspirant")
-                                .font(.system(.caption, design: .rounded))
-                                .foregroundColor(.white.opacity(0.8))
-                        }
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 18)
-                    }
-                    .frame(height: 160)
                 }
-                .buttonStyle(PressableButtonStyle(scale: 0.965))
-                .onAppear(perform: startGradientAnimation)
             }
 
             TextField("Description (optionnelle)", text: $viewModel.descriptionText)
@@ -340,19 +302,6 @@ struct NewPostView: View {
                 .font(.system(.body, design: .rounded))
         }
         .padding(4)
-    }
-
-    private func startGradientAnimation() {
-        guard !hasStartedGradient else { return }
-        hasStartedGradient = true
-
-        gradientStart = .topLeading
-        gradientEnd = .bottomTrailing
-
-        withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
-            gradientStart = .bottomTrailing
-            gradientEnd = .topLeading
-        }
     }
 
     private var toastView: some View {
@@ -420,7 +369,7 @@ private struct ChallengeChip: View {
         .background(background)
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(isSelected ? Color.white.opacity(0.6) : Color.white.opacity(0.12), lineWidth: isSelected ? 1.5 : 1)
+                .stroke(Color.white.opacity(isSelected ? 0.0 : 0.12), lineWidth: 1)
         )
         .shadow(color: isSelected ? Color(hex: "8E54E9").opacity(0.35) : Color.black.opacity(0.12), radius: isSelected ? 14 : 8, x: 0, y: isSelected ? 12 : 6)
         .scaleEffect(isSelected ? 1.03 : 1)
@@ -445,5 +394,125 @@ private struct PressableButtonStyle: ButtonStyle {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
             .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+}
+
+private struct AnimatedCaptureButton: View {
+    let action: () -> Void
+
+    private let cornerRadius: CGFloat = 20
+
+    var body: some View {
+        Button(action: action) {
+            AnimatedCaptureBackground(cornerRadius: cornerRadius)
+                .overlay(content)
+                .frame(height: 140)
+        }
+        .buttonStyle(PressableButtonStyle(scale: 0.965))
+    }
+
+    private var content: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "camera.aperture")
+                .font(.system(size: 40, weight: .semibold))
+                .foregroundColor(.white)
+
+            Text("Prendre une photo ou vidéo")
+                .font(.system(.body, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(0.92))
+
+            Text("Appuie pour capturer ton moment inspirant")
+                .font(.system(.caption, design: .rounded))
+                .foregroundColor(.white.opacity(0.8))
+        }
+        .multilineTextAlignment(.center)
+        .padding(.horizontal, 18)
+    }
+}
+
+private struct AnimatedCaptureBackground: View {
+    let cornerRadius: CGFloat
+
+    private let gradientColors: [Color] = [
+        Color(hex: "5A5AF7"),
+        Color(hex: "8E54E9"),
+        Color(hex: "FF8FB1"),
+        Color(hex: "5A5AF7")
+    ]
+
+    var body: some View {
+        TimelineView(.animation) { timeline in
+            let cycleDuration: Double = 5
+            let time = timeline.date.timeIntervalSinceReferenceDate.remainder(dividingBy: cycleDuration)
+            let progress = time / cycleDuration
+            let angle = progress * 2 * Double.pi
+
+            let start = UnitPoint(
+                x: 0.5 + 0.45 * cos(angle),
+                y: 0.5 + 0.45 * sin(angle)
+            )
+
+            let end = UnitPoint(
+                x: 0.5 + 0.45 * cos(angle + Double.pi),
+                y: 0.5 + 0.45 * sin(angle + Double.pi)
+            )
+
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: animatedColors(for: progress),
+                        startPoint: start,
+                        endPoint: end
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                )
+                .shadow(color: Color(hex: "5A5AF7").opacity(0.24), radius: 18, x: 0, y: 12)
+        }
+    }
+
+    private func animatedColors(for progress: Double) -> [Color] {
+        let shifted = progress * Double(gradientColors.count - 1)
+        let baseIndex = Int(shifted)
+        let blendAmount = shifted - Double(baseIndex)
+
+        var colors: [Color] = []
+        for offset in 0..<(gradientColors.count - 1) {
+            let fromIndex = (baseIndex + offset) % (gradientColors.count - 1)
+            let toIndex = (fromIndex + 1) % (gradientColors.count - 1)
+
+            let fromColor = gradientColors[fromIndex]
+            let toColor = gradientColors[toIndex]
+
+            let blended = Color(
+                red: fromColor.components.red + (toColor.components.red - fromColor.components.red) * blendAmount,
+                green: fromColor.components.green + (toColor.components.green - fromColor.components.green) * blendAmount,
+                blue: fromColor.components.blue + (toColor.components.blue - fromColor.components.blue) * blendAmount,
+                opacity: 1
+            )
+
+            colors.append(blended)
+        }
+
+        colors.append(colors.first ?? gradientColors.first ?? .white)
+        return colors
+    }
+}
+
+private extension Color {
+    var components: (red: Double, green: Double, blue: Double, opacity: Double) {
+        #if canImport(UIKit)
+        let uiColor = UIColor(self)
+        var red: CGFloat = 0
+        var green: CGFloat = 0
+        var blue: CGFloat = 0
+        var alpha: CGFloat = 0
+        uiColor.getRed(&red, green: &green, blue: &blue, alpha: &alpha)
+        return (Double(red), Double(green), Double(blue), Double(alpha))
+        #else
+        return (0, 0, 0, 0)
+        #endif
     }
 }
