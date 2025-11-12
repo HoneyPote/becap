@@ -12,11 +12,14 @@ struct NewPostView: View {
 
     @State private var showCamera = false
     @State private var showMediaPreview = false
+    @State private var gradientStart: UnitPoint = .topLeading
+    @State private var gradientEnd: UnitPoint = .bottomTrailing
+    @State private var hasStartedGradient = false
 
     var body: some View {
         NavigationView {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 28) {
+                VStack(spacing: 24) {
                     headerSection
 
                     GlassCard {
@@ -33,7 +36,7 @@ struct NewPostView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 32)
-                .padding(.bottom, 70 + 16)
+                .padding(.bottom, 48)
             }
             .background(LinearGradient.petrolToSky.ignoresSafeArea())
             .navigationBarHidden(true)
@@ -53,20 +56,20 @@ struct NewPostView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                GlassCircleIcon(systemName: "sparkles")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Créer un nouveau post")
+                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [Color.white, Color.white.opacity(0.7)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Créer un nouveau post")
-                        .font(.system(.title, design: .rounded).weight(.heavy))
-                        .foregroundStyle(.white)
-
-                    Text("Partage ton énergie et inspire ton équipe en quelques secondes.")
-                        .font(.system(.subheadline, design: .rounded).weight(.medium))
-                        .foregroundColor(.white.opacity(0.75))
-                }
-
-                Spacer()
+                Text("Partage ton énergie et inspire ton équipe en quelques secondes.")
+                    .font(.system(.subheadline, design: .rounded).weight(.medium))
+                    .foregroundColor(.white.opacity(0.75))
             }
 
             Divider()
@@ -279,58 +282,48 @@ struct NewPostView: View {
                     }
                 }
             } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .stroke(Color.white.opacity(0.1), lineWidth: 1)
-                        )
+                Button {
+                    showCamera = true
+                } label: {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 20, style: .continuous)
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(hex: "5A5AF7").opacity(0.9),
+                                        Color(hex: "8E54E9").opacity(0.9)
+                                    ],
+                                    startPoint: gradientStart,
+                                    endPoint: gradientEnd
+                                )
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                            )
+                            .shadow(color: Color(hex: "5A5AF7").opacity(0.28), radius: 16, x: 0, y: 12)
 
-                    VStack(spacing: 12) {
-                        Image(systemName: "photo.on.rectangle.angled")
-                            .font(.system(size: 46, weight: .medium))
-                            .foregroundColor(.white.opacity(0.65))
+                        VStack(spacing: 10) {
+                            Image(systemName: "camera.aperture")
+                                .font(.system(size: 42, weight: .semibold))
+                                .foregroundColor(.white)
 
-                        Text("Ajoute un souvenir visuel")
-                            .font(.system(.footnote, design: .rounded).weight(.medium))
-                            .foregroundColor(.white.opacity(0.7))
+                            Text("Prendre une photo ou vidéo")
+                                .font(.system(.body, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white.opacity(0.92))
+
+                            Text("Appuie pour capturer ton moment inspirant")
+                                .font(.system(.caption, design: .rounded))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 18)
                     }
+                    .frame(height: 160)
                 }
-                .frame(height: 190)
+                .buttonStyle(PressableButtonStyle(scale: 0.965))
+                .onAppear(perform: startGradientAnimation)
             }
-
-            Button {
-                showCamera = true
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "camera.fill")
-                        .font(.system(size: 22, weight: .semibold))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(viewModel.takePhotoButtonLabel)
-                            .font(.system(.body, design: .rounded).weight(.heavy))
-                            .textCase(.uppercase)
-
-                        Text("Capture une photo ou une vidéo inspirante")
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundColor(.white.opacity(0.7))
-                    }
-                    Spacer()
-                }
-                .foregroundColor(.white)
-                .padding(.vertical, 16)
-                .padding(.horizontal, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.1))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                        )
-                )
-                .shadow(color: Color.black.opacity(0.25), radius: 14, x: 0, y: 10)
-            }
-            .buttonStyle(PressableButtonStyle())
 
             TextField("Description (optionnelle)", text: $viewModel.descriptionText)
                 .padding(.vertical, 14)
@@ -347,6 +340,19 @@ struct NewPostView: View {
                 .font(.system(.body, design: .rounded))
         }
         .padding(4)
+    }
+
+    private func startGradientAnimation() {
+        guard !hasStartedGradient else { return }
+        hasStartedGradient = true
+
+        gradientStart = .topLeading
+        gradientEnd = .bottomTrailing
+
+        withAnimation(.easeInOut(duration: 2.6).repeatForever(autoreverses: true)) {
+            gradientStart = .bottomTrailing
+            gradientEnd = .topLeading
+        }
     }
 
     private var toastView: some View {
@@ -382,17 +388,30 @@ private struct ChallengeChip: View {
     let isSelected: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundColor(.white)
-                .lineLimit(2)
-                .multilineTextAlignment(.leading)
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
+                Text(title)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                    .layoutPriority(1)
 
-            if let subtitle {
-                Text(subtitle)
-                    .font(.system(.caption, design: .rounded).weight(.medium))
-                    .foregroundColor(.white.opacity(0.7))
+                if let subtitle {
+                    Text(subtitle.uppercased())
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 4)
+                        .padding(.horizontal, 8)
+                        .background(
+                            Capsule(style: .continuous)
+                                .fill(Color.white.opacity(0.18))
+                        )
+                        .overlay(
+                            Capsule(style: .continuous)
+                                .stroke(Color.white.opacity(0.25), lineWidth: 1)
+                        )
+                }
             }
         }
         .padding(.vertical, 14)
