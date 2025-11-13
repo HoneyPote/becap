@@ -18,7 +18,10 @@ struct ShareChallengeView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                LinearGradient.petrolToSky.ignoresSafeArea()
+                Image("iphone_wallpaper_forest")
+                         .resizable()
+                         .scaledToFill()
+                         .ignoresSafeArea()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 28) {
@@ -136,7 +139,7 @@ struct ShareChallengeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
                         ForEach(viewModel.challenges) { challenge in
-                            ShareChallengeChip(
+                            ChallengeChip(
                                 title: challenge.title,
                                 subtitle: challenge.category?.displayName,
                                 isSelected: viewModel.selectedChallenge == challenge
@@ -206,41 +209,5 @@ struct ShareChallengeView: View {
         .opacity((viewModel.selectedChallenge == nil || viewModel.isLoading) ? 0.6 : 1)
         .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
         .padding(.top, -6)
-    }
-}
-
-private struct ShareChallengeChip: View {
-    let title: String
-    let subtitle: String?
-    let isSelected: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.system(.headline, design: .rounded).weight(.semibold))
-                .foregroundColor(.white)
-                .lineLimit(1)
-
-            if let subtitle, !subtitle.isEmpty {
-                Text(subtitle)
-                    .font(.system(.footnote, design: .rounded).weight(.medium))
-                    .foregroundColor(.white.opacity(0.75))
-                    .lineLimit(1)
-            }
-        }
-        .padding(.vertical, 14)
-        .padding(.horizontal, 18)
-        .frame(minWidth: 180, alignment: .leading)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(isSelected ? Color.white.opacity(0.22) : Color.white.opacity(0.08))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(isSelected ? Color.white : Color.white.opacity(0.2), lineWidth: isSelected ? 2 : 1)
-                )
-        )
-        .shadow(color: Color.black.opacity(isSelected ? 0.28 : 0.18), radius: isSelected ? 10 : 6, x: 0, y: 4)
-        .scaleEffect(isSelected ? 1.02 : 1.0)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: isSelected)
     }
 }

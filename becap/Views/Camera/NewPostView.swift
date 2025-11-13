@@ -355,7 +355,7 @@ struct NewPostView: View {
         }
     }
 }
-private struct ChallengeChip: View {
+ struct ChallengeChip: View {
     let title: String
     let subtitle: String?
     let isSelected: Bool

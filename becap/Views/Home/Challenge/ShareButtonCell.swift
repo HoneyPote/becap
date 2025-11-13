@@ -26,10 +26,12 @@ struct ShareButtonCell: View {
                     )
                     .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 5)
                 VStack(spacing: 8) {
-                    Image(systemName: "square.and.arrow.up")
-                        .font(.system(size: 26, weight: .bold))
-                        .foregroundColor(.white)
-                        .shadow(radius: 1, x: 0, y: 3)
+                    Image("network")
+                           .resizable()
+                           .scaledToFit()
+                           .frame(width: 28, height: 28)
+                           .foregroundColor(.white)
+                           .shadow(radius: 1, x: 0, y: 3)
 
                     Text("Partager un Challenge")
                         .font(.headline)
