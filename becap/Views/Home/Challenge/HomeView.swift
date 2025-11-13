@@ -7,18 +7,16 @@
 
 import SwiftUI
 
-// TODO: Faire un bouton réutilisable pour les challenges et join et create
+// TODO: Faire un bouton réutilisable pour les challenges de partage et création
 struct HomeView: View {
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject var viewModel = HomeViewModel()
 
-    @State private var showJoinView = false
+    @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
     @State private var deepLinkedChallenge: Challenge?
     @State private var navigateToDeepLinkedChallenge = false
-    @State private var deepLinkJoinCode: String?
-    @State private var hasPresentedJoinForDeepLink = false
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPhotoId: String?
@@ -36,7 +34,7 @@ struct HomeView: View {
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
-                        joinCreateChallengeSection
+                        shareCreateChallengeSection
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -79,8 +77,8 @@ struct HomeView: View {
             .background(deepLinkNavigationLink) // lien de deep link caché
         }
         .refreshable { viewModel.refreshChallenges() }
-        .sheet(isPresented: $showJoinView) {
-            JoinChallengeView(prefilledCode: deepLinkJoinCode)
+        .sheet(isPresented: $showShareChallengeView) {
+            ShareChallengeView()
         }
         .sheet(isPresented: $showNewChallengeView) {
             NewChallengeView(challengeCreated: $showCreationToast)
@@ -102,20 +100,17 @@ struct HomeView: View {
             }
         }
         .onAppear {
-            hasPresentedJoinForDeepLink = false
             if let challengeId = deepLinkRouter.pendingCalendarChallengeId {
                 beginResolvingDeepLink(for: challengeId)
             }
         }
         .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { challengeId in
             guard let challengeId else {
-                hasPresentedJoinForDeepLink = false
                 isResolvingDeepLink = false
                 hasLoadedChallengesForPendingDeepLink = false
                 if !navigateToDeepLinkedChallenge { deepLinkedPhotoId = nil }
                 return
             }
-            hasPresentedJoinForDeepLink = false
             beginResolvingDeepLink(for: challengeId)
         }
         .onChange(of: deepLinkRouter.pendingPhotoLink) { link in
@@ -129,29 +124,24 @@ struct HomeView: View {
                hasLoadedChallengesForPendingDeepLink,
                let pendingId = deepLinkRouter.pendingCalendarChallengeId,
                pendingId == link.challengeId {
-                attemptNavigationToChallenge(withId: link.challengeId, allowJoinFallback: true)
+                attemptNavigationToChallenge(withId: link.challengeId)
             }
         }
         .onChange(of: viewModel.challenges) { _ in
             guard isResolvingDeepLink,
                   let challengeId = deepLinkRouter.pendingCalendarChallengeId else { return }
             hasLoadedChallengesForPendingDeepLink = true
-            attemptNavigationToChallenge(withId: challengeId, allowJoinFallback: true)
-        }
-        .onChange(of: showJoinView) { isPresented in
-            if !isPresented { isResolvingDeepLink = false }
+            attemptNavigationToChallenge(withId: challengeId)
         }
         .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
             deleteChallengeConfirmationAlert
         }
     }
 
-    private var joinCreateChallengeSection: some View {
+    private var shareCreateChallengeSection: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
-            JoinButtonCell {
-                deepLinkJoinCode = nil
-                hasPresentedJoinForDeepLink = false
-                showJoinView = true
+            ShareButtonCell {
+                showShareChallengeView = true
             }
 
             NewChallengeCell {
@@ -285,14 +275,14 @@ extension HomeView {
     private func beginResolvingDeepLink(for challengeId: String) {
         isResolvingDeepLink = true
         hasLoadedChallengesForPendingDeepLink = viewModel.challenges.contains(where: { $0.id == challengeId })
-        attemptNavigationToChallenge(withId: challengeId, allowJoinFallback: hasLoadedChallengesForPendingDeepLink)
+        attemptNavigationToChallenge(withId: challengeId)
 
         if !hasLoadedChallengesForPendingDeepLink {
             viewModel.refreshChallenges()
         }
     }
 
-    private func attemptNavigationToChallenge(withId challengeId: String, allowJoinFallback: Bool) {
+    private func attemptNavigationToChallenge(withId challengeId: String) {
         if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
             deepLinkedChallenge = challenge
             if let link = deepLinkRouter.pendingPhotoLink,
@@ -302,20 +292,10 @@ extension HomeView {
                 deepLinkedPhotoId = nil
             }
             navigateToDeepLinkedChallenge = true
-            hasPresentedJoinForDeepLink = false
-            deepLinkJoinCode = nil
             isResolvingDeepLink = false
 
             deepLinkRouter.clearChallengeNavigation()
-            deepLinkRouter.clearJoin()
             deepLinkRouter.clearPhotoNavigation()
-        } else if allowJoinFallback,
-                  let code = deepLinkRouter.pendingJoinCode,
-                  !hasPresentedJoinForDeepLink {
-            deepLinkJoinCode = code
-            showJoinView = true
-            hasPresentedJoinForDeepLink = true
-            deepLinkRouter.clearJoin()
         }
     }
 }

@@ -5,11 +5,10 @@ import UIKit
 
 enum ChallengeShareBuilder {
     private static let deepLinkScheme = "becap"
-    private static let deepLinkHost = "join"
+    private static let deepLinkHost = "challenge"
 
     static func makeShareItems(for challenge: Challenge) -> [Any]? {
-        let code = challenge.code ?? ""
-        let linkURL = deepLinkURL(for: challenge, code: code)
+        let linkURL = deepLinkURL(for: challenge)
 
         var parts: [String] = [
             "✨ Découvre \"\(challenge.title)\" sur Becap",
@@ -53,20 +52,13 @@ enum ChallengeShareBuilder {
         #endif
     }
 
-    private static func deepLinkURL(for challenge: Challenge, code: String) -> URL? {
+    private static func deepLinkURL(for challenge: Challenge) -> URL? {
         var components = URLComponents()
         components.scheme = deepLinkScheme
         components.host = deepLinkHost
         components.path = ""
 
-        var queryItems: [URLQueryItem] = []
-        if !code.isEmpty {
-            queryItems.append(URLQueryItem(name: "code", value: code))
-        }
-
-        queryItems.append(URLQueryItem(name: "challengeId", value: challenge.id))
-
-        components.queryItems = queryItems.isEmpty ? nil : queryItems
+        components.queryItems = [URLQueryItem(name: "challengeId", value: challenge.id)]
         return components.url
     }
 }
