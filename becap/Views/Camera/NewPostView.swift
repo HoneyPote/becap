@@ -40,7 +40,27 @@ struct NewPostView: View {
                 .padding(.top, 32)
                 .padding(.bottom, 48)
             }
-            .background(LinearGradient.petrolToSky.ignoresSafeArea())
+            .background(
+                ZStack {
+                    // Filler: covers edges at any ratio
+                    Image("iphone_wallpaper_cliff")
+                        .resizable()
+                        .scaledToFill()
+                        .blur(radius: 12)
+                        .ignoresSafeArea()
+
+                    // Sharp layer, slightly zoomed out
+                    Image("iphone_wallpaper_cliff")
+                        .resizable()
+                        .scaledToFill()
+                        .offset(x: -25) // 0.85–0.95 depending on taste
+                        .ignoresSafeArea()
+
+                    // Global dark veil
+                    Color.black.opacity(0.15).ignoresSafeArea()
+                }
+                .allowsHitTesting(false)
+            )
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showCamera) {
@@ -58,8 +78,8 @@ struct NewPostView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Créer un nouveau post")
+            VStack(alignment: .center, spacing: 6) {
+                Text("Nouveau Post")
                     .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                     .foregroundStyle(
                         LinearGradient(
@@ -410,8 +430,8 @@ private struct CaptureButton: View {
 
     @StateObject private var videoController = LoopingPlayerController(
         resourceCandidates: [
-            "dégradé_violet_animé",
-            "degrade_violet_anime"
+            "dégradéBleu",
+            "dégradéBleu"
         ],
         fileExtension: "mp4"
     )
@@ -515,25 +535,25 @@ private final class LoopingPlayerController: ObservableObject {
 private struct LoopingPlayerView: UIViewRepresentable {
     let player: AVQueuePlayer
 
-    func makeUIView(context: Context) -> PlayerContainerView {
-        let view = PlayerContainerView()
+    func makeUIView(context: Context) -> zPlayerContainerView {
+        let view = zPlayerContainerView()
         view.playerLayer.player = player
         view.playerLayer.videoGravity = .resizeAspectFill
         return view
     }
 
-    func updateUIView(_ uiView: PlayerContainerView, context: Context) {
+    func updateUIView(_ uiView: zPlayerContainerView, context: Context) {
         if uiView.playerLayer.player !== player {
             uiView.playerLayer.player = player
         }
     }
 
-    static func dismantleUIView(_ uiView: PlayerContainerView, coordinator: ()) {
+    static func dismantleUIView(_ uiView: zPlayerContainerView, coordinator: ()) {
         uiView.playerLayer.player = nil
     }
 }
 
-private final class PlayerContainerView: UIView {
+private final class zPlayerContainerView: UIView {
     override static var layerClass: AnyClass { AVPlayerLayer.self }
 
     var playerLayer: AVPlayerLayer {

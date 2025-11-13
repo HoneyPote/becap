@@ -15,21 +15,34 @@ struct DefiCell: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(Color(red: 0.98, green: 0.80, blue: 0.36))
-                .shadow(radius: 5, x: 0, y: 5)
-                .opacity(0.95)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.97, green: 0.97, blue: 0.98), // #F7F8FA
+                            Color(red: 0.93, green: 0.94, blue: 0.95)  // #ECEEF1
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                )
+                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 5)
+                .opacity(0.96)
 
             VStack(spacing: 8) {
                 Text(challenge.title)
                     .font(.headline)
-                    .foregroundColor(.white)
+                    .foregroundColor(.gray)
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .minimumScaleFactor(0.7)
 
                 Text("\(challenge.participantUids.count) participant(s)")
                     .font(.caption)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.gray)
 
                 HStack {
                     Text(challenge.status.rawValue)
@@ -43,7 +56,7 @@ struct DefiCell: View {
                 .cornerRadius(10)
             }
             .padding(.vertical, 8)
-            .padding(.horizontal, 10)
+            .padding(.horizontal, 40)
         }
         .frame(height: 100)
         .contentShape(RoundedRectangle(cornerRadius: 18))
