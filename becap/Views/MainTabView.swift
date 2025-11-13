@@ -18,10 +18,6 @@ struct MainTabView: View {
 
     @State private var selectedIndex: Int = 0
 
-    // ⬇️ AJOUT: états pour présenter la feuille “Rejoindre” avec code prérempli
-    @State private var showJoinSheet = false
-    @State private var deepLinkCode = ""
-
     var body: some View {
         CustomTabView(tabs: TabType.allTabItems, selectedIndex: $selectedIndex) { index in
             if viewModel.infosDoneFetching {
@@ -54,24 +50,9 @@ struct MainTabView: View {
         }
         .navigationBarBackButtonHidden(true)
 
-        // ⬇️ AJOUT: écoute du code de deep link et ouverture de la feuille
-        .onChange(of: deepLinkRouter.pendingJoinCode) { code in
-            guard let code else { return }
-            guard deepLinkRouter.pendingCalendarChallengeId == nil else { return }
-
-            deepLinkCode = code
-            // (Optionnel) se placer sur l’onglet Home si tu veux forcer le contexte
-            // selectedIndex = 0
-            showJoinSheet = true
-            // Consommer l’événement
-            DispatchQueue.main.async { deepLinkRouter.pendingJoinCode = nil }
-        }
         .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
             guard id != nil else { return }
             selectedIndex = 0
-        }
-        .sheet(isPresented: $showJoinSheet) {
-            JoinChallengeView(prefilledCode: deepLinkCode)
         }
     }
 }

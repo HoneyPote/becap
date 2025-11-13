@@ -211,10 +211,6 @@ struct ChallengeNotification: Codable {
 
 
 
-enum DeepLink {
-    case join(code: String, challengeId: String?)
-}
-
 struct PhotoDeepLink: Equatable {
     let challengeId: String
     let photoId: String
@@ -223,8 +219,6 @@ struct PhotoDeepLink: Equatable {
 import SwiftUI
 
 final class DeepLinkRouter: ObservableObject {
-    @Published var pendingJoinCode: String? = nil
-    @Published var showJoinSheet: Bool = false
     @Published var pendingCalendarChallengeId: String? = nil
     @Published var pendingPhotoLink: PhotoDeepLink? = nil
 
@@ -236,20 +230,11 @@ final class DeepLinkRouter: ObservableObject {
         let host = comps.host?.lowercased()
 
         switch host {
-        case "join":
-            let code = comps.queryItems?.first(where: { $0.name == "code" })?.value
+        case "challenge", "join":
             let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
             DispatchQueue.main.async {
                 if let challengeId, !challengeId.isEmpty {
                     self.pendingCalendarChallengeId = challengeId
-                    self.showJoinSheet = false
-                }
-
-                if let code, !code.isEmpty {
-                    self.pendingJoinCode = code
-                    if challengeId == nil {
-                        self.showJoinSheet = true
-                    }
                 }
             }
 
@@ -265,17 +250,11 @@ final class DeepLinkRouter: ObservableObject {
                 // de l'identifiant avant que le challenge ne déclenche la navigation.
                 self.pendingPhotoLink = PhotoDeepLink(challengeId: challengeId, photoId: photoId)
                 self.pendingCalendarChallengeId = challengeId
-                self.showJoinSheet = false
             }
 
         default:
             break
         }
-    }
-
-    func clearJoin() {
-        pendingJoinCode = nil
-        showJoinSheet = false
     }
 
     func clearChallengeNavigation() {
