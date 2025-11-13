@@ -24,6 +24,7 @@ struct NewPostView: View {
                 VStack(spacing: 24) {
                     headerSection
 
+
                     GlassCard {
                         challengePickerSection
                     }
@@ -31,13 +32,15 @@ struct NewPostView: View {
                     GlassCard {
                         mediaSection
                     }
+                    .padding(.top, -15)
 
-                    GlassCard {
+
                         uploadSection
-                    }
+                        .padding(.top, -15)
+
                 }
                 .padding(.horizontal, 20)
-                .padding(.top, 32)
+                .padding(.top, 22)
                 .padding(.bottom, 48)
             }
             .background(
@@ -78,7 +81,7 @@ struct NewPostView: View {
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            VStack(alignment: .center, spacing: 6) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Nouveau Post")
                     .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                     .foregroundStyle(
@@ -95,7 +98,7 @@ struct NewPostView: View {
             }
 
             Divider()
-                .background(Color.white.opacity(0.15))
+                .background(Color.white.opacity(0.35))
         }
         .padding(.horizontal, 4)
     }
@@ -164,10 +167,6 @@ struct NewPostView: View {
 
     private var uploadSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("Et partage ta story ✨")
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundColor(.white.opacity(0.85))
-
             Button {
                 viewModel.uploadMedia()
             } label: {
@@ -188,19 +187,19 @@ struct NewPostView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
                 .background(
-                    LinearGradient(
-                        colors: [Color(hex: "5A5AF7"), Color(hex: "8E54E9")],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.92, green: 0.86, blue: 0.72),  // beige clair foncé
+                                    Color(red: 0.88, green: 0.78, blue: 0.60)   // beige chaud plus profond
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
-                )
-                .shadow(color: Color(hex: "8E54E9").opacity(0.35), radius: 16, x: 0, y: 8)
-                .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
             .buttonStyle(PressableButtonStyle())
             .disabled(viewModel.isUploadingPost)
@@ -356,7 +355,6 @@ struct NewPostView: View {
         }
     }
 }
-
 private struct ChallengeChip: View {
     let title: String
     let subtitle: String?
@@ -397,19 +395,36 @@ private struct ChallengeChip: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .stroke(Color.white.opacity(isSelected ? 0.0 : 0.12), lineWidth: 1)
         )
-        .shadow(color: isSelected ? Color(hex: "8E54E9").opacity(0.35) : Color.black.opacity(0.12), radius: isSelected ? 14 : 8, x: 0, y: isSelected ? 12 : 6)
+    //    .shadow(color: Color.black.opacity(0.12), radius: 8, x: 0, y: 6)
         .scaleEffect(isSelected ? 1.03 : 1)
     }
 
+    // MARK: - Background depending on selection
     private var background: some View {
-        RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(
+        Group {
+            if isSelected {
+                // 🌕 Dégradé beige (sélectionné)
                 LinearGradient(
-                    colors: isSelected ? [Color(hex: "5A5AF7"), Color(hex: "8E54E9")] : [Color.white.opacity(0.08), Color.white.opacity(0.04)],
+                    colors: [
+                        Color(red: 0.92, green: 0.86, blue: 0.72),  // beige clair foncé
+                        Color(red: 0.88, green: 0.78, blue: 0.60)   // beige chaud plus profond
+                    ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )
-            )
+            } else {
+                // 🌤️ Bleu ciel (non sélectionné)
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.29, green: 0.58, blue: 0.84), // Bleu clair
+                        Color(red: 0.21, green: 0.44, blue: 0.69)  // Bleu foncé
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 }
 

@@ -19,7 +19,7 @@ final class NotificationService {
     // MARK: - OneSignal constants
     private let onesignalAppId = "58d11a0f-cf16-4555-b258-c94d6afa0af3"
 
-    private let onesignalRestAuth = "os_v2_app_ldirud6pczcvlmsyzfgwv6qk6mdymcjkj64uamemug3e46hkgmhn2fwya6tkvxdfbgbt7j4qqopygq4jy6qewdzaum7ksd7gnnghzhy"
+    private let onesignalRestAuth = "os_v2_app_ldirud6pczcvlmsyzfgwv6qk6ncndh2gkniufgm4x54vgegidi3qey6hnzchr7khv72myv4a5istbxbcdqaoycp7vazfsxfofoxoy7y"
 
     init(db: Firestore = .firestore(), userManager: UserManager = .shared) {
         self.db = db
@@ -101,7 +101,7 @@ final class NotificationService {
             ]
             let contents = [
                 "en": "\(authorName) added a new photo!",
-                "fr": "\(authorName) a posté une nouvelle photo !"
+                "fr": "\(authorName) à publié un nouveau post!"
             ]
 
             print("📬 PHOTO → externalIds=\(externalIds) playerIds=\(playerIds)")
@@ -283,15 +283,8 @@ final class NotificationService {
 
     private func handleInvalidPlayerIds(_ invalidIds: [String], for userId: String) {
         guard !invalidIds.isEmpty else { return }
-        db.collection("users").document(userId).updateData([
-            "onesignalPlayerId": FieldValue.delete()
-        ]) { err in
-            if let err = err {
-                print("⚠️ Purge playerId Firestore échouée: \(err)")
-            } else {
-                print("✅ playerId périmé supprimé pour \(userId)")
-            }
-        }
+        print("⚠️ Détection d'IDs OneSignal invalides \(invalidIds) pour l'utilisateur \(userId), mais la clé est conservée.")
+
     }
 
     private func sendUrlRequestNotification(payload: [String: Any],
