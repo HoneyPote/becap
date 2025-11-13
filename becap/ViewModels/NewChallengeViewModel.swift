@@ -34,8 +34,12 @@ class NewChallengeViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
     private let alertManager: GlobalAlertManager
 
+    var trimmedNom: String {
+        nom.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     var isFormValid: Bool {
-        !nom.isEmpty
+        !trimmedNom.isEmpty
     }
 
     init(userManager: UserManagerProtocol = UserManager.shared,

@@ -14,6 +14,13 @@ struct NewChallengeView: View {
 
     @Binding var challengeCreated: Bool
 
+    @State private var showNameError = false
+    @FocusState private var focusedField: Field?
+
+    private enum Field: Hashable {
+        case name
+    }
+
     // TODO: Découper, trop complexe
     var body: some View {
         ZStack {
@@ -21,24 +28,75 @@ struct NewChallengeView: View {
 
             ScrollView {
                 VStack(spacing: 32) {
-                    Text("Créer un défi")
-                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                        .foregroundColor(.white)
-                        .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 36)
-                        .padding(.horizontal, 18)
+                     HStack {
+                         // Bouton croix à gauche
+                         Button(action: { dismiss() }) {
+                             Image(systemName: "xmark")
+                                 .font(.system(size: 18, weight: .bold))
+                                 .foregroundColor(.white)
+                                 .padding(10)
+                                 .background(.ultraThinMaterial)
+                                 .clipShape(Circle())
+                                 .shadow(color: .black.opacity(0.25), radius: 5, x: 0, y: 3)
+                         }
+                         .buttonStyle(.plain)
+
+                         Spacer()
+
+                         // Titre centré
+                         Text("Créer un défi")
+                             .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                             .foregroundColor(.white)
+                             .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
+
+                         Spacer() 
+                     }
+                     .padding(.horizontal)
+                     .padding(.top, 36)
+
 
                     GlassCard {
-                        VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 12) {
                             Text("Nom du défi")
                                 .font(.system(.headline, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
-                            TextField("Nom", text: $viewModel.nom)
-                                .padding(14)
-                                .background(.ultraThinMaterial)
-                                .cornerRadius(12)
-                                .font(.system(.body, design: .rounded))
+
+                            VStack(alignment: .leading, spacing: 6) {
+                                TextField("Nom", text: $viewModel.nom)
+                                    .padding(16)
+                                    .background(.ultraThinMaterial)
+                                    .cornerRadius(14)
+                                    .font(.system(.body, design: .rounded))
+                                    .textInputAutocapitalization(.words)
+                                    .disableAutocorrection(true)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 14)
+                                            .stroke(showNameError && viewModel.trimmedNom.isEmpty ? Color.red.opacity(0.9) : Color.white.opacity(0.18), lineWidth: 1)
+                                    )
+                                    .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
+                                    .focused($focusedField, equals: .name)
+                                    .onChange(of: viewModel.nom) { newValue in
+                                        if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                                            showNameError = false
+                                        }
+                                    }
+                                    .submitLabel(.done)
+                                    .onSubmit {
+                                        showNameError = viewModel.trimmedNom.isEmpty
+                                    }
+
+                                if showNameError && viewModel.trimmedNom.isEmpty {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .font(.system(size: 13, weight: .semibold))
+                                            .foregroundColor(.red.opacity(0.85))
+                                        Text("Le nom du défi est obligatoire.")
+                                            .font(.system(.footnote, design: .rounded))
+                                            .foregroundColor(.red.opacity(0.9))
+                                    }
+                                    .transition(.opacity)
+                                }
+                            }
                         }
                     }
 
@@ -74,15 +132,43 @@ struct NewChallengeView: View {
 
                     GlassCard {
                         VStack(alignment: .leading, spacing: 18) {
-                            Text("Durée (jours)")
+                            Text("Durée du défi")
                                 .font(.system(.headline, design: .rounded).weight(.bold))
                                 .foregroundColor(.white)
-                            Picker("Durée", selection: $viewModel.duree) {
-                                ForEach([7, 14, 30, 60, 90], id: \.self) { value in
-                                    Text("\(value) jours").tag(value)
+
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack {
+                                    Text("\(viewModel.duree) jour\(viewModel.duree > 1 ? "s" : "")")
+                                        .font(.system(.title3, design: .rounded).weight(.semibold))
+                                        .foregroundColor(.white)
+                                    Spacer()
+                                    Text("Personnalisez la durée")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.65))
+                                }
+
+                                Slider(value: Binding(
+                                    get: { Double(viewModel.duree) },
+                                    set: { viewModel.duree = Int($0) }
+                                ), in: 3...365, step: 1) {
+                                    Text("Durée")
+                                } minimumValueLabel: {
+                                    Text("3")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.7))
+                                } maximumValueLabel: {
+                                    Text("365")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.7))
+                                }
+                                .tint(.white)
+
+                                Stepper(value: $viewModel.duree, in: 3...365, step: 1) {
+                                    Text("Ajuster jour par jour")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.75))
                                 }
                             }
-                            .pickerStyle(.segmented)
                         }
                     }
 
@@ -149,6 +235,14 @@ struct NewChallengeView: View {
                                 .padding(.vertical, 16)
                             } else {
                                 Button(action: {
+                                    if viewModel.trimmedNom.isEmpty {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            showNameError = true
+                                            focusedField = .name
+                                        }
+                                        return
+                                    }
+
                                     viewModel.createChallenge() { success in
                                         if success {
                                             challengeCreated = true
@@ -156,24 +250,38 @@ struct NewChallengeView: View {
                                         }
                                     }
                                 }) {
-                                    HStack(spacing: 10) {
-                                        Image(systemName: "flag.fill")
-                                        Text("Créer le défi")
+                                    HStack(spacing: 12) {
+                                        Image(systemName: "flag.2.crossed")
+                                            .font(.system(size: 18, weight: .semibold))
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            Text("Enregistrer le défi")
+                                                .font(.system(.headline, design: .rounded).weight(.bold))
+                                            Text("Lancez le challenge pour votre communauté")
+                                                .font(.system(.caption, design: .rounded))
+                                                .foregroundColor(.white.opacity(0.85))
+                                        }
+                                        Spacer()
+                                        Image(systemName: "arrow.right.circle.fill")
+                                            .font(.system(size: 20, weight: .bold))
                                     }
-                                    .font(.system(.headline, design: .rounded).weight(.bold))
-                                    .padding(.vertical, 14)
+                                    .padding(.vertical, 18)
+                                    .padding(.horizontal, 20)
                                     .frame(maxWidth: .infinity)
                                     .background(
                                         LinearGradient(gradient: Gradient(colors: [
-                                            Color.blue.opacity(0.85),
-                                            Color.cyan.opacity(0.88)
+                                            Color(hex: "#4F46E5").opacity(0.95),
+                                            Color(hex: "#38BDF8").opacity(0.9)
                                         ]), startPoint: .topLeading, endPoint: .bottomTrailing)
+                                            .overlay(
+                                                RoundedRectangle(cornerRadius: 18)
+                                                    .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                                            )
                                     )
                                     .foregroundColor(.white)
-                                    .cornerRadius(12)
-                                    .shadow(color: Color.blue.opacity(0.17), radius: 7, x: 0, y: 3)
+                                    .cornerRadius(18)
+                                    .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 10)
                                 }
-                                .disabled(!viewModel.isFormValid)
+                                .opacity(viewModel.isFormValid ? 1 : 0.65)
                             }
                         }
                         .padding(.vertical, 4)
@@ -186,6 +294,18 @@ struct NewChallengeView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(.ultraThinMaterial.opacity(0.35))
+                        .clipShape(Circle())
+                }
+            }
             ToolbarItem(placement: .principal) {
                 Text("Nouveau défi")
                     .font(.system(.title2, design: .rounded).weight(.heavy))
