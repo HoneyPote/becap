@@ -230,9 +230,9 @@ extension CalendarPostPagerView {
                 )
             }
         }
-        .overlay(alignment: .topTrailing) {
+        .overlay(alignment: .bottomTrailing) {
             jokerBadge(for: viewModel.selectedJokerState)
-                .padding(12)
+                .padding(20)
         }
     }
 

@@ -14,6 +14,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published var isLockedRecording: Bool = false
     @Published private var isBackCamera: Bool = true
     @Published private var videoRecordingElapsedTime: TimeInterval = 0
+    @Published private var isFlashOn = false
 
     var showFlashButton: Bool {
         !isRecordingVideo && isBackCamera
@@ -33,7 +34,6 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
-    private var isFlashOn = false
     private var videoTimer: Timer?
     private var previewLayer: AVCaptureVideoPreviewLayer?
     private var currentCameraPosition: AVCaptureDevice.Position = .back {

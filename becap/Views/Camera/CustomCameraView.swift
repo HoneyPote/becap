@@ -57,7 +57,7 @@ struct CustomCameraView: View {
                     .scaledToFit()
                     .ignoresSafeArea()
             } else if case .video(let data) = media {
-                CustomVideoPlayer(videoURL: data.url)
+                CustomVideoPlayer(videoURL: data.url, launchOnAppear: true)
                     .ignoresSafeArea()
             }
 

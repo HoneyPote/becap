@@ -11,10 +11,11 @@ import AVKit
 struct CustomVideoPlayer: UIViewRepresentable {
     let videoURL: URL
     var thumbnailURL: URL?
+    var launchOnAppear: Bool = false
 
     func makeUIView(context: Context) -> UIView {
         let container = PlayerContainerView(frame: UIScreen.main.bounds)
-        container.configure(with: videoURL, thumbnailURL: thumbnailURL)
+        container.configure(with: videoURL, thumbnailURL: thumbnailURL, launchOnAppear: launchOnAppear)
         return container
     }
 
@@ -30,13 +31,14 @@ final class PlayerContainerView: UIView {
     private var muteButton = UIButton(type: .system)
     private var isMuted = false
     private var isPlaying = false
-    private var observer: NSKeyValueObservation?
+    private var playerObserver: NSKeyValueObservation?
+    private var playerItemObserver: NSKeyValueObservation?
 
-    func configure(with url: URL, thumbnailURL: URL?) {
+    func configure(with url: URL, thumbnailURL: URL?, launchOnAppear: Bool = false) {
         backgroundColor = .black
 
-        // Player setup
-        let player = AVPlayer(url: url)
+        let playerItem = AVPlayerItem(url: url)
+        let player = AVPlayer(playerItem: playerItem)
         self.player = player
 
         let layer = AVPlayerLayer(player: player)
@@ -45,7 +47,7 @@ final class PlayerContainerView: UIView {
         self.layer.insertSublayer(layer, at: 0)
         playerLayer = layer
 
-        // ✅ Thumbnail avec AsyncCachedImage
+        // Thumbnail
         if let thumbnailURL = thumbnailURL {
             let thumbnailView = AsyncCachedImage(url: thumbnailURL)
                 .scaledToFill()
@@ -60,46 +62,68 @@ final class PlayerContainerView: UIView {
             hostingThumbnail = host
         }
 
-        // Loader centré
+        // Loader
         activityIndicator.color = .white
         addSubview(activityIndicator)
         activityIndicator.startAnimating()
 
-        // Play icon centré
+        // Play icon
         playIcon.tintColor = .white
         playIcon.contentMode = .scaleAspectFit
         playIcon.frame.size = CGSize(width: 60, height: 60)
         playIcon.isHidden = true
         addSubview(playIcon)
 
-        // 🔇 Bouton Mute / Unmute
+        // Mute/unmute button
         muteButton.setImage(UIImage(systemName: "speaker.wave.2.fill"), for: .normal)
         muteButton.tintColor = .white
         muteButton.backgroundColor = UIColor.black.withAlphaComponent(0.5)
         muteButton.layer.cornerRadius = 20
         muteButton.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         muteButton.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
+        muteButton.isHidden = true
         addSubview(muteButton)
 
         // Observe readiness
-        observer = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+        playerItemObserver = playerItem.observe(\.status, options: [.new]) { [weak self] item, _ in
             guard let self else { return }
             DispatchQueue.main.async {
-                if player.timeControlStatus == .playing {
-                    self.activityIndicator.removeFromSuperview()
-                    self.hostingThumbnail?.view.removeFromSuperview()
-                    self.isPlaying = true
-                    self.playIcon.isHidden = true
-                } else if player.timeControlStatus == .paused {
-                    self.isPlaying = false
-                    self.playIcon.isHidden = false
+                if item.status == .readyToPlay {
+                    print("READY TO PLAY")
+                    self.player?.play()
                 }
             }
         }
 
-        // Lecture et gestures
-        player.play()
+        // Observe controls
+        playerObserver = player.observe(\.timeControlStatus, options: [.new]) { [weak self] player, _ in
+            guard let self else { return }
 
+            DispatchQueue.main.async {
+                switch player.timeControlStatus {
+                case .playing:
+                    if self.activityIndicator.isAnimating {
+                        self.activityIndicator.stopAnimating()
+                        self.hostingThumbnail?.view.removeFromSuperview()
+                        self.muteButton.isHidden = false
+                        if !launchOnAppear {
+                            self.player?.pause()
+                        }
+                    }
+                    self.isPlaying = true
+                    self.playIcon.isHidden = true
+
+                case .paused:
+                    self.isPlaying = false
+                    self.playIcon.isHidden = false
+
+                default:
+                    break
+                }
+            }
+        }
+
+        // Reset video to beginning on ended
         NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
                                                object: player.currentItem,
                                                queue: .main) { [weak self] _ in
@@ -118,6 +142,7 @@ final class PlayerContainerView: UIView {
 
     @objc private func toggleMute() {
         guard let player else { return }
+
         isMuted.toggle()
         player.isMuted = isMuted
         let iconName = isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
