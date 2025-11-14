@@ -20,6 +20,7 @@ struct HomeView: View {
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPhotoId: String?
+    @State private var deepLinkJoinError: String?
 
     var body: some View {
         NavigationStack {
@@ -132,6 +133,14 @@ struct HomeView: View {
                   let challengeId = deepLinkRouter.pendingCalendarChallengeId else { return }
             hasLoadedChallengesForPendingDeepLink = true
             attemptNavigationToChallenge(withId: challengeId)
+        }
+        .alert("Impossible de rejoindre le défi", isPresented: Binding(
+            get: { deepLinkJoinError != nil },
+            set: { if !$0 { deepLinkJoinError = nil } }
+        )) {
+            Button("OK", role: .cancel) { deepLinkJoinError = nil }
+        } message: {
+            Text(deepLinkJoinError ?? "Une erreur inattendue est survenue. Veuillez réessayer plus tard.")
         }
         .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
             deleteChallengeConfirmationAlert
@@ -276,6 +285,19 @@ extension HomeView {
         isResolvingDeepLink = true
         hasLoadedChallengesForPendingDeepLink = viewModel.challenges.contains(where: { $0.id == challengeId })
         attemptNavigationToChallenge(withId: challengeId)
+
+        Task { [challengeId] in
+            do {
+                try await viewModel.ensureMembershipIfNeeded(for: challengeId)
+            } catch {
+                await MainActor.run {
+                    deepLinkJoinError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                    isResolvingDeepLink = false
+                    deepLinkRouter.clearChallengeNavigation()
+                    deepLinkRouter.clearPhotoNavigation()
+                }
+            }
+        }
 
         if !hasLoadedChallengesForPendingDeepLink {
             viewModel.refreshChallenges()

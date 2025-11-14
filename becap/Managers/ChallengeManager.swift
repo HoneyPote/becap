@@ -18,6 +18,7 @@ protocol ChallengeManagerProtocol {
     func createChallenge(_ challenge: Challenge) async throws -> Challenge?
     func fetchAllChallenges() async throws -> [Challenge]
     func fetchAndFilterChallenges() async throws
+    func ensureMembership(in challengeId: String) async throws
     func deleteChallenge(_ challengeId: String) async throws
     func joinChallenge(_ challenge: Challenge, userId: String) async throws
 
@@ -46,6 +47,20 @@ protocol ChallengeManagerProtocol {
     func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool
     func addChatReaction(_ reaction: String, to message: ChallengeChatMessage, challengeId: String, userId: String) async throws
     func removeChatReaction(_ reaction: String, from message: ChallengeChatMessage, challengeId: String, userId: String) async throws
+}
+
+enum ChallengeManagerError: LocalizedError {
+    case userNotLoggedIn
+    case challengeNotFound
+
+    var errorDescription: String? {
+        switch self {
+        case .userNotLoggedIn:
+            return "Vous devez être connecté pour rejoindre ce défi."
+        case .challengeNotFound:
+            return "Le défi partagé est introuvable ou n’existe plus."
+        }
+    }
 }
 
 class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
@@ -112,6 +127,28 @@ extension ChallengeManager {
         await MainActor.run {
             self.challenges = filtered
             print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+        }
+    }
+
+    func ensureMembership(in challengeId: String) async throws {
+        if challenges.contains(where: { $0.id == challengeId }) {
+            try await fetchAndFilterChallenges()
+            return
+        }
+
+        guard let currentUser, let userId = currentUser.id else {
+            throw ChallengeManagerError.userNotLoggedIn
+        }
+
+        guard var remoteChallenge = try await challengeService.fetchChallenge(by: challengeId) else {
+            throw ChallengeManagerError.challengeNotFound
+        }
+
+        if remoteChallenge.participantUids.contains(userId) {
+            try await updateChallenge(remoteChallenge)
+        } else {
+            remoteChallenge.participantUids.append(userId)
+            try await joinChallenge(remoteChallenge, userId: userId)
         }
     }
 

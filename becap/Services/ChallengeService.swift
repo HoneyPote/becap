@@ -17,6 +17,7 @@ enum ChallengeServiceError: Error {
 protocol ChallengeServiceProtocol {
     // Challenges
     func fetchAllChallenges() async throws -> [Challenge]
+    func fetchChallenge(by id: String) async throws -> Challenge?
     func addChallenge(_ challenge: Challenge) async throws -> Challenge?
     func updateChallenge(_ challenge: Challenge) async throws
     func deleteChallenge(challengeId: String) async throws
@@ -71,6 +72,20 @@ extension ChallengeService {
         } catch {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
+        }
+    }
+
+    func fetchChallenge(by id: String) async throws -> Challenge? {
+        do {
+            let snapshot = try await firestoreDB
+                .collection(collecChallenges)
+                .document(id)
+                .getDocument()
+
+            return try snapshot.data(as: Challenge.self)
+        } catch {
+            print("❌ Erreur Firestore lors de fetchChallenge(by:): \(error)")
+            return nil
         }
     }
 
