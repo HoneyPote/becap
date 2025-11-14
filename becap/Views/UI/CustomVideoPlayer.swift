@@ -8,33 +8,47 @@
 import SwiftUI
 import AVKit
 
+enum PlayerConfiguration {
+    case regular
+    case postPager
+    case postPagerComments
+    case preview
+}
+
 struct CustomVideoPlayer: UIViewRepresentable {
     let videoURL: URL
     var thumbnailURL: URL?
-    var launchOnAppear: Bool = false
+    var configuration: PlayerConfiguration = .regular
 
-    func makeUIView(context: Context) -> UIView {
+    func makeUIView(context: Context) -> PlayerContainerView {
         let container = PlayerContainerView(frame: UIScreen.main.bounds)
-        container.configure(with: videoURL, thumbnailURL: thumbnailURL, launchOnAppear: launchOnAppear)
+        container.configure(with: videoURL, thumbnailURL: thumbnailURL, configuration: configuration)
         return container
     }
 
-    func updateUIView(_ uiView: UIView, context: Context) {}
+    func updateUIView(_ uiView: PlayerContainerView, context: Context) {
+        uiView.applyConfiguration(configuration)
+    }
 }
 
 final class PlayerContainerView: UIView {
     private var player: AVPlayer?
     private var playerLayer: AVPlayerLayer?
+    private var playerObserver: NSKeyValueObservation?
+    private var playerItemObserver: NSKeyValueObservation?
+
+    // Subviews
     private var hostingThumbnail: UIHostingController<AnyView>?
     private var activityIndicator = UIActivityIndicatorView(style: .large)
     private var playIcon = UIImageView(image: UIImage(systemName: "play.fill"))
     private var muteButton = UIButton(type: .system)
-    private var isMuted = false
-    private var isPlaying = false
-    private var playerObserver: NSKeyValueObservation?
-    private var playerItemObserver: NSKeyValueObservation?
 
-    func configure(with url: URL, thumbnailURL: URL?, launchOnAppear: Bool = false) {
+    private var isMuted: Bool = false
+    private var isPlaying: Bool = false
+    private var playWhenReady: Bool = false
+    private var isReadyToPlay: Bool = false
+
+    func configure(with url: URL, thumbnailURL: URL?, configuration: PlayerConfiguration = .regular) {
         backgroundColor = .black
 
         let playerItem = AVPlayerItem(url: url)
@@ -65,13 +79,11 @@ final class PlayerContainerView: UIView {
         // Loader
         activityIndicator.color = .white
         addSubview(activityIndicator)
-        activityIndicator.startAnimating()
 
         // Play icon
         playIcon.tintColor = .white
         playIcon.contentMode = .scaleAspectFit
         playIcon.frame.size = CGSize(width: 60, height: 60)
-        playIcon.isHidden = true
         addSubview(playIcon)
 
         // Mute/unmute button
@@ -81,7 +93,6 @@ final class PlayerContainerView: UIView {
         muteButton.layer.cornerRadius = 20
         muteButton.frame = CGRect(x: 20, y: 20, width: 40, height: 40)
         muteButton.addTarget(self, action: #selector(toggleMute), for: .touchUpInside)
-        muteButton.isHidden = true
         addSubview(muteButton)
 
         // Observe readiness
@@ -89,7 +100,6 @@ final class PlayerContainerView: UIView {
             guard let self else { return }
             DispatchQueue.main.async {
                 if item.status == .readyToPlay {
-                    print("READY TO PLAY")
                     self.player?.play()
                 }
             }
@@ -102,13 +112,15 @@ final class PlayerContainerView: UIView {
             DispatchQueue.main.async {
                 switch player.timeControlStatus {
                 case .playing:
+                    // We detect if the video is ready to play right after .waitingToPlayAtSpecifiedRate
                     if self.activityIndicator.isAnimating {
-                        self.activityIndicator.stopAnimating()
+                        self.isReadyToPlay = true
+                        self.activityIndicator.stopAnimating() // Since we stop the anim, we won't go throught here anymore
                         self.hostingThumbnail?.view.removeFromSuperview()
-                        self.muteButton.isHidden = false
-                        if !launchOnAppear {
-                            self.player?.pause()
-                        }
+
+                        self.applyConfiguration(configuration)
+
+                        guard self.playWhenReady else { self.player?.pause(); break }
                     }
                     self.isPlaying = true
                     self.playIcon.isHidden = true
@@ -157,5 +169,33 @@ final class PlayerContainerView: UIView {
         hostingThumbnail?.view.frame = bounds
 
         muteButton.frame.origin = CGPoint(x: bounds.width - muteButton.frame.width - 20, y: 20)
+    }
+}
+
+extension PlayerContainerView {
+    func applyConfiguration(_ config: PlayerConfiguration) {
+        guard isReadyToPlay else {
+            activityIndicator.startAnimating()
+            playIcon.isHidden = true
+            muteButton.isHidden = true
+            return
+        }
+
+        switch config {
+        case .regular:
+            playWhenReady = false
+            muteButton.isHidden = false
+
+        case .postPager:
+            playWhenReady = false
+            muteButton.isHidden = false
+
+        case .postPagerComments:
+            muteButton.isHidden = true
+
+        case .preview:
+            playWhenReady = true
+            muteButton.isHidden = false
+        }
     }
 }

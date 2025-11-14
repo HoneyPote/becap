@@ -108,12 +108,12 @@ struct CalendarDetailView: View {
             jockerOverlay
         }
         .sheet(item: $pagerInfo) { info in
-            CalendarPostPagerView(posts: info.posts,
-                                  startIndex: info.index,
-                                  challenge: viewModel.challenge,
-                                  getParticipant: { viewModel.getParticipant(for: $0) },
-                                  onDelete: { viewModel.deletePost($0) },
-                                  onClose: { pagerInfo = nil })
+            PostPagerView(posts: info.posts,
+                          startIndex: info.index,
+                          challenge: viewModel.challenge,
+                          getParticipant: { viewModel.getParticipant(for: $0) },
+                          onDelete: { viewModel.deletePost($0) },
+                          onClose: { pagerInfo = nil })
         }
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }

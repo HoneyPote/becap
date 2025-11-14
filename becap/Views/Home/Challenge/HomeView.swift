@@ -265,7 +265,7 @@ extension HomeView {
     }
 
     private func calendarDetailIdentity(for challenge: Challenge, photoId: String?) -> String {
-        let base = challenge.id ?? "challenge-detail"
+        let base = challenge.id
         if let photoId, !photoId.isEmpty {
             return "\(base)|photo:\(photoId)"
         }

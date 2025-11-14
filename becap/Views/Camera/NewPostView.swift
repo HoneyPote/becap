@@ -283,7 +283,7 @@ struct NewPostView: View {
                                     .scaledToFit()
                                     .ignoresSafeArea()
                             } else if case .video(let data) = media {
-                                CustomVideoPlayer(videoURL: data.url, launchOnAppear: true)
+                                CustomVideoPlayer(videoURL: data.url, configuration: PlayerConfiguration.preview)
                                     .ignoresSafeArea()
                             }
 

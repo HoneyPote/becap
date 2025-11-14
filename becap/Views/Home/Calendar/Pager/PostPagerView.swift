@@ -1,5 +1,5 @@
 //
-//  CalendarPostPagerView.swift
+//  PostPagerView.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 05/08/2025.
@@ -7,12 +7,13 @@
 
 import SwiftUI
 
-struct CalendarPostPagerView: View {
+struct PostPagerView: View {
     @StateObject private var viewModel: PostPagerViewModel
     @StateObject private var keyboard = KeyboardResponder()
 
     @FocusState private var isTextFieldFocused: Bool
 
+    @State private var playerConfig: PlayerConfiguration? = .postPager
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
 	@State private var isVideoReady = false
@@ -108,12 +109,6 @@ struct CalendarPostPagerView: View {
 
             imageView(for: postVM)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
-                .onTapGesture {
-                    withAnimation {
-                        commentSectionIsShown = false
-                        resetCommentTextfield()
-                    }
-                }
 
             if !commentSectionIsShown {
                 if let participant = getParticipant(postVM.post.authorUid) {
@@ -194,18 +189,19 @@ struct CalendarPostPagerView: View {
 }
 
 // MARK: Image section
-extension CalendarPostPagerView {
+extension PostPagerView {
     private func imageView(for postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottomLeading) {
             Group {
                 if case .image(let url) = postVM.post.media, let imageUrl = URL(string: url) {
                     AsyncCachedImage(url: imageUrl)
                 } else if case .video(let data) = postVM.post.media, let videoUrl = URL(string: data.videoURL) {
-                    CustomVideoPlayer(videoURL: videoUrl, thumbnailURL: URL(string: data.thumbnailURL ?? ""))
+                    CustomVideoPlayer(videoURL: videoUrl,
+                                      thumbnailURL: URL(string: data.thumbnailURL ?? ""),
+                                      configuration: commentSectionIsShown ? .postPagerComments : .postPager)
                 }
             }
             .frame(maxWidth: commentSectionIsShown ? 150 : .infinity, maxHeight: 490)
-            .clipped()
 
             if !commentSectionIsShown {
                 VStack(alignment: .leading, spacing: 6) {
@@ -229,6 +225,20 @@ extension CalendarPostPagerView {
                                    endPoint: .top)
                 )
             }
+
+            if commentSectionIsShown {
+                Rectangle()
+                    .foregroundColor(Color.clear)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        withAnimation {
+                            commentSectionIsShown = false
+                            resetCommentTextfield()
+                        }
+                    }
+                    .frame(maxWidth: commentSectionIsShown ? 150 : .infinity, maxHeight: 490)
+                    .allowsHitTesting(true)
+            }
         }
         .overlay(alignment: .bottomTrailing) {
             jokerBadge(for: viewModel.selectedJokerState)
@@ -241,10 +251,7 @@ extension CalendarPostPagerView {
         let voteCount = state.voters.count
         let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
 
-        let icon = JokerIconView(size: 40,
-                                  isDimmed: state.isConfirmed)
-
-        let decorated = icon
+        let decorated = JokerIconView(size: 40, isDimmed: state.isConfirmed)
             .overlay(alignment: .topTrailing) {
                 voteBubble(for: voteCount)
             }
@@ -281,7 +288,7 @@ extension CalendarPostPagerView {
 }
 
 // MARK: Comments section
-extension CalendarPostPagerView {
+extension PostPagerView {
     private func commentSection(postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottom) {
             ScrollView(showsIndicators: false) {
