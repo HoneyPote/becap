@@ -347,9 +347,6 @@ struct CalendarDetailView: View {
             }
         },
                         onOpenPager: { info in
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                selectedGridCell = nil
-            }
             DispatchQueue.main.async {
                 pagerInfo = info
             }

@@ -22,6 +22,7 @@ struct PostPagerView: View {
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
     let onClose: () -> Void
+
     private enum JokerAction {
         case vote
         case declare
