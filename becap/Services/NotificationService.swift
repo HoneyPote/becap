@@ -19,7 +19,6 @@ final class NotificationService {
     // MARK: - OneSignal constants
     private let onesignalAppId = "58d11a0f-cf16-4555-b258-c94d6afa0af3"
 
-    private let onesignalRestAuth = BecapSecrets.oneSignalRestApiKey
 
     init(db: Firestore = .firestore(), userManager: UserManager = .shared) {
         self.db = db
@@ -228,92 +227,57 @@ final class NotificationService {
                              context: String,
                              additionalData: [String: Any]? = nil,
                              appUrl: String? = nil) {
-        // 1️⃣ D’abord tenter via playerIds (plus simple, pas de target_channel requis)
+
+        var payload: [String: Any] = [
+            "headings": headings,
+            "contents": contents
+        ]
+
         if !playerIds.isEmpty {
-            var payload: [String: Any] = [
-                "app_id": onesignalAppId,
-                "include_player_ids": playerIds,
-                "headings": headings,
-                "contents": contents,
-                "ios_sound": "default"
-            ]
-            if let additionalData { payload["data"] = additionalData }
-            if let appUrl { payload["app_url"] = appUrl }
-            sendUrlRequestNotification(payload: payload, context: context) { invalid in
-                guard !invalid.isEmpty else { return }
-                print("⛔️ \(context) invalid_player_ids: \(invalid) → purge + retry via external_id")
-
-                self.handleInvalidPlayerIds(invalid, for: userIdForCleanup)
-
-                // 2️⃣ Retry via alias (external_id) — EXIGE target_channel
-                var retryPayload: [String: Any] = [
-                    "app_id": self.onesignalAppId,
-                    "include_aliases": ["external_id": [userIdForCleanup]],
-                    "target_channel": "push",
-                    "headings": headings,
-                    "contents": contents,
-                    "ios_sound": "default"
-                ]
-                if let additionalData { retryPayload["data"] = additionalData }
-                if let appUrl { retryPayload["app_url"] = appUrl }
-                self.sendUrlRequestNotification(payload: retryPayload,
-                                                context: context + " [retry-alias]") { _ in }
-            }
-            return
+            payload["playerIds"] = playerIds
         }
 
-        // 3️⃣ Si aucun playerId dispo, on passe direct par alias (external_id) — avec target_channel
         if !externalIds.isEmpty {
-            var payload: [String: Any] = [
-                "app_id": onesignalAppId,
-                "include_aliases": ["external_id": externalIds],
-                "target_channel": "push",
-                "headings": headings,
-                "contents": contents,
-                "ios_sound": "default"
-            ]
-            if let additionalData { payload["data"] = additionalData }
-            if let appUrl { payload["app_url"] = appUrl }
-            sendUrlRequestNotification(payload: payload, context: context) { _ in }
-            return
+            payload["externalIds"] = externalIds
         }
 
-        print("⚠️ \(context): aucun target valide (ni playerIds, ni externalIds).")
-    }
+        if let additionalData {
+            payload["additionalData"] = additionalData
+        }
 
-    private func handleInvalidPlayerIds(_ invalidIds: [String], for userId: String) {
-        guard !invalidIds.isEmpty else { return }
-        print("⚠️ Détection d'IDs OneSignal invalides \(invalidIds) pour l'utilisateur \(userId), mais la clé est conservée.")
+        if let appUrl {
+            payload["appUrl"] = appUrl
+        }
 
+        // On laisse la Cloud Function parler à OneSignal
+        sendUrlRequestNotification(payload: payload, context: context) { invalid in
+            // Si tu veux plus tard gérer invalid_player_ids renvoyés par la CF, tu pourras le faire ici.
+            if !invalid.isEmpty {
+                print("⚠️ \(context) invalid_player_ids depuis Cloud Function: \(invalid)")
+                // Optionnel : cleanup Firestore ici si tu veux
+            }
+        }
     }
 
     private func sendUrlRequestNotification(payload: [String: Any],
                                             context: String,
                                             onInvalidPlayers: @escaping ([String]) -> Void) {
-        let url = URL(string: "https://onesignal.com/api/v1/notifications")!
-        var req = URLRequest(url: url)
-        req.httpMethod = "POST"
-        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
-
-        let trimmedKey = onesignalRestAuth.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedKey.isEmpty else {
-            print("⚠️ \(context) annulée : clé OneSignal REST manquante.")
+        // URL de ta Cloud Function (region us-central1)
+        guard let url = URL(string: "https://us-central1-honeypote-becap.cloudfunctions.net/sendOneSignal") else {
+            print("❌ \(context) URL Cloud Function invalide")
             onInvalidPlayers([])
             return
         }
 
-        let authHeader: String
-        if trimmedKey.lowercased().hasPrefix("basic ") {
-            authHeader = trimmedKey
-        } else {
-            authHeader = "Basic \(trimmedKey)"
-        }
-        req.setValue(authHeader, forHTTPHeaderField: "Authorization")
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: payload, options: [])
 
         URLSession.shared.dataTask(with: req) { data, resp, err in
             if let err = err {
                 print("❌ \(context) error: \(err)")
+                onInvalidPlayers([])
                 return
             }
 
@@ -328,6 +292,7 @@ final class NotificationService {
                 return
             }
 
+            // Si OneSignal renvoie encore "errors.invalid_player_ids", on garde ta logique
             if let errors = json["errors"] as? [String: Any],
                let invalid = errors["invalid_player_ids"] as? [String],
                !invalid.isEmpty {
@@ -335,7 +300,6 @@ final class NotificationService {
             } else {
                 onInvalidPlayers([])
             }
-            
         }.resume()
     }
 }
