@@ -32,7 +32,6 @@ struct SettingsView: View {
     var body: some View {
         NavigationView {
             ZStack {
-                // --- CONTENU ---
                 ScrollView {
                     VStack(spacing: 24) {
                         HStack {
@@ -56,11 +55,9 @@ struct SettingsView: View {
                             .padding(.horizontal)
                     }
                     .padding(.vertical)
-                    .padding(.bottom, 70 + 16)
                 }
-
-                // --- TOASTS EN BAS ---
                 .overlay(alignment: .bottom) {
+                    // --- TOASTS EN BAS ---
                     if showReportSuccessToast || viewModel.accountDeletionError != nil {
                         VStack(spacing: 16) {
                             if showReportSuccessToast {
@@ -79,9 +76,8 @@ struct SettingsView: View {
                         .padding(.bottom, 40)
                     }
                 }
-
-                // --- OVERLAY LOADING SUPPRESSION COMPTE ---
                 .overlay {
+                    // --- OVERLAY LOADING SUPPRESSION COMPTE ---
                     if viewModel.isDeletingAccount {
                         ZStack {
                             Color.black.opacity(0.35).ignoresSafeArea()
@@ -98,8 +94,8 @@ struct SettingsView: View {
                         .transition(.opacity)
                     }
                 }
+                .withTabBarInset()
             }
-            // 🖼️ Background image + voile sombre (en dehors du contenu)
             .background(
                 Image("iphone_wallpaper_lake")
                     .resizable()
@@ -108,7 +104,6 @@ struct SettingsView: View {
                     .offset(x: -23)
                     .ignoresSafeArea()
             )
-
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

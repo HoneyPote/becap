@@ -41,7 +41,6 @@ struct NewPostView: View {
                 }
                 .padding(.horizontal, 20)
                 .padding(.top, 22)
-                .padding(.bottom, 48)
             }
             .background(
                 ZStack {
@@ -64,6 +63,7 @@ struct NewPostView: View {
                 }
                 .allowsHitTesting(false)
             )
+            .withTabBarInset()
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showCamera) {

@@ -134,6 +134,7 @@ struct CalendarDetailView: View {
         .onChange(of: selectedParticipant) { _ in
             showJokerBubble = false
         }
+        .withTabBarInset()
     }
 
     @ViewBuilder

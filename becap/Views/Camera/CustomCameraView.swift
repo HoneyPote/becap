@@ -62,20 +62,6 @@ struct CustomCameraView: View {
             }
 
             HStack {
-                Text("Enregistrer")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.gray.opacity(0.7))
-                    .cornerRadius(14)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-                    .onTapGesture {
-                        onCapture(media)
-                        dismiss()
-                    }
-
                 Text("Reprendre")
                     .font(.headline)
                     .foregroundColor(.white)
@@ -89,6 +75,28 @@ struct CustomCameraView: View {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             viewModel.retakeMedia()
                         }
+                    }
+
+                Text("Enregistrer")
+                    .font(.headline)
+                    .padding()
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.92, green: 0.86, blue: 0.72),
+                                Color(red: 0.88, green: 0.78, blue: 0.60)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .cornerRadius(14)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 20)
+                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
+                    .onTapGesture {
+                        onCapture(media)
+                        dismiss()
                     }
             }
         }

@@ -96,7 +96,7 @@ final class KeyboardResponder: ObservableObject {
 extension View {
     func withTabBarInset(_ height: CGFloat = 72) -> some View {
         self.safeAreaInset(edge: .bottom) {
-            Color.clear.frame(height: height)
+            Color.clear.frame(height: height + 16)
         }
     }
 }
