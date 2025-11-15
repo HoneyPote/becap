@@ -211,9 +211,9 @@ extension ChallengeManager {
 
         print("📤 Upload du post en cours...")
         let uploadedPost = try await uploadPostToFirebase(media: media,
-                                       challengeId: challenge.id,
-                                       author: currentUser,
-                                       description: descriptionText)
+                                                          challengeId: challenge.id,
+                                                          author: currentUser,
+                                                          description: descriptionText)
 
         print("✅ Upload réussi, mise à jour progression Firestore...")
         try await updateParticipantProgress(for: challenge.id, userId: currentUserId, date: Date())

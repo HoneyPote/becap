@@ -163,7 +163,11 @@ final class PlayerContainerView: UIView {
 
     override func layoutSubviews() {
         super.layoutSubviews()
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
         playerLayer?.frame = bounds
+        CATransaction.commit()
+
         activityIndicator.center = CGPoint(x: bounds.midX, y: bounds.midY)
         playIcon.center = CGPoint(x: bounds.midX, y: bounds.midY)
         hostingThumbnail?.view.frame = bounds

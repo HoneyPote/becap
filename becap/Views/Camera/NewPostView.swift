@@ -448,7 +448,7 @@ private struct CaptureButton: View {
             "dégradéBleu",
             "dégradéBleu"
         ],
-        fileExtension: "mp4"
+        fileExtension: "mov"
     )
 
     var body: some View {

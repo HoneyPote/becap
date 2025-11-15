@@ -180,7 +180,6 @@ extension ChallengeService {
                                  authorName: author.name,
                                  description: description,
                                  date: Date(),
-                                 //                                 createdAt: Date(),
                                  media: challengeMedia)
 
         try savePostToFirebase(post, challengeId: challengeId)
@@ -212,11 +211,15 @@ extension ChallengeService {
         let folder = "\(mediaUuid)"
 
         /// Video
-        let videoFileName = "\(mediaUuid).mp4"
+        let videoFileName = "\(mediaUuid).mov"
         let videoRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(videoFileName)")
         let compressedVideoURL = try await compressVideo(inputURL: data.url)
 
-        _ = try await videoRef.putFileAsync(from: compressedVideoURL, metadata: nil)
+        let compressedVideoURLData = try Data(contentsOf: compressedVideoURL)
+        let videoMetadata = StorageMetadata()
+        videoMetadata.contentType = "video/mov"
+
+        _ = try await videoRef.putDataAsync(compressedVideoURLData, metadata: videoMetadata)
 
         let downloadedVideoUrl = try await videoRef.downloadURL()
 
@@ -225,14 +228,16 @@ extension ChallengeService {
         if let thumbnailImage = data.thumbnailImage {
             let resizedImage = thumbnailImage.resized(toMaxWidth: 720)
 
-            guard let data = resizedImage.jpegData(compressionQuality: 0.6) else {
+            guard let data = resizedImage.jpegData(compressionQuality: 0.4) else {
                 throw ChallengeServiceError.invalidImageData("Invalid image data")
             }
 
             let thumbnailFileName = "\(mediaUuid).jpg"
             let thumbnailRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(thumbnailFileName)")
+            let metadata = StorageMetadata()
+            metadata.contentType = "image/jpeg"
 
-            _ = try await thumbnailRef.putDataAsync(data, metadata: nil)
+            _ = try await thumbnailRef.putDataAsync(data, metadata: metadata)
 
             downloadedThumbnailUrl = try await thumbnailRef.downloadURL()
         }
@@ -243,13 +248,16 @@ extension ChallengeService {
     private func compressVideo(inputURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHighestQuality) else {
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
             throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
         }
 
-        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mp4")
+        exportSession.shouldOptimizeForNetworkUse = true
+        exportSession.outputFileType = .mov
 
-        try await exportSession.export(to: outputURL, as: .mp4)
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mov")
+
+        try await exportSession.export(to: outputURL, as: .mov)
 
         return outputURL
     }

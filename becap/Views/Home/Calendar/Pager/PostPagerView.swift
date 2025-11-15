@@ -192,7 +192,7 @@ struct PostPagerView: View {
 // MARK: Image section
 extension PostPagerView {
     private func imageView(for postVM: PostViewModel) -> some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .bottom) {
             Group {
                 if case .image(let url) = postVM.post.media, let imageUrl = URL(string: url) {
                     AsyncCachedImage(url: imageUrl)

@@ -269,8 +269,11 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         let asset = AVAsset(url: url)
         let imageGenerator = AVAssetImageGenerator(asset: asset)
         imageGenerator.appliesPreferredTrackTransform = true
+        imageGenerator.requestedTimeToleranceAfter = .zero
+        imageGenerator.requestedTimeToleranceBefore = .zero
 
-        let time = CMTime(seconds: 0, preferredTimescale: 600)
+        let time = CMTime(seconds: 0.1, preferredTimescale: 600)
+
         do {
             let cgImage = try imageGenerator.copyCGImage(at: time, actualTime: nil)
             return UIImage(cgImage: cgImage)
