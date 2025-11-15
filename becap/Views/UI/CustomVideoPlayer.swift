@@ -23,11 +23,18 @@ struct CustomVideoPlayer: UIViewRepresentable {
     func makeUIView(context: Context) -> PlayerContainerView {
         let container = PlayerContainerView(frame: UIScreen.main.bounds)
         container.configure(with: videoURL, thumbnailURL: thumbnailURL, configuration: configuration)
+        enablePlayingWhileRingerIsSetToSilent()
         return container
     }
 
     func updateUIView(_ uiView: PlayerContainerView, context: Context) {
         uiView.applyConfiguration(configuration)
+    }
+
+    func enablePlayingWhileRingerIsSetToSilent() {
+        guard let _ = try? AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback,
+                                                                       mode: AVAudioSession.Mode.default,
+                                                                       options: []) else { return }
     }
 }
 
