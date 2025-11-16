@@ -241,6 +241,24 @@ import SwiftUI
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingCalendarChallengeId: String? = nil
     @Published var pendingPhotoLink: PhotoDeepLink? = nil
+    private let notificationCenter: NotificationCenter
+    private var notificationObserver: NSObjectProtocol?
+
+    init(notificationCenter: NotificationCenter = .default) {
+        self.notificationCenter = notificationCenter
+        notificationObserver = notificationCenter.addObserver(forName: .deepLinkRouterHandleExternalURL,
+                                                              object: nil,
+                                                              queue: .main) { [weak self] notification in
+            guard let url = notification.userInfo?["url"] as? URL else { return }
+            self?.handle(url: url)
+        }
+    }
+
+    deinit {
+        if let observer = notificationObserver {
+            notificationCenter.removeObserver(observer)
+        }
+    }
 
     // Appelle ceci depuis .onOpenURL
     func handle(url: URL) {
@@ -284,4 +302,8 @@ final class DeepLinkRouter: ObservableObject {
     func clearPhotoNavigation() {
         pendingPhotoLink = nil
     }
+}
+
+extension Notification.Name {
+    static let deepLinkRouterHandleExternalURL = Notification.Name("DeepLinkRouter.HandleExternalURL")
 }

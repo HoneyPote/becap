@@ -9,20 +9,25 @@ import Foundation
 import FirebaseFirestore
 import OneSignalFramework
 
-final class NotificationService {
+final class NotificationService: NSObject {
     static let shared = NotificationService()
 
     private let db: Firestore
     private let userManager: UserManager
+    private let notificationCenter: NotificationCenter
     private var pushObserver: PushObserver?
 
     // MARK: - OneSignal constants
     private let onesignalAppId = "58d11a0f-cf16-4555-b258-c94d6afa0af3"
 
 
-    init(db: Firestore = .firestore(), userManager: UserManager = .shared) {
+    init(db: Firestore = .firestore(),
+         userManager: UserManager = .shared,
+         notificationCenter: NotificationCenter = .default) {
         self.db = db
         self.userManager = userManager
+        self.notificationCenter = notificationCenter
+        super.init()
     }
 
     // MARK: - Setup
@@ -30,6 +35,7 @@ final class NotificationService {
     func setupOneSignal(didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) {
         OneSignal.Debug.setLogLevel(.LL_VERBOSE)
         OneSignal.initialize(onesignalAppId, withLaunchOptions: launchOptions)
+        OneSignal.Notifications.addClickListener(self)
 
         OneSignal.Notifications.requestPermission({ accepted in
             print("🔔 User accepted notifications: \(accepted)")
@@ -219,6 +225,22 @@ final class NotificationService {
         return comps.url?.absoluteString ?? "becap://photo?challengeId=\(challengeId)&photoId=\(photoId)"
     }
 
+    private func makeChallengeDeepLink(challengeId: String) -> String {
+        var comps = URLComponents()
+        comps.scheme = "becap"
+        comps.host = "challenge"
+        comps.queryItems = [URLQueryItem(name: "challengeId", value: challengeId)]
+
+        return comps.url?.absoluteString ?? "becap://challenge?challengeId=\(challengeId)"
+    }
+
+    private func dispatchDeepLinkURL(_ urlString: String) {
+        guard let url = URL(string: urlString) else { return }
+        notificationCenter.post(name: .deepLinkRouterHandleExternalURL,
+                                object: nil,
+                                userInfo: ["url": url])
+    }
+
     private func sendForUser(externalIds: [String],
                              playerIds: [String],
                              headings: [String: String],
@@ -301,6 +323,29 @@ final class NotificationService {
                 onInvalidPlayers([])
             }
         }.resume()
+    }
+}
+
+// MARK: - Push click listener
+extension NotificationService: OSNotificationClickListener {
+    func notificationClicked(_ event: OSNotificationClickEvent) {
+        if let launchURL = event.notification.launchURL,
+           let url = URL(string: launchURL) {
+            dispatchDeepLinkURL(url.absoluteString)
+            return
+        }
+
+        guard let data = event.notification.additionalData,
+              let type = data["type"] as? String,
+              let challengeId = data["challengeId"] as? String else { return }
+
+        if let photoId = data["photoId"] as? String,
+           !photoId.isEmpty,
+           type.hasPrefix("photo_") {
+            dispatchDeepLinkURL(makePhotoDeepLink(challengeId: challengeId, photoId: photoId))
+        } else {
+            dispatchDeepLinkURL(makeChallengeDeepLink(challengeId: challengeId))
+        }
     }
 }
 
