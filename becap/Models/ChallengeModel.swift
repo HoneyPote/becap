@@ -127,6 +127,26 @@ struct ChallengePost: Identifiable, Codable, Hashable {
 
     var media: ChallengeMedia
 
+    init(id: String? = nil,
+         challengeId: String,
+         authorUid: String,
+         authorName: String,
+         description: String?,
+         date: Date,
+         likes: [String]? = nil,
+         jokerState: PhotoJokerState? = nil,
+         media: ChallengeMedia) {
+        self._id = id
+        self.challengeId = challengeId
+        self.authorUid = authorUid
+        self.authorName = authorName
+        self.description = description
+        self.date = date
+        self.likes = likes
+        self.jokerState = jokerState
+        self.media = media
+    }
+
     static func == (lhs: ChallengePost, rhs: ChallengePost) -> Bool {
         lhs.id == rhs.id
     }
@@ -221,6 +241,24 @@ import SwiftUI
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingCalendarChallengeId: String? = nil
     @Published var pendingPhotoLink: PhotoDeepLink? = nil
+    private let notificationCenter: NotificationCenter
+    private var notificationObserver: NSObjectProtocol?
+
+    init(notificationCenter: NotificationCenter = .default) {
+        self.notificationCenter = notificationCenter
+        notificationObserver = notificationCenter.addObserver(forName: .deepLinkRouterHandleExternalURL,
+                                                              object: nil,
+                                                              queue: .main) { [weak self] notification in
+            guard let url = notification.userInfo?["url"] as? URL else { return }
+            self?.handle(url: url)
+        }
+    }
+
+    deinit {
+        if let observer = notificationObserver {
+            notificationCenter.removeObserver(observer)
+        }
+    }
 
     // Appelle ceci depuis .onOpenURL
     func handle(url: URL) {
@@ -264,4 +302,8 @@ final class DeepLinkRouter: ObservableObject {
     func clearPhotoNavigation() {
         pendingPhotoLink = nil
     }
+}
+
+extension Notification.Name {
+    static let deepLinkRouterHandleExternalURL = Notification.Name("DeepLinkRouter.HandleExternalURL")
 }
