@@ -339,12 +339,12 @@ final class NotificationService: NSObject {
 
 // MARK: - Push click listener
 extension NotificationService: OSNotificationClickListener {
-    func notificationClicked(_ event: OSNotificationClickEvent) {
+    func onClick(event: OSNotificationClickEvent) {
         if let launchURL = event.notification.launchURL,
            let url = URL(string: launchURL) {
             dispatchDeepLinkURL(url.absoluteString)
             return
-        }
+    }
 
         guard let data = event.notification.additionalData,
               let type = data["type"] as? String,
