@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Foundation
 
 struct TabBottomView: View {
     @Binding var selectedIndex: Int
@@ -22,7 +23,12 @@ struct TabBottomView: View {
             ForEach(tabbarItems.indices, id: \.self) { index in
                 let item = tabbarItems[index]
                 Button {
-                    self.selectedIndex = index
+                    if selectedIndex == index {
+                        NotificationCenter.default.post(name: .tabBarItemReselected,
+                                                          object: TabType(rawValue: index))
+                    } else {
+                        selectedIndex = index
+                    }
                 } label: {
                     let isSelected = selectedIndex == index
                     TabItemView(data: item, isSelected: isSelected)
@@ -35,4 +41,8 @@ struct TabBottomView: View {
         .cornerRadius(33)
         .shadow(radius: 5, x: 0, y: 4)
     }
+}
+
+extension Notification.Name {
+    static let tabBarItemReselected = Notification.Name("TabBarItemReselected")
 }

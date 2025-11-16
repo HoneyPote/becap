@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 // MARK: - Day helpers (normalize to day precision everywhere)
 private let CAL = Calendar.current
@@ -118,6 +119,10 @@ struct CalendarDetailView: View {
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
+        .onReceive(NotificationCenter.default.publisher(for: .tabBarItemReselected)) { notification in
+            guard let tab = notification.object as? TabType, tab == .home else { return }
+            dismiss()
+        }
         .onAppear {
             if viewModel.doneLoadingPosts {
                 openInitialPhotoIfNeeded()
