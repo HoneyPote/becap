@@ -71,6 +71,15 @@ class HomeViewModel: ObservableObject {
         }
     }
 
+    func ensureMembershipIfNeeded(for challengeId: String) async throws {
+        if challengeManager.challenges.contains(where: { $0.id == challengeId }) {
+            try await challengeManager.fetchAndFilterChallenges()
+            return
+        }
+
+        try await challengeManager.ensureMembership(in: challengeId)
+    }
+
     func cancelDelete() {
         challengeToDelete = nil
         showDeleteAlert = false
