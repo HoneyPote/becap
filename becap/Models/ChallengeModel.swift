@@ -127,6 +127,26 @@ struct ChallengePost: Identifiable, Codable, Hashable {
 
     var media: ChallengeMedia
 
+    init(id: String? = nil,
+         challengeId: String,
+         authorUid: String,
+         authorName: String,
+         description: String?,
+         date: Date,
+         likes: [String]? = nil,
+         jokerState: PhotoJokerState? = nil,
+         media: ChallengeMedia) {
+        self._id = id
+        self.challengeId = challengeId
+        self.authorUid = authorUid
+        self.authorName = authorName
+        self.description = description
+        self.date = date
+        self.likes = likes
+        self.jokerState = jokerState
+        self.media = media
+    }
+
     static func == (lhs: ChallengePost, rhs: ChallengePost) -> Bool {
         lhs.id == rhs.id
     }

@@ -190,14 +190,21 @@ extension ChallengeService {
 
         guard let challengeMedia else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
 
-        let post = ChallengePost(challengeId: challengeId,
+        let docRef = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .document()
+
+        let post = ChallengePost(id: docRef.documentID,
+                                 challengeId: challengeId,
                                  authorUid: authorId,
                                  authorName: author.name,
                                  description: description,
                                  date: Date(),
                                  media: challengeMedia)
 
-        try savePostToFirebase(post, challengeId: challengeId)
+        try docRef.setData(from: post)
 
         return post
     }
@@ -357,15 +364,6 @@ extension ChallengeService {
         }
     }
 
-    private func savePostToFirebase(_ post: ChallengePost, challengeId: String) throws {
-        let docRef = firestoreDB
-            .collection(collecChallenges)
-            .document(challengeId)
-            .collection(collecPhotos)
-            .document()
-
-		try docRef.setData(from: post)
-    }
 }
 
 // MARK: - Chat
