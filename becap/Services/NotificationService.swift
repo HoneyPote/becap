@@ -137,6 +137,11 @@ final class NotificationService: NSObject {
                               from userName: String,
                               challenge: Challenge,
                               photoId: String) async {
+        if authorUid == userManager.currentUser?.id {
+            print("ℹ️ sendLikeNotification ignoré: l’auteur est l’utilisateur courant")
+            return
+        }
+
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New like!", "fr": "Nouvelle mention J’aime !"]
@@ -166,6 +171,11 @@ final class NotificationService: NSObject {
                                  challenge: Challenge,
                                  commentText: String,
                                  photoId: String) async {
+        if authorUid == userManager.currentUser?.id {
+            print("ℹ️ sendCommentNotification ignoré: l’auteur est l’utilisateur courant")
+            return
+        }
+
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New comment 💬", "fr": "Nouveau commentaire 💬"]
@@ -269,6 +279,7 @@ final class NotificationService: NSObject {
 
         if let appUrl {
             payload["appUrl"] = appUrl
+            payload["app_url"] = appUrl
         }
 
         // On laisse la Cloud Function parler à OneSignal
