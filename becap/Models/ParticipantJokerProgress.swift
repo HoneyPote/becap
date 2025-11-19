@@ -25,11 +25,11 @@ struct ParticipantJokerProgress: Codable, Hashable {
     }
 
     mutating func registerConfirmedUsage(on date: Date,
-                                         photoId: String?,
+                                         postId: String?,
                                          declaredByAuthor: Bool,
                                          voters: [String]) {
-        if let photoId,
-           let index = usages.firstIndex(where: { $0.photoId == photoId }) {
+        if let postId,
+           let index = usages.firstIndex(where: { $0.postId == postId }) {
             var usage = usages[index]
             usage.voters = voters
             usage.declaredByAuthor = declaredByAuthor
@@ -40,7 +40,7 @@ struct ParticipantJokerProgress: Codable, Hashable {
         }
 
         let usage = JokerUsage(date: date,
-                               photoId: photoId,
+                               postId: postId,
                                declaredByAuthor: declaredByAuthor,
                                voters: voters,
                                status: .confirmed,
@@ -48,8 +48,8 @@ struct ParticipantJokerProgress: Codable, Hashable {
         usages.append(usage)
     }
 
-    mutating func removeUsage(withPhotoId photoId: String?) {
-        guard let photoId else { return }
-        usages.removeAll { $0.photoId == photoId }
+    mutating func removeUsage(withPostId postId: String?) {
+        guard let postId else { return }
+        usages.removeAll { $0.postId == postId }
     }
 }

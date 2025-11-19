@@ -206,7 +206,7 @@ struct NewChallengeView: View {
                                 }
                             }
 
-                            Text("Les jokers permettent de sauver un jour sans photo. Les participants peuvent voter pour valider un joker sur une publication si la majorité l'estime nécessaire.")
+                            Text("Les jokers permettent de sauver un jour sans post. Les participants peuvent voter pour valider un joker sur une publication si la majorité l'estime nécessaire.")
                                 .font(.footnote)
                                 .foregroundColor(.white.opacity(0.65))
                         }

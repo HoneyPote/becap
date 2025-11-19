@@ -123,20 +123,18 @@ struct ChallengePost: Identifiable, Codable, Hashable {
     var date: Date                       // Date de prise ou de soumission
 
     var likes: [String]? // <--- AJOUTE CE CHAMP ! (optional pour backward compatibilité)
-    var jokerState: PhotoJokerState?
+    var jokerState: PostJokerState?
 
     var media: ChallengeMedia
 
-    init(id: String? = nil,
-         challengeId: String,
+    init(challengeId: String,
          authorUid: String,
          authorName: String,
          description: String?,
          date: Date,
          likes: [String]? = nil,
-         jokerState: PhotoJokerState? = nil,
+         jokerState: PostJokerState? = nil,
          media: ChallengeMedia) {
-        self._id = id
         self.challengeId = challengeId
         self.authorUid = authorUid
         self.authorName = authorName
@@ -231,16 +229,17 @@ struct ChallengeNotification: Codable {
 
 
 
-struct PhotoDeepLink: Equatable {
+struct PostDeepLink: Equatable {
     let challengeId: String
-    let photoId: String
+    let postId: String
 }
 
 import SwiftUI
 
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingCalendarChallengeId: String? = nil
-    @Published var pendingPhotoLink: PhotoDeepLink? = nil
+    @Published var pendingPostLink: PostDeepLink? = nil
+
     private let notificationCenter: NotificationCenter
     private var notificationObserver: NSObjectProtocol?
 
@@ -278,15 +277,15 @@ final class DeepLinkRouter: ObservableObject {
 
         case "photo":
             let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
-            let photoId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value
+            let postId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value
 
             guard let challengeId, !challengeId.isEmpty,
-                  let photoId, !photoId.isEmpty else { return }
+                  let postId, !postId.isEmpty else { return }
 
             DispatchQueue.main.async {
                 // Définir d'abord la cible photo pour que les observateurs disposent
                 // de l'identifiant avant que le challenge ne déclenche la navigation.
-                self.pendingPhotoLink = PhotoDeepLink(challengeId: challengeId, photoId: photoId)
+                self.pendingPostLink = PostDeepLink(challengeId: challengeId, postId: postId)
                 self.pendingCalendarChallengeId = challengeId
             }
 
@@ -299,8 +298,8 @@ final class DeepLinkRouter: ObservableObject {
         pendingCalendarChallengeId = nil
     }
 
-    func clearPhotoNavigation() {
-        pendingPhotoLink = nil
+    func clearPostNavigation() {
+        pendingPostLink = nil
     }
 }
 

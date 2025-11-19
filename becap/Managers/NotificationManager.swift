@@ -104,7 +104,7 @@ class NotificationManager {
 
     private func makeContent(for challenge: Challenge) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
-        content.title = "Photo challenge: \(challenge.title)"
+        content.title = "Post challenge: \(challenge.title)"
         content.body = "It's time to post your picture for the challenge!"
         content.sound = .default
         return content

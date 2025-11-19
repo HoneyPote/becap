@@ -254,7 +254,7 @@ struct NotificationSettingsView: View {
     }
 }
 
-extension Date: Identifiable {
+extension Date: @retroactive Identifiable {
     public var id: String {
         ISO8601DateFormatter().string(from: self)
     }

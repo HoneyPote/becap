@@ -34,14 +34,14 @@ struct CalendarDetailView: View {
     @State private var isShareSheetPresented = false
     @State private var shareItems: [Any] = []
     @State private var pagerInfo: PagerInfo?
-    @State private var pendingInitialPhotoId: String?
+    @State private var pendingInitialPostId: String?
     @State private var showJokerBubble = false
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
 
-    init(challenge: Challenge, initialPhotoId: String? = nil) {
+    init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
-        _pendingInitialPhotoId = State(initialValue: initialPhotoId)
+        _pendingInitialPostId = State(initialValue: initialPostId)
     }
 
     var body: some View {
@@ -99,7 +99,7 @@ struct CalendarDetailView: View {
                         }
 
                     BubbleOverlay {
-                        buildGridPhotos(cell: cell)
+                        buildGridPosts(cell: cell)
                     }
                     .transition(.scale.combined(with: .opacity))
                 }
@@ -125,16 +125,16 @@ struct CalendarDetailView: View {
         }
         .onAppear {
             if viewModel.doneLoadingPosts {
-                openInitialPhotoIfNeeded()
+                openInitialPostIfNeeded()
             }
         }
         .onChange(of: viewModel.doneLoadingPosts) { isDone in
             if isDone {
-                openInitialPhotoIfNeeded()
+                openInitialPostIfNeeded()
             }
         }
         .onChange(of: viewModel.allPosts) { _ in
-            openInitialPhotoIfNeeded()
+            openInitialPostIfNeeded()
         }
         .onChange(of: selectedParticipant) { _ in
             showJokerBubble = false
@@ -293,7 +293,7 @@ struct CalendarDetailView: View {
                 }
                 .sheet(isPresented: $showParticipantsSheet) {
                     ParticipantsOverviewView(participants: viewModel.participants,
-                                             photos: viewModel.allPosts,
+                                             posts: viewModel.allPosts,
                                              progresses: viewModel.participantProgresses,
                                              chatMessages: viewModel.chatMessages,
                                              hasUnreadMessages: viewModel.chatHasUnreadMessages,
@@ -307,7 +307,7 @@ struct CalendarDetailView: View {
                     },
                                              onChatOpened: {
                         Task {
-                            await viewModel.markChatAsRead()
+                            viewModel.markChatAsRead()
                         }
                     })
                 }
@@ -343,7 +343,7 @@ struct CalendarDetailView: View {
         }
     }
 
-    private func buildGridPhotos(cell: CalendarDetailCell) -> some View {
+    private func buildGridPosts(cell: CalendarDetailCell) -> some View {
         GridPostsInline(cell: cell,
                         getParticipant: { viewModel.getParticipant(for: $0) },
                         onClose: {
@@ -479,22 +479,22 @@ extension CalendarDetailView {
         )
     }
 
-    private func openInitialPhotoIfNeeded() {
+    private func openInitialPostIfNeeded() {
         guard viewModel.doneLoadingPosts,
-              let photoId = pendingInitialPhotoId else { return }
+              let postId = pendingInitialPostId else { return }
 
-        guard let photo = viewModel.allPosts.first(where: { $0.id == photoId }) else {
+        guard let post = viewModel.allPosts.first(where: { $0.id == postId }) else {
             return
         }
 
         let cells = viewModel.buildDetailcells(for: nil)
-        guard let cell = cells.first(where: { sameDay($0.date, photo.date) }),
-              let index = cell.posts.firstIndex(where: { $0.id == photoId }) else {
+        guard let cell = cells.first(where: { sameDay($0.date, post.date) }),
+              let index = cell.posts.firstIndex(where: { $0.id == postId }) else {
             return
         }
 
         pagerInfo = PagerInfo(posts: cell.posts, index: index, date: cell.date)
-        pendingInitialPhotoId = nil
+        pendingInitialPostId = nil
     }
 
     private func updateJokerBubbleSize(_ size: CGSize) {

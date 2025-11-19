@@ -21,7 +21,7 @@ final class ChallengeShareItem: NSObject, UIActivityItemSource {
         message
     }
 
-    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any {
+    func activityViewController(_ activityViewController: UIActivityViewController, itemForActivityType activityType: UIActivity.ActivityType?) -> Any? {
         message
     }
 

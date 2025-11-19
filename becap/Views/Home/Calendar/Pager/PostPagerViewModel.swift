@@ -39,26 +39,20 @@ final class PostStore: ObservableObject {
         return vm
     }
 
-    func removeViewModel(for photo: ChallengePost) {
-        let key = makeKey(for: photo)
+    func removeViewModel(for post: ChallengePost) {
+        let key = makeKey(for: post)
 
         lock.lock()
-        defer { lock.unlock() }
+        do { lock.unlock() }
 
-        if let entry = cache.removeValue(forKey: key) {
-            entry.viewModel.invalidate()
-        }
+        cache.removeValue(forKey: key)
     }
 
-    private func makeKey(for photo: ChallengePost) -> String {
-//        if let photoId = photo.id, !photoId.isEmpty {
-//            return photoId
-//        }
+    private func makeKey(for post: ChallengePost) -> String {
+        let challengeComponent = post.challengeId
+        let timestamp = post.date.timeIntervalSince1970
 
-        let challengeComponent = photo.challengeId
-        let timestamp = photo.date.timeIntervalSince1970
-
-        return "\(challengeComponent)_\(photo.authorUid)_\(timestamp)"
+        return "\(challengeComponent)_\(post.authorUid)_\(timestamp)"
     }
 
     private func trimIfNeeded() {
@@ -70,25 +64,19 @@ final class PostStore: ObservableObject {
             .prefix(overflow)
             .map { $0.key }
 
-        for key in keysToRemove {
-            if let entry = cache.removeValue(forKey: key) {
-                entry.viewModel.invalidate()
-            }
-        }
+        keysToRemove.forEach { cache.removeValue(forKey: $0) }
     }
 }
 
 final class PostViewModel: ObservableObject, Identifiable {
     @Published var likes: [String]
     @Published var comments: [PostCommentModel] = []
-	@Published var jokerState: PhotoJokerState
+	@Published var jokerState: PostJokerState
 
     let post: ChallengePost
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
-    private var likesListener: ListenerRegistration?
-    private var commentsListener: ListenerRegistration?
 
     var postFormattedDate: String {
         let dateFormatter = DateFormatter()
@@ -103,15 +91,11 @@ final class PostViewModel: ObservableObject, Identifiable {
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared) {
         self.post = post
         self.likes = post.likes ?? []
-		self.jokerState = post.jokerState ?? PhotoJokerState()
+		self.jokerState = post.jokerState ?? PostJokerState()
         self.challengeService = challengeService
         self.challengeManager = challengeManager
 
         listenToPost()
-    }
-
-    deinit {
-        invalidate()
     }
 
     func like() {
@@ -154,7 +138,7 @@ final class PostViewModel: ObservableObject, Identifiable {
         Task {
             try await challengeManager.declareJokerUsage(for: challenge,
                                                          on: post.date,
-                                                         photoId: post.id)
+                                                         postId: post.id)
         }
     }
 
@@ -168,7 +152,7 @@ final class PostViewModel: ObservableObject, Identifiable {
             guard let updated else { return }
 
             self?.likes = updated.likes ?? []
-            self?.jokerState = updated.jokerState ?? PhotoJokerState()
+            self?.jokerState = updated.jokerState ?? PostJokerState()
         }
     }
 
@@ -176,13 +160,6 @@ final class PostViewModel: ObservableObject, Identifiable {
         challengeService.listenToComments(challengeId: challengeId, postId: postId) { [weak self] updated in
             self?.comments = updated
         }
-    }
-
-    func invalidate() {
-        likesListener?.remove()
-        likesListener = nil
-        commentsListener?.remove()
-        commentsListener = nil
     }
 }
 
@@ -221,7 +198,7 @@ class PostPagerViewModel: ObservableObject {
         return currentUserId == selectedPostVM.post.authorUid
     }
 
-    var selectedJokerState: PhotoJokerState {
+    var selectedJokerState: PostJokerState {
         selectedPostVM.jokerState
     }
 

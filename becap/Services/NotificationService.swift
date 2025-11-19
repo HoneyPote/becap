@@ -85,7 +85,7 @@ final class NotificationService: NSObject {
         db.collection("users").document(userId).setData(["onesignalPlayerId": oneSignalPushId], merge: true)
     }
 
-    func sendPhotoNotification(challenge: Challenge, authorName: String, photoId: String) async {
+    func sendPostNotification(challenge: Challenge, authorName: String, postId: String) async {
         do {
             // Exclure l’auteur, dédupliquer
             let allParticipants = challenge.participantUids
@@ -93,7 +93,7 @@ final class NotificationService: NSObject {
             let externalIds = Array(Set(allParticipants.filter { $0 != selfUid }))
 
             if externalIds.isEmpty {
-                print("⚠️ sendPhotoNotification: aucun destinataire (participants == auteur ou vide).")
+                print("⚠️ sendPostNotification: aucun destinataire (participants == auteur ou vide).")
                 return
             }
 
@@ -105,17 +105,17 @@ final class NotificationService: NSObject {
                 "fr": "Nouveau post dans \"\(challenge.title)\""
             ]
             let contents = [
-                "en": "\(authorName) added a new photo!",
-                "fr": "\(authorName) à publié un nouveau post!"
+                "en": "\(authorName) added a new post!",
+                "fr": "\(authorName) à publié un nouveau post !"
             ]
 
             print("📬 PHOTO → externalIds=\(externalIds) playerIds=\(playerIds)")
 
-            let deepLink = makePhotoDeepLink(challengeId: challenge.id, photoId: photoId)
+            let deepLink = makePostDeepLink(challengeId: challenge.id, postId: postId)
             let additionalData: [String: Any] = [
                 "type": "photo_posted",
                 "challengeId": challenge.id,
-                "photoId": photoId
+                "photoId": postId
             ]
 
             // Passe par le même helper que like/comment
@@ -124,11 +124,11 @@ final class NotificationService: NSObject {
                         headings: headings,
                         contents: contents,
                         userIdForCleanup: externalIds.first ?? "",
-                        context: "sendPhotoNotification",
+                        context: "sendPostNotification",
                         additionalData: additionalData,
                         appUrl: deepLink)
         } catch {
-            print("❌ Erreur sendPhotoNotification: \(error)")
+            print("❌ Erreur sendPostNotification: \(error)")
         }
     }
 
@@ -136,7 +136,7 @@ final class NotificationService: NSObject {
     func sendLikeNotification(to authorUid: String,
                               from userName: String,
                               challenge: Challenge,
-                              photoId: String) async {
+                              postId: String) async {
         if authorUid == userManager.currentUser?.id {
             print("ℹ️ sendLikeNotification ignoré: l’auteur est l’utilisateur courant")
             return
@@ -145,15 +145,15 @@ final class NotificationService: NSObject {
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New like!", "fr": "Nouvelle mention J’aime !"]
-        let contents = ["en": "\(userName) liked your photo in \"\(challenge.title)\"",
-                        "fr": "\(userName) a liké ta photo dans \"\(challenge.title)\""]
+        let contents = ["en": "\(userName) liked your post in \"\(challenge.title)\"",
+                        "fr": "\(userName) a liké ta post dans \"\(challenge.title)\""]
 
         print("🔔 LIKE → authorUid=\(authorUid) playerIds=\(playerIds)")
-        let deepLink = makePhotoDeepLink(challengeId: challenge.id, photoId: photoId)
+        let deepLink = makePostDeepLink(challengeId: challenge.id, postId: postId)
         let additionalData: [String: Any] = [
             "type": "photo_liked",
             "challengeId": challenge.id,
-            "photoId": photoId
+            "photoId": postId
         ]
         sendForUser(externalIds: [authorUid],
                     playerIds: playerIds,
@@ -170,7 +170,7 @@ final class NotificationService: NSObject {
                                  from userName: String,
                                  challenge: Challenge,
                                  commentText: String,
-                                 photoId: String) async {
+                                 postId: String) async {
         if authorUid == userManager.currentUser?.id {
             print("ℹ️ sendCommentNotification ignoré: l’auteur est l’utilisateur courant")
             return
@@ -179,15 +179,15 @@ final class NotificationService: NSObject {
         let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
 
         let headings = ["en": "New comment 💬", "fr": "Nouveau commentaire 💬"]
-        let contents = ["en": "\(userName) commented your photo in \"\(challenge.title)\": \"\(commentText)\"",
-                        "fr": "\(userName) a commenté ta photo dans \"\(challenge.title)\" : \"\(commentText)\""]
+        let contents = ["en": "\(userName) commented your post in \"\(challenge.title)\": \"\(commentText)\"",
+                        "fr": "\(userName) a commenté ta post dans \"\(challenge.title)\" : \"\(commentText)\""]
 
         print("🔔 COMMENT → authorUid=\(authorUid) playerIds=\(playerIds)")
-        let deepLink = makePhotoDeepLink(challengeId: challenge.id, photoId: photoId)
+        let deepLink = makePostDeepLink(challengeId: challenge.id, postId: postId)
         let additionalData: [String: Any] = [
             "type": "photo_commented",
             "challengeId": challenge.id,
-            "photoId": photoId
+            "photoId": postId
         ]
         sendForUser(externalIds: [authorUid],
                     playerIds: playerIds,
@@ -223,16 +223,16 @@ final class NotificationService: NSObject {
     }
 
     // MARK: - Core send helpers
-    private func makePhotoDeepLink(challengeId: String, photoId: String) -> String {
+    private func makePostDeepLink(challengeId: String, postId: String) -> String {
         var comps = URLComponents()
         comps.scheme = "becap"
         comps.host = "photo"
         comps.queryItems = [
             URLQueryItem(name: "challengeId", value: challengeId),
-            URLQueryItem(name: "photoId", value: photoId)
+            URLQueryItem(name: "photoId", value: postId)
         ]
 
-        return comps.url?.absoluteString ?? "becap://photo?challengeId=\(challengeId)&photoId=\(photoId)"
+        return comps.url?.absoluteString ?? "becap://photo?challengeId=\(challengeId)&photoId=\(postId)"
     }
 
     private func makeChallengeDeepLink(challengeId: String) -> String {
@@ -350,10 +350,10 @@ extension NotificationService: OSNotificationClickListener {
               let type = data["type"] as? String,
               let challengeId = data["challengeId"] as? String else { return }
 
-        if let photoId = data["photoId"] as? String,
-           !photoId.isEmpty,
+        if let postId = data["photoId"] as? String,
+           !postId.isEmpty,
            type.hasPrefix("photo_") {
-            dispatchDeepLinkURL(makePhotoDeepLink(challengeId: challengeId, photoId: photoId))
+            dispatchDeepLinkURL(makePostDeepLink(challengeId: challengeId, postId: postId))
         } else {
             dispatchDeepLinkURL(makeChallengeDeepLink(challengeId: challengeId))
         }

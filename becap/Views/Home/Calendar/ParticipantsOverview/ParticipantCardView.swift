@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct ParticipantOverviewStats {
-    let photosCount: Int
+    let postsCount: Int
     let likesCount: Int
     let streak: Int
     let validatedDays: Int

@@ -19,7 +19,7 @@ struct HomeView: View {
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
-    @State private var deepLinkedPhotoId: String?
+    @State private var deepLinkedPostId: String?
     @State private var deepLinkJoinError: String?
 
     var body: some View {
@@ -74,6 +74,7 @@ struct HomeView: View {
                 }
                 .allowsHitTesting(false)
             )
+            .withTabBarInset()
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // lien de deep link caché
         }
@@ -109,16 +110,16 @@ struct HomeView: View {
             guard let challengeId else {
                 isResolvingDeepLink = false
                 hasLoadedChallengesForPendingDeepLink = false
-                if !navigateToDeepLinkedChallenge { deepLinkedPhotoId = nil }
+                if !navigateToDeepLinkedChallenge { deepLinkedPostId = nil }
                 return
             }
             beginResolvingDeepLink(for: challengeId)
         }
-        .onChange(of: deepLinkRouter.pendingPhotoLink) { link in
+        .onChange(of: deepLinkRouter.pendingPostLink) { link in
             guard let link else { return }
 
             if let challenge = deepLinkedChallenge, challenge.id == link.challengeId {
-                deepLinkedPhotoId = link.photoId
+                deepLinkedPostId = link.postId
             }
 
             if isResolvingDeepLink,
@@ -265,18 +266,18 @@ extension HomeView {
     @ViewBuilder
     private var deepLinkNavigationDestination: some View {
         if let challenge = deepLinkedChallenge {
-            CalendarDetailView(challenge: challenge, initialPhotoId: deepLinkedPhotoId)
-                .id(calendarDetailIdentity(for: challenge, photoId: deepLinkedPhotoId))
-                .onDisappear { deepLinkedPhotoId = nil }
+            CalendarDetailView(challenge: challenge, initialPostId: deepLinkedPostId)
+                .id(calendarDetailIdentity(for: challenge, postId: deepLinkedPostId))
+                .onDisappear { deepLinkedPostId = nil }
         } else {
             EmptyView()
         }
     }
 
-    private func calendarDetailIdentity(for challenge: Challenge, photoId: String?) -> String {
+    private func calendarDetailIdentity(for challenge: Challenge, postId: String?) -> String {
         let base = challenge.id
-        if let photoId, !photoId.isEmpty {
-            return "\(base)|photo:\(photoId)"
+        if let postId, !postId.isEmpty {
+            return "\(base)|photo:\(postId)"
         }
         return "\(base)|calendar"
     }
@@ -294,7 +295,7 @@ extension HomeView {
                     deepLinkJoinError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
                     isResolvingDeepLink = false
                     deepLinkRouter.clearChallengeNavigation()
-                    deepLinkRouter.clearPhotoNavigation()
+                    deepLinkRouter.clearPostNavigation()
                 }
             }
         }
@@ -307,17 +308,17 @@ extension HomeView {
     private func attemptNavigationToChallenge(withId challengeId: String) {
         if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
             deepLinkedChallenge = challenge
-            if let link = deepLinkRouter.pendingPhotoLink,
+            if let link = deepLinkRouter.pendingPostLink,
                link.challengeId == challengeId {
-                deepLinkedPhotoId = link.photoId
+                deepLinkedPostId = link.postId
             } else {
-                deepLinkedPhotoId = nil
+                deepLinkedPostId = nil
             }
             navigateToDeepLinkedChallenge = true
             isResolvingDeepLink = false
 
             deepLinkRouter.clearChallengeNavigation()
-            deepLinkRouter.clearPhotoNavigation()
+            deepLinkRouter.clearPostNavigation()
         }
     }
 }

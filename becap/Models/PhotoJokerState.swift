@@ -1,5 +1,5 @@
 //
-//  PhotoJokerState.swift
+//  PostJokerState.swift
 //  becap
 //
 //  Created by OpenAI on 09/08/2025.
@@ -7,7 +7,7 @@
 
 import Foundation
 
-struct PhotoJokerState: Codable, Hashable {
+struct PostJokerState: Codable, Hashable {
     var declaredByAuthor: Bool
     var voters: [String]
     var isConfirmed: Bool

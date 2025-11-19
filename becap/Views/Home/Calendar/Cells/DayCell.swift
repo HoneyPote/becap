@@ -28,12 +28,12 @@ struct DayCell: View {
     let isSelected: Bool
     let tap: () -> Void
 
-    private var hasPhotos: Bool { postCount > 0 }
+    private var hasPosts: Bool { postCount > 0 }
     private var hasJokerUsage: Bool { jokerCount > 0 }
 
     var body: some View {
         Button {
-            if hasPhotos || hasJokerUsage { Haptics.lightTap() }
+            if hasPosts || hasJokerUsage { Haptics.lightTap() }
             tap()
         } label: {
             ZStack {
@@ -62,7 +62,7 @@ struct DayCell: View {
             // badge photos en haut-droite
             .overlay(alignment: .topTrailing) {
                 VStack(alignment: .trailing, spacing: 4) {
-                    if hasPhotos {
+                    if hasPosts {
                         HStack(spacing: 4) {
                             Image(systemName: "camera.fill")
                                 .font(.system(size: 9, weight: .bold))

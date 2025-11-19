@@ -11,7 +11,7 @@ struct ParticipantsOverviewView: View {
     @Environment(\.dismiss) private var dismiss
 
     let participants: [Participant]
-    let photos: [ChallengePost]
+    let posts: [ChallengePost]
     let progresses: [ParticipantProgress]
     let chatMessages: [ChallengeChatMessage]
     let hasUnreadMessages: Bool
@@ -89,22 +89,20 @@ struct ParticipantsOverviewView: View {
     }
 
     private func stats(for participant: Participant) -> ParticipantOverviewStats {
-        let participantPhotos = photos.filter { $0.authorUid == participant.id }
-        let likes = participantPhotos.reduce(0) { partialResult, photo in
-            partialResult + (photo.likes?.count ?? 0)
+        let participantPosts = posts.filter { $0.authorUid == participant.id }
+        let likes = participantPosts.reduce(0) { partialResult, post in
+            partialResult + (post.likes?.count ?? 0)
         }
         let progress = progresses.first { $0.id == participant.id }
         let jokerProgress = progress?.jokerProgress
         let totalJokers = jokerProgress?.total ?? jokerConfiguration?.jokersPerParticipant ?? 0
         let remainingJokers = jokerProgress?.remaining ?? totalJokers
 
-        return ParticipantOverviewStats(
-            photosCount: participantPhotos.count,
-            likesCount: likes,
-            streak: progress?.currentStreak ?? 0,
-            validatedDays: progress?.validatedDays.count ?? 0,
-            totalJokers: totalJokers,
-            remainingJokers: remainingJokers
-        )
+        return ParticipantOverviewStats(postsCount: participantPosts.count,
+                                        likesCount: likes,
+                                        streak: progress?.currentStreak ?? 0,
+                                        validatedDays: progress?.validatedDays.count ?? 0,
+                                        totalJokers: totalJokers,
+                                        remainingJokers: remainingJokers)
     }
 }

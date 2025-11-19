@@ -29,7 +29,7 @@ struct GridPostsInline: View {
 
         return url
     }
-    private var hasPhotos: Bool { !cell.posts.isEmpty }
+    private var hasPosts: Bool { !cell.posts.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
     var body: some View {
@@ -52,7 +52,7 @@ struct GridPostsInline: View {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: 8) {
                     if postsSorted.isEmpty {
-                        Text("Aucune photo partagée ce jour.")
+                        Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
                             .foregroundColor(.white.opacity(0.75))
                             .frame(maxWidth: .infinity, alignment: .leading)

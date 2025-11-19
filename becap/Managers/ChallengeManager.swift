@@ -34,8 +34,8 @@ protocol ChallengeManagerProtocol {
     func createNewParticipantProgress(userId: String, challenge: Challenge) async throws
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws
     func assignCreationMedalsToUser(_ userId: String) async
-    func declareJokerUsage(for challenge: Challenge, on date: Date, photoId: String?) async throws
-    func toggleJokerVote(for photo: ChallengePost) async throws
+    func declareJokerUsage(for challenge: Challenge, on date: Date, postId: String?) async throws
+    func toggleJokerVote(for post: ChallengePost) async throws
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
@@ -255,9 +255,9 @@ extension ChallengeManager {
         print("✅ Upload réussi, mise à jour progression Firestore...")
         try await updateParticipantProgress(for: challenge.id, userId: currentUserId, date: Date())
 
-        await notificationService.sendPhotoNotification(challenge: challenge,
+        await notificationService.sendPostNotification(challenge: challenge,
                                                         authorName: currentUser.name,
-                                                        photoId: uploadedPost.id)
+                                                        postId: uploadedPost.id)
     }
 
     func loadPosts(from challengeId: String) async throws -> [ChallengePost] {
@@ -283,7 +283,7 @@ extension ChallengeManager {
                     print("❌ Like failed: \(error)")
                     continuation.resume(throwing: error)
                 } else {
-                    print("✅ Photo likée !")
+                    print("✅ Post likée !")
                     continuation.resume()
                 }
             }
@@ -294,7 +294,7 @@ extension ChallengeManager {
         await self.notificationService.sendLikeNotification(to: post.authorUid,
                                                             from: currentUser.name,
                                                             challenge: challenge,
-                                                            photoId: post.id)
+                                                            postId: post.id)
     }
 
     func unlikePost(post: ChallengePost) async throws {
@@ -304,10 +304,10 @@ extension ChallengeManager {
             challengeService.unlikePost(challengeId: post.challengeId, postId: post.id, userId: currentUserId) {
                 error in
                 if let error {
-                    print("❌ Unliking photo failed: \(error)")
+                    print("❌ Unliking post failed: \(error)")
                     continuation.resume(throwing: error)
                 } else {
-                    print("✅ Photo unliked !")
+                    print("✅ Post unliked !")
                     continuation.resume()
                 }
             }
@@ -339,7 +339,7 @@ extension ChallengeManager {
                                                           from: currentUser.name,
                                                           challenge: challenge,
                                                           commentText: content,
-                                                          photoId: post.id)
+                                                          postId: post.id)
     }
 
     // Posts - Privates
@@ -425,27 +425,27 @@ extension ChallengeManager {
         await rewardService.assignCreationMedals(to: userId, createdCount: createdCount)
     }
 
-    func declareJokerUsage(for challenge: Challenge, on date: Date, photoId: String?) async throws {
+    func declareJokerUsage(for challenge: Challenge, on date: Date, postId: String?) async throws {
         guard let currentUser,
               let currentUserId = currentUser.id,
               (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
 
         let voters = [currentUserId]
 
-        if let photoId {
-            let state = PhotoJokerState(declaredByAuthor: true,
+        if let postId {
+            let state = PostJokerState(declaredByAuthor: true,
                                         voters: voters,
                                         isConfirmed: true,
                                         confirmedAt: Date())
-            try await challengeService.updatePhotoJokerState(challengeId: challenge.id,
-                                                             photoId: photoId,
-                                                             state: state)
+            try await challengeService.updatePostJokerState(challengeId: challenge.id,
+                                                            postId: postId,
+                                                            state: state)
         }
 
         try await consumeJoker(for: currentUserId,
                                in: challenge,
                                on: date,
-                               photoId: photoId,
+                               postId: postId,
                                declaredByAuthor: true,
                                voters: voters)
     }
@@ -464,10 +464,10 @@ extension ChallengeManager {
 
         guard (resolvedChallenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
 
-        var state = post.jokerState ?? PhotoJokerState()
+        var state = post.jokerState ?? PostJokerState()
 
         if state.isConfirmed {
-            print("ℹ️ Joker déjà confirmé pour cette photo")
+            print("ℹ️ Joker déjà confirmé pour ce post")
             return
         }
 
@@ -484,15 +484,15 @@ extension ChallengeManager {
         state.isConfirmed = isConfirmed
         state.confirmedAt = isConfirmed ? Date() : nil
 
-        try await challengeService.updatePhotoJokerState(challengeId: post.challengeId,
-                                                         photoId: post.id,
-                                                         state: state)
+        try await challengeService.updatePostJokerState(challengeId: post.challengeId,
+                                                        postId: post.id,
+                                                        state: state)
 
         if isConfirmed {
             try await consumeJoker(for: post.authorUid,
                                    in: resolvedChallenge,
                                    on: post.date,
-                                   photoId: post.id,
+                                   postId: post.id,
                                    declaredByAuthor: state.declaredByAuthor,
                                    voters: state.voters)
         }
@@ -607,7 +607,7 @@ extension ChallengeManager {
     private func consumeJoker(for userId: String,
                               in challenge: Challenge,
                               on date: Date,
-                              photoId: String?,
+                              postId: String?,
                               declaredByAuthor: Bool,
                               voters: [String]) async throws {
         guard var progress = try await fetchProgress(challengeId: challenge.id, userId: userId) else {
@@ -618,7 +618,7 @@ extension ChallengeManager {
         var jokerProgress = progress.jokerProgress
             ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
 
-        let alreadyRecorded = photoId != nil && (jokerProgress.usages.contains { $0.photoId == photoId })
+        let alreadyRecorded = postId != nil && (jokerProgress.usages.contains { $0.postId == postId })
 
         if !alreadyRecorded && jokerProgress.remaining <= 0 {
             print("⚠️ Aucun joker restant pour l'utilisateur \(userId)")
@@ -626,7 +626,7 @@ extension ChallengeManager {
         }
 
         jokerProgress.registerConfirmedUsage(on: date,
-                                             photoId: photoId,
+                                             postId: postId,
                                              declaredByAuthor: declaredByAuthor,
                                              voters: voters)
 

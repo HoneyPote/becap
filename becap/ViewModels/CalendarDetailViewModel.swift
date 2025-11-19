@@ -31,7 +31,7 @@ struct CalendarDayJokerUsage: Identifiable, Hashable {
     let declaredByAuthor: Bool
     let voterIds: [String]
     let voterNames: [String]
-    let photoId: String?
+    let postId: String?
 
     var voteCount: Int { voterIds.count }
 }
@@ -130,16 +130,14 @@ class CalendarDetailViewModel: ObservableObject {
                 let participant = participantMap[progress.id]
 
                 return usagesForDay.map { usage in
-                    CalendarDayJokerUsage(
-                        id: usage.id,
-                        participantId: progress.id,
-                        participantName: participant?.name ?? "Participant",
-                        participantPhotoURL: participant?.photoURL,
-                        declaredByAuthor: usage.declaredByAuthor,
-                        voterIds: usage.voters,
-                        voterNames: usage.voters.compactMap { participantMap[$0]?.name },
-                        photoId: usage.photoId
-                    )
+                    CalendarDayJokerUsage(id: usage.id,
+                                          participantId: progress.id,
+                                          participantName: participant?.name ?? "Participant",
+                                          participantPhotoURL: participant?.photoURL,
+                                          declaredByAuthor: usage.declaredByAuthor,
+                                          voterIds: usage.voters,
+                                          voterNames: usage.voters.compactMap { participantMap[$0]?.name },
+                                          postId: usage.postId)
                 }
             }
 
@@ -231,7 +229,7 @@ class CalendarDetailViewModel: ObservableObject {
             do {
                 try await challengeManager.declareJokerUsage(for: challenge,
                                                              on: Date(),
-                                                             photoId: nil)
+                                                             postId: nil)
                 await MainActor.run {
                     self.fetchInfos()
                 }
@@ -241,7 +239,6 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    @MainActor
     func markChatAsRead() {
         challengeManager.markChatAsRead(for: challenge.id)
         chatHasUnreadMessages = false

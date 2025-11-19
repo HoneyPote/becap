@@ -55,7 +55,7 @@ struct PostPagerView: View {
 
                 if viewModel.postViewModels.isEmpty {
                     Spacer()
-                    Text("Aucune photo")
+                    Text("Aucun post")
                         .foregroundColor(.white)
                     Spacer()
                 } else {
@@ -91,7 +91,7 @@ struct PostPagerView: View {
                              secondaryButton: .cancel())
             case .vote:
                 return Alert(title: Text("Voter pour un joker"),
-                             message: Text("Confirmer que cette photo doit utiliser un joker ?"),
+                             message: Text("Confirmer que ce post doit utiliser un joker ?"),
                              primaryButton: .default(Text("Voter")) {
                                 viewModel.toggleJokerVote()
                                 pendingJokerAction = nil
@@ -248,7 +248,7 @@ extension PostPagerView {
     }
 
     @ViewBuilder
-    private func jokerBadge(for state: PhotoJokerState) -> some View {
+    private func jokerBadge(for state: PostJokerState) -> some View {
         let voteCount = state.voters.count
         let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
 
@@ -277,7 +277,7 @@ extension PostPagerView {
             .offset(x: 8, y: -8)
     }
 
-    private func handleJokerTap(for state: PhotoJokerState) {
+    private func handleJokerTap(for state: PostJokerState) {
         guard !state.isConfirmed else { return }
 
         if viewModel.canDeclareJoker {

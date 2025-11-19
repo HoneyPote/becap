@@ -10,7 +10,7 @@ import Foundation
 struct JokerUsage: Identifiable, Codable, Hashable {
     var id: String
     var date: Date
-    var photoId: String?
+    var postId: String?
     var declaredByAuthor: Bool
     var voters: [String]
     var status: JokerUsageStatus
@@ -18,14 +18,14 @@ struct JokerUsage: Identifiable, Codable, Hashable {
 
     init(id: String = UUID().uuidString,
          date: Date,
-         photoId: String? = nil,
+         postId: String? = nil,
          declaredByAuthor: Bool,
          voters: [String] = [],
          status: JokerUsageStatus,
          confirmedAt: Date? = nil) {
         self.id = id
         self.date = date
-        self.photoId = photoId
+        self.postId = postId
         self.declaredByAuthor = declaredByAuthor
         self.voters = voters
         self.status = status

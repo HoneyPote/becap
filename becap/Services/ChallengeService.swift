@@ -26,8 +26,8 @@ protocol ChallengeServiceProtocol {
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost]
     func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost
     func deletePost(_ post: ChallengePost) async throws
-    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) -> ListenerRegistration?
-    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) -> ListenerRegistration?
+    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void)
+    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void)
 
     // Reward flow
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
@@ -190,21 +190,14 @@ extension ChallengeService {
 
         guard let challengeMedia else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
 
-        let docRef = firestoreDB
-            .collection(collecChallenges)
-            .document(challengeId)
-            .collection(collecPhotos)
-            .document()
-
-        let post = ChallengePost(id: docRef.documentID,
-                                 challengeId: challengeId,
+        let post = ChallengePost(challengeId: challengeId,
                                  authorUid: authorId,
                                  authorName: author.name,
                                  description: description,
                                  date: Date(),
                                  media: challengeMedia)
 
-        try docRef.setData(from: post)
+        try savePostToFirebase(post, challengeId: challengeId)
 
         return post
     }
@@ -225,6 +218,16 @@ extension ChallengeService {
     }
 
     // Privates
+
+    private func savePostToFirebase(_ post: ChallengePost, challengeId: String) throws {
+        let docRef = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .document()
+
+        try docRef.setData(from: post)
+    }
 
     private func saveVideoToStorage(data: ChallengeRawMedia.VideoRawData,
                                     challengeId: String,
@@ -337,7 +340,7 @@ extension ChallengeService {
             .collection(collecPhotos)
             .document(post.id)
 
-        // 1. Supprimer les commentaires de la photo
+        // 1. Supprimer les commentaires du post
         let snapshot = try await postRef.collection(collecComments).getDocuments()
 
         for doc in snapshot.documents {
@@ -352,7 +355,7 @@ extension ChallengeService {
             }
         }
 
-        // 2. Supprimer la photo principale
+        // 2. Supprimer le post principal
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
             postRef.delete { error in
                 if let error = error {
@@ -588,7 +591,7 @@ extension ChallengeService {
         }
     }
 
-    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) -> ListenerRegistration? {
+    func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -597,39 +600,35 @@ extension ChallengeService {
             .collection(collecComments)
 
 
-        let listener = ref.order(by: "timestamp").addSnapshotListener { snapshot, error in
+        _ = ref.order(by: "timestamp").addSnapshotListener { snapshot, error in
             guard let documents = snapshot?.documents else { return onUpdate([]) }
 
             let comments = documents.compactMap { try? $0.data(as: PostCommentModel.self) }
 
             onUpdate(comments)
         }
-
-        return listener
     }
 
-    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) -> ListenerRegistration? {
+    func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
             .document(postId)
 
-        let listener = ref.addSnapshotListener { snapshot, error in
+        _ = ref.addSnapshotListener { snapshot, error in
             guard let updatedPost = try? snapshot?.data(as: ChallengePost.self) else { return onUpdate(nil) }
 
             onUpdate(updatedPost)
         }
-
-        return listener
     }
 
-    func updatePhotoJokerState(challengeId: String, photoId: String, state: PhotoJokerState) async throws {
+    func updatePostJokerState(challengeId: String, postId: String, state: PostJokerState) async throws {
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecPhotos)
-            .document(photoId)
+            .document(postId)
 
         try await ref.updateData([
             "jokerState": try Firestore.Encoder().encode(state)

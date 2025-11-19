@@ -23,7 +23,7 @@ class NewPostViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
 
     var challenges: [Challenge] = []
-    var takePhotoButtonLabel: String {
+    var captureMediaButtonLabel: String {
         selectedMedia == nil ? "Prendre une photo ou une vidéo" : "Reprendre une photo ou une vidéo"
     }
 
@@ -55,7 +55,7 @@ class NewPostViewModel: ObservableObject {
                     self.playSuccessSoundAndHaptic()
                     self.selectedMedia = nil
                     self.descriptionText = ""
-                    self.updateToast("Photo uploaded successfully!", type: .success)
+                    self.updateToast("Post uploaded successfully!", type: .success)
                     self.isUploadingPost = false
                 }
             } catch let error {

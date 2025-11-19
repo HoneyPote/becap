@@ -16,7 +16,7 @@ struct ParticipantStatsGrid: View {
 
     var body: some View {
         LazyVGrid(columns: gridItems, spacing: 12) {
-            StatBadge(title: "Photos", value: "\(stats.photosCount)")
+            StatBadge(title: "Photos", value: "\(stats.postsCount)")
             StatBadge(title: "Likes", value: "\(stats.likesCount)")
             StatBadge(title: "Streak", value: "\(stats.streak) j")
             StatBadge(title: "Validées", value: "\(stats.validatedDays)")
