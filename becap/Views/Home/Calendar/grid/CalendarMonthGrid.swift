@@ -97,31 +97,64 @@ struct CalendarMonthGrid: View {
 
         ForEach(dayItems) { item in
             let day = calendar.startOfDay(for: item.date)
-            let count = postCountByDay[day] ?? 0
-            let jokerCount = jokerCountByDay[day] ?? 0
+            var hasPosts: Bool { postCountByDay[day] ?? 0 > 0 }
+            var hasJokerUsage: Bool { jokerCountByDay[day] ?? 0 > 0 }
+
             let currentUserUsedJoker = currentUserJokerDays.contains(day)
             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
 
             DayCell(date: day,
-                    dayNumber: item.dayNumber,               // ⬅️ passe le n° de défi
-                    postCount: count,
-                    jokerCount: jokerCount,
+                    dayNumber: item.dayNumber,
                     currentUserUsedJoker: currentUserUsedJoker,
                     isToday: calendar.isDateInToday(day),
-                    isWithinChallenge: true,
-                    isSelected: isSelected) { onSelectDate(day) }
-                .overlay(alignment: .bottom) {
-                    Text("Jour")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
-                        .foregroundColor(.white.opacity(0.55))
-                        .padding(.bottom, 6)
-                        .allowsHitTesting(false)
+                    isSelected: isSelected) {
+                if hasPosts || hasJokerUsage { Haptics.lightTap() }
+                onSelectDate(day)
+            }
+                .overlay(alignment: .top) {
+                    HStack(spacing: 3) {
+                        if hasPosts {
+                            HStack(spacing: 4) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 9, weight: .bold))
+                                Text("\(postCountByDay[day] ?? 0)")
+                                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                            }
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 3)
+                            .background(Color.black.opacity(0.25))
+                            .clipShape(Capsule())
+                        }
+
+                        if hasJokerUsage {
+                            Circle()
+                                .fill(jokerBadgeGradient)
+                                .frame(width: 11, height: 11)
+                                .overlay(
+                                    Circle()
+                                        .stroke(Color.white.opacity(0.85), lineWidth: 1)
+                                )
+                                .shadow(color: Color.purple.opacity(0.35), radius: 2, x: 0, y: 1)
+                                .accessibilityLabel("Joker utilisé ce jour")
+                                .accessibilityAddTraits(.isStaticText)
+                        }
+                    }
+                    .padding(.top, -5)
+                    .padding(.horizontal, -4)
                 }
+
         }
 
         ForEach(0..<trailingEmpty, id: \.self) { index in
             Color.clear.frame(height: cellHeight).id("trailing-\(index)")
         }
+    }
+
+    private var jokerBadgeGradient: LinearGradient {
+        LinearGradient(colors: [
+            Color(red: 0.78, green: 0.47, blue: 0.98),
+            Color(red: 0.61, green: 0.29, blue: 0.93)
+        ], startPoint: .top, endPoint: .bottom)
     }
 
     private var header: some View {
@@ -150,7 +183,7 @@ struct CalendarMonthGrid: View {
 
     private var intervalFormatter: DateIntervalFormatter {
         let formatter = DateIntervalFormatter()
-        formatter.locale = .current
+        formatter.locale = Locale(identifier: "fr_FR")
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter

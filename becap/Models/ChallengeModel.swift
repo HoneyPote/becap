@@ -49,7 +49,7 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
 
 enum ChallengeStatus: String {
     case active = "En cours"
-    case finished = "Termniné"
+    case finished = "Terminé"
 }
 
 struct Challenge: Identifiable, Codable, Hashable {

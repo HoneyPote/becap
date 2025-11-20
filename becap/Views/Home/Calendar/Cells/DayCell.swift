@@ -16,24 +16,16 @@ enum Haptics {
     }
 }
 
-
 struct DayCell: View {
     let date: Date
-    let dayNumber: Int          // ⬅️ nouveau : n° du jour de défi
-    let postCount: Int
-    let jokerCount: Int
+    let dayNumber: Int
     let currentUserUsedJoker: Bool
     let isToday: Bool
-    let isWithinChallenge: Bool
     let isSelected: Bool
     let tap: () -> Void
 
-    private var hasPosts: Bool { postCount > 0 }
-    private var hasJokerUsage: Bool { jokerCount > 0 }
-
     var body: some View {
         Button {
-            if hasPosts || hasJokerUsage { Haptics.lightTap() }
             tap()
         } label: {
             ZStack {
@@ -47,53 +39,34 @@ struct DayCell: View {
                         .stroke(Color.white.opacity(0.9), lineWidth: 1.4)
                 }
 
-                // *** AU CENTRE: numéro DU DÉFI ***
                 VStack(spacing: 0) {
-                    Spacer(minLength: 0)
-                    Text("\(dayNumber)") // <-- au lieu du jour du mois
+                    Spacer(minLength: 12)
+                    Text("Jour")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.55))
+                        .padding(.bottom, 3)
+                    Text("\(dayNumber)")
                         .font(.system(size: 18, weight: .semibold, design: .rounded))
                         .foregroundColor(titleColor)
                     Spacer(minLength: 0)
+                    Text("\(formattedDate(date))")
+                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .foregroundColor(titleColor)
                 }
-                .padding(.bottom, -8)
+                .padding(.bottom, 5)
             }
             .frame(height: 72)
-            .opacity(isWithinChallenge ? 1.0 : 0.38)
             // badge photos en haut-droite
-            .overlay(alignment: .topTrailing) {
-                VStack(alignment: .trailing, spacing: 4) {
-                    if hasPosts {
-                        HStack(spacing: 4) {
-                            Image(systemName: "camera.fill")
-                                .font(.system(size: 9, weight: .bold))
-                            Text("\(postCount)")
-                                .font(.system(size: 10, weight: .bold, design: .rounded))
-                        }
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 3)
-                        .background(Color.black.opacity(0.25))
-                        .clipShape(Capsule())
-                    }
-
-                    if hasJokerUsage {
-                        Circle()
-                            .fill(jokerBadgeGradient)
-                            .frame(width: 12, height: 12)
-                            .overlay(
-                                Circle()
-                                    .stroke(Color.white.opacity(0.85), lineWidth: 1)
-                            )
-                            .shadow(color: Color.purple.opacity(0.35), radius: 2, x: 0, y: 1)
-                            .accessibilityLabel("Joker utilisé ce jour")
-                            .accessibilityAddTraits(.isStaticText)
-                    }
-                }
-                .padding(.top, 4)
-                .padding(.trailing, 4)
-            }
         }
         .buttonStyle(.plain)
-        .disabled(!isWithinChallenge)
+    }
+
+    func formattedDate(_ date: Date) -> String {
+        let df = DateFormatter()
+        df.dateFormat = "dd MMM"
+        df.locale = Locale(identifier: "fr_FR")
+
+        return df.string(from: date)
     }
 }
 
@@ -106,22 +79,13 @@ private extension DayCell {
             ], startPoint: .topLeading, endPoint: .bottomTrailing)
         }
 
-        let baseColor: Color = isToday ? Color.green.opacity(0.85)
-                                       : Color.white.opacity(isWithinChallenge ? 0.38 : 0.23)
+        let baseColor: Color = isToday ? Color.green.opacity(0.85) : Color.white.opacity(0.38)
 
         return LinearGradient(colors: [baseColor, baseColor], startPoint: .top, endPoint: .bottom)
     }
 
     var titleColor: Color {
         if currentUserUsedJoker { return .white }
-        if isToday { return .black }
-        return isWithinChallenge ? .white : .white.opacity(0.45)
-    }
-
-    var jokerBadgeGradient: LinearGradient {
-        LinearGradient(colors: [
-            Color(red: 0.78, green: 0.47, blue: 0.98),
-            Color(red: 0.61, green: 0.29, blue: 0.93)
-        ], startPoint: .top, endPoint: .bottom)
+        return date > Date() ? .white.opacity(0.55) : .white
     }
 }

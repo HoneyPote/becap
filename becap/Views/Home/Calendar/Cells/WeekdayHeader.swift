@@ -8,8 +8,9 @@
 import SwiftUI
 
 struct WeekdayHeader: View {
-    private let calendar = Calendar.current
     private var symbols: [String] {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: "fr_FR")
         let symbols = calendar.shortWeekdaySymbols
         let first = calendar.firstWeekday - 1
 

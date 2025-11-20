@@ -15,6 +15,7 @@ struct GridPostsInline: View {
     let onOpenPager: (PagerInfo) -> Void
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
+    private let jokerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 2)
 
     private var postsSorted: [ChallengePost] {
         cell.posts.sorted {
@@ -50,62 +51,77 @@ struct GridPostsInline: View {
             }
 
             ScrollView {
-                LazyVGrid(columns: columns, spacing: 8) {
+                VStack {
                     if postsSorted.isEmpty {
                         Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
                             .foregroundColor(.white.opacity(0.75))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
+                            .frame(maxWidth: .infinity)
+                            .padding([.bottom, .top], 30)
+                    } else {
+                        VStack(alignment: .leading) {
+                            Text("Posts du jour 📸")
+                                .font(.system(.headline, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
 
-                    ForEach(Array(postsSorted.enumerated()), id: \.offset) { (idx, post) in
-                        // TODO: Bouton certainement pas nécessaire, VSTack avec onTapAction() plutôt
-                        Button {
-                            onOpenPager(PagerInfo(posts: postsSorted, index: idx, date: post.date))
-                        } label: {
-                            VStack(spacing: 2) {
-                                if let thumbnailImageUrl = thumbnailUrl(media: post.media) {
-                                    AsyncCachedImage(url: thumbnailImageUrl)
-                                        .frame(height: 100)
-                                        .frame(maxWidth: .infinity)
-                                        .clipped()
-                                        .cornerRadius(8)
-                                }
-
-                                HStack(spacing: 4) {
-                                    Text(post.authorName)
-                                        .font(.caption2)
-                                        .foregroundColor(.white)
-                                        .lineLimit(1)
-
-                                    if let participant = getParticipant(post.authorUid),
-                                       let latest = participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
-                                        MedalIconView(iconName: latest.iconName)
-                                            .frame(width: 20, height: 20)
-                                            .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)
-                                    }
-                                }
-                                .buttonStyle(.plain)
+                            LazyVGrid(columns: columns, spacing: 8) {
+                                postsView
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
                     if hasJokers {
-                        VStack(alignment: .leading, spacing: 12) {
+                        VStack(alignment: .leading) {
                             Text("Jokers utilisés 🟣")
                                 .font(.system(.headline, design: .rounded).weight(.semibold))
                                 .foregroundColor(.white)
 
-                            ForEach(cell.jokers) { usage in
-                                JokerUsageRow(usage: usage)
+                            LazyVGrid(columns: jokerColumns, spacing: 8) {
+                                ForEach(cell.jokers) { usage in
+                                    JokerUsageRow(usage: usage)
+                                }
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxHeight: 420)
+        }
+    }
+
+    private var postsView: some View {
+        ForEach(Array(postsSorted.enumerated()), id: \.offset) { (idx, post) in
+            // TODO: Bouton certainement pas nécessaire, VSTack avec onTapAction() plutôt
+            Button {
+                onOpenPager(PagerInfo(posts: postsSorted, index: idx, date: post.date))
+            } label: {
+                VStack(spacing: 2) {
+                    if let thumbnailImageUrl = thumbnailUrl(media: post.media) {
+                        AsyncCachedImage(url: thumbnailImageUrl)
+                            .frame(height: 100)
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                            .cornerRadius(8)
+                    }
+
+                    HStack(spacing: 4) {
+                        Text(post.authorName)
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .lineLimit(1)
+
+                        if let participant = getParticipant(post.authorUid),
+                           let latest = participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
+                            MedalIconView(iconName: latest.iconName)
+                                .frame(width: 20, height: 20)
+                                .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
         }
     }
 }
