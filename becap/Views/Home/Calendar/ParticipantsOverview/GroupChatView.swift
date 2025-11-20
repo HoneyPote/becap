@@ -55,15 +55,23 @@ struct GroupChatView: View {
                 chatInput
                     .background(.thinMaterial)
             }
-            // 🖼️ Nouveau background appliqué au container
             .background(
-                Image("chat")
-                    .resizable()
-                    .scaledToFill()
-                    .scaleEffect(0.92, anchor: .center)
-                    .offset(x: -35)// léger dé-zoom centré
-                    .overlay(Color.black.opacity(0.25))  // voile sombre
-                    .ignoresSafeArea()
+                ZStack {
+                    // Filler: covers edges at any ratio
+                    Image("chat")
+                        .resizable()
+                        .scaledToFill()
+                        .blur(radius: 12)
+                        .ignoresSafeArea()
+
+                    Image("chat")
+                        .resizable()
+                        .scaledToFill()
+                        .scaleEffect(0.92, anchor: .center)
+                        .offset(x: -35, y: -35)
+                        .overlay(Color.black.opacity(0.25))
+                        .ignoresSafeArea()
+                }
             )
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)

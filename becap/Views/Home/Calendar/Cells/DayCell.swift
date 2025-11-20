@@ -29,11 +29,9 @@ struct DayCell: View {
             tap()
         } label: {
             ZStack {
-                // fond
                 RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(backgroundFill)
 
-                // anneau sélection
                 if isSelected {
                     RoundedRectangle(cornerRadius: 10, style: .continuous)
                         .stroke(Color.white.opacity(0.9), lineWidth: 1.4)
@@ -56,14 +54,13 @@ struct DayCell: View {
                 .padding(.bottom, 5)
             }
             .frame(height: 72)
-            // badge photos en haut-droite
         }
         .buttonStyle(.plain)
     }
 
     func formattedDate(_ date: Date) -> String {
         let df = DateFormatter()
-        df.dateFormat = "dd MMM"
+        df.dateFormat = "d MMM"
         df.locale = Locale(identifier: "fr_FR")
 
         return df.string(from: date)
@@ -73,19 +70,21 @@ struct DayCell: View {
 private extension DayCell {
     var backgroundFill: LinearGradient {
         if currentUserUsedJoker {
-            return LinearGradient(colors: [
-                Color(red: 0.69, green: 0.38, blue: 0.96),
-                Color(red: 0.46, green: 0.22, blue: 0.82)
-            ], startPoint: .topLeading, endPoint: .bottomTrailing)
+            return LinearGradient(colors: [Color(red: 0.69, green: 0.38, blue: 0.96),
+                                           Color(red: 0.46, green: 0.22, blue: 0.82)],
+                                  startPoint: .topLeading, endPoint: .bottomTrailing)
         }
 
-        let baseColor: Color = isToday ? Color.green.opacity(0.85) : Color.white.opacity(0.38)
+        var baseColor: Color = isToday ? Color.green.opacity(0.85) : Color.white.opacity(0.55)
+        baseColor = date < Date() ? baseColor : Color.white.opacity(0.30)
 
         return LinearGradient(colors: [baseColor, baseColor], startPoint: .top, endPoint: .bottom)
     }
 
     var titleColor: Color {
-        if currentUserUsedJoker { return .white }
+        if currentUserUsedJoker {
+            return .white
+        }
         return date > Date() ? .white.opacity(0.55) : .white
     }
 }

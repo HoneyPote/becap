@@ -181,7 +181,7 @@ struct ShareChallengeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "square.and.arrow.up")
                     .font(.system(size: 20, weight: .semibold))
-                Text("Partager le challenge")
+                Text("Partager le défi")
                     .font(.system(.headline, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
             }

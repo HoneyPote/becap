@@ -43,26 +43,28 @@ struct ParticipantCardView: View {
 
             if stats.totalJokers > 0 {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Jokers restants")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .foregroundColor(.white.opacity(0.8))
+                    if stats.remainingJokers == 0 {
+                        Text("Aucun joker restant")
+                            .font(.system(.footnote, design: .rounded))
+                            .foregroundColor(.white.opacity(0.6))
+                    } else {
+                        Text("Jokers restants")
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white.opacity(0.8))
 
-                    HStack(spacing: 8) {
-                        let displayCount = min(stats.totalJokers, 8)
-                        ForEach(0..<displayCount, id: \.self) { index in
-                            let isActive = index < min(stats.remainingJokers, displayCount)
-                            JokerIconView(size: 26,
-                                          isDimmed: !isActive)
-                        }
+                        HStack(spacing: 8) {
+                            let displayCount = min(stats.totalJokers, 8)
 
-                        if stats.remainingJokers == 0 {
-                            Text("Aucun joker restant")
-                                .font(.system(.footnote, design: .rounded))
-                                .foregroundColor(.white.opacity(0.6))
-                        } else if stats.totalJokers > displayCount {
-                            Text("+\(stats.totalJokers - displayCount)")
-                                .font(.system(.footnote, design: .rounded))
-                                .foregroundColor(.white.opacity(0.6))
+                            ForEach(0..<displayCount, id: \.self) { index in
+                                let isActive = index < min(stats.remainingJokers, displayCount)
+                                JokerIconView(size: 26, isDimmed: !isActive)
+                            }
+
+                            if stats.remainingJokers > displayCount {
+                                Text("+\(stats.remainingJokers - displayCount)")
+                                    .font(.system(.footnote, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
                         }
                     }
                 }

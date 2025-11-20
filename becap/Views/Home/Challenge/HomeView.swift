@@ -41,7 +41,6 @@ struct HomeView: View {
                     .padding(.horizontal)
                 }
             }
-            // Overlays (au-dessus du contenu)
             .overlay {
                 if let error = viewModel.deleteChallengeError {
                     deleteChallengeErrorView(error: error)
@@ -52,27 +51,13 @@ struct HomeView: View {
                     reportSuccessToast
                 }
             }
-            // 🖼️ Background image + voile sombre
             .background(
-                ZStack {
-                    // Filler: covers edges at any ratio
-                    Image(homeBackgroundImageName)
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 12)
-                        .ignoresSafeArea()
-
-                    // Sharp layer, slightly zoomed out
-                    Image(homeBackgroundImageName)
-                        .resizable()
-                        .scaledToFill()
-                        .offset(x: -25) // 0.85–0.95 depending on taste
-                        .ignoresSafeArea()
-
-                    // Global dark veil
-                    Color.black.opacity(0.15).ignoresSafeArea()
-                }
-                .allowsHitTesting(false)
+                Image(homeBackgroundImageName)
+                    .resizable()
+                    .scaledToFill()
+                    .offset(x: -60)
+                    .overlay(Color.black.opacity(0.15))
+                    .ignoresSafeArea()
             )
             .withTabBarInset()
             .navigationBarHidden(true)
@@ -167,7 +152,7 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(height: 30)
-                Text("LISTE DES DEFIS")
+                Text("LISTE DES DÉFIS")
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
                     .foregroundColor(.white)

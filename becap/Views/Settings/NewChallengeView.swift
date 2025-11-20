@@ -254,11 +254,12 @@ struct NewChallengeView: View {
                                         Image(systemName: "flag.2.crossed")
                                             .font(.system(size: 18, weight: .semibold))
                                         VStack(alignment: .leading, spacing: 2) {
-                                            Text("Enregistrer le défi")
+                                            Text("Créer le défi")
                                                 .font(.system(.headline, design: .rounded).weight(.bold))
-                                            Text("Lancez le challenge pour votre communauté")
+                                            Text("Lancez le défi et partagez-le avec le monde !")
                                                 .font(.system(.caption, design: .rounded))
                                                 .foregroundColor(.white.opacity(0.85))
+                                                .multilineTextAlignment(.leading)
                                         }
                                         Spacer()
                                         Image(systemName: "arrow.right.circle.fill")

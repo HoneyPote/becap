@@ -108,7 +108,9 @@ struct CalendarMonthGrid: View {
                     currentUserUsedJoker: currentUserUsedJoker,
                     isToday: calendar.isDateInToday(day),
                     isSelected: isSelected) {
-                if hasPosts || hasJokerUsage { Haptics.lightTap() }
+                if hasPosts || hasJokerUsage {
+                    Haptics.lightTap()
+                }
                 onSelectDate(day)
             }
                 .overlay(alignment: .top) {

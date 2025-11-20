@@ -111,7 +111,7 @@ struct NewPostView: View {
                     .textCase(.uppercase)
                     .foregroundColor(.white)
 
-                Text("Reste concentré en sélectionnant le challenge à alimenter aujourd'hui.")
+                Text("Reste concentré en sélectionnant le défi à alimenter aujourd'hui.")
                     .font(.system(.footnote, design: .rounded))
                     .foregroundColor(.white.opacity(0.72))
             }

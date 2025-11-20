@@ -33,7 +33,7 @@ struct ShareButtonCell: View {
                            .foregroundColor(.white)
                            .shadow(radius: 1, x: 0, y: 3)
 
-                    Text("Partager un Challenge")
+                    Text("Partager un défi")
                         .font(.headline)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)

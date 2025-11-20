@@ -71,19 +71,27 @@ struct CalendarDetailView: View {
                     .padding(.top, 8)
                     .padding(.bottom, 10)
 
-                // Apple-style month grid adapted to challenge length
                 monthGrid
 
                 Spacer(minLength: 0)
             }
         }
         .background(
-            Image(calendarBackgroundImageName)
-                .resizable()
-                .scaledToFill()
-                .overlay(Color.black.opacity(0.2))
-                .offset(x: -40, y: 10)
-                .ignoresSafeArea()
+            ZStack {
+                // Filler: covers edges at any ratio
+                Image(calendarBackgroundImageName)
+                    .resizable()
+                    .scaledToFill()
+                    .blur(radius: 12)
+                    .ignoresSafeArea()
+
+                Image(calendarBackgroundImageName)
+                    .resizable()
+                    .scaledToFill()
+                    .overlay(Color.black.opacity(0.2))
+                    .offset(x: -40)
+                    .ignoresSafeArea()
+            }
         )
         .coordinateSpace(name: "CalendarDetailRoot")
         // Bubble with the inline grid
