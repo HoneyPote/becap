@@ -18,6 +18,7 @@ struct PostPagerView: View {
     @State private var commentSectionIsShown: Bool = false
 	@State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
+    @State private var showDeleteAlert = false
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
@@ -172,17 +173,25 @@ struct PostPagerView: View {
 
             if viewModel.canDeletePost {
                 Button(role: .destructive) {
-                    viewModel.deletePost() { isDeleted, deletedPost in
-                        guard isDeleted, let deletedPostId = deletedPost?.id else { return }
-
-                        onDelete(deletedPostId)
-                    }
+                    showDeleteAlert = true
                 } label: {
                     Image(systemName: "trash")
                         .foregroundColor(.red)
                         .padding(8)
                         .background(.thinMaterial)
                         .clipShape(Circle())
+                }
+                .alert("Êtes-vous sûr de vouloir supprimer ce post ?", isPresented: $showDeleteAlert) {
+                    Button("Supprimer", role: .destructive) {
+                        viewModel.deletePost { isDeleted, deletedPost in
+                            guard isDeleted, let deletedPostId = deletedPost?.id else { return }
+                            onDelete(deletedPostId)
+                        }
+                    }
+
+                    Button("Annuler", role: .cancel) { }
+                } message: {
+                    Text("Cette action est irréversible.")
                 }
             }
         }
