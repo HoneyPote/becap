@@ -55,7 +55,7 @@ class NewPostViewModel: ObservableObject {
                     self.playSuccessSoundAndHaptic()
                     self.selectedMedia = nil
                     self.descriptionText = ""
-                    self.updateToast("Post uploaded successfully!", type: .success)
+                    self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
                 }
             } catch let error {

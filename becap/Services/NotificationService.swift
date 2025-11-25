@@ -295,7 +295,6 @@ final class NotificationService: NSObject {
     private func sendUrlRequestNotification(payload: [String: Any],
                                             context: String,
                                             onInvalidPlayers: @escaping ([String]) -> Void) {
-        // URL de ta Cloud Function (region us-central1)
         guard let url = URL(string: "https://us-central1-honeypote-becap.cloudfunctions.net/sendOneSignal") else {
             print("❌ \(context) URL Cloud Function invalide")
             onInvalidPlayers([])
