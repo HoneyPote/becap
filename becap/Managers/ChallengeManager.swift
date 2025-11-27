@@ -717,10 +717,12 @@ extension ChallengeManager {
 
     private func calculateStreak(from dates: [Date]) -> Int {
         let sorted = dates.sorted(by: >)
+        guard let mostRecentDay = sorted.first else { return 0 }
+
         var streak = 0
 
         for date in sorted {
-            let expectedDate = Calendar.current.date(byAdding: .day, value: -streak, to: Date()) ?? date
+            let expectedDate = Calendar.current.date(byAdding: .day, value: -streak, to: mostRecentDay) ?? date
 
             if Calendar.current.isDate(date, inSameDayAs: expectedDate) {
                 streak += 1
