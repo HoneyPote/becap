@@ -130,7 +130,7 @@ final class PostViewModel: ObservableObject, Identifiable {
 
     func toggleJokerVote() {
         Task {
-            try await challengeManager.toggleJokerVote(for: post)
+            try await challengeManager.toggleJokerVote(for: post, currentState: jokerState)
         }
     }
 

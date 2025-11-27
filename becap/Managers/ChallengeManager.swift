@@ -35,7 +35,7 @@ protocol ChallengeManagerProtocol {
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws
     func assignCreationMedalsToUser(_ userId: String) async
     func declareJokerUsage(for challenge: Challenge, on date: Date, postId: String?) async throws
-    func toggleJokerVote(for post: ChallengePost) async throws
+    func toggleJokerVote(for post: ChallengePost, currentState: PostJokerState) async throws
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
@@ -450,7 +450,48 @@ extension ChallengeManager {
                                voters: voters)
     }
 
-    func toggleJokerVote(for post: ChallengePost) async throws {
+    func autoDeclareMissedDayIfNeeded(for challenge: Challenge,
+                                      progress: ParticipantProgress) async -> ParticipantProgress? {
+        guard let currentUserId = currentUser?.id,
+              currentUserId == progress.id,
+              (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return nil }
+
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let targetDay = calendar.date(byAdding: .day, value: -1, to: today) else { return nil }
+
+        let startBoundary = calendar.startOfDay(for: max(challenge.startDate, progress.joinedDate))
+        let endBoundary = calendar.startOfDay(for: challenge.lastDayDate)
+
+        guard targetDay >= startBoundary, targetDay <= endBoundary else { return nil }
+
+        let hasValidatedDay = progress.validatedDays.contains { calendar.isDate($0, inSameDayAs: targetDay) }
+
+        var jokerProgress = progress.jokerProgress
+            ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
+
+        let alreadyUsedJokerForDay = jokerProgress.confirmedUsages.contains { usage in
+            calendar.isDate(usage.date, inSameDayAs: targetDay)
+        }
+
+        guard !hasValidatedDay, !alreadyUsedJokerForDay, jokerProgress.remaining > 0 else { return nil }
+
+        do {
+            try await consumeJoker(for: currentUserId,
+                                   in: challenge,
+                                   on: targetDay,
+                                   postId: nil,
+                                   declaredByAuthor: true,
+                                   voters: [currentUserId])
+
+            return try await fetchProgress(challengeId: challenge.id, userId: currentUserId)
+        } catch {
+            print("❌ Impossible d'attribuer automatiquement un joker : \(error)")
+            return nil
+        }
+    }
+
+    func toggleJokerVote(for post: ChallengePost, currentState: PostJokerState) async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
         let resolvedChallenge: Challenge
@@ -464,7 +505,7 @@ extension ChallengeManager {
 
         guard (resolvedChallenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
 
-        var state = post.jokerState ?? PostJokerState()
+        var state = currentState
 
         if state.isConfirmed {
             print("ℹ️ Joker déjà confirmé pour ce post")

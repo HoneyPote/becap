@@ -318,7 +318,16 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
-        return try await challengeManager.fetchParticipantsProgress(for: challenge.id)
+        var progresses = try await challengeManager.fetchParticipantsProgress(for: challenge.id)
+
+        if let currentUserId = challengeManager.currentUser?.id,
+           let index = progresses.firstIndex(where: { $0.id == currentUserId }),
+           let updated = await challengeManager.autoDeclareMissedDayIfNeeded(for: challenge,
+                                                                             progress: progresses[index]) {
+            progresses[index] = updated
+        }
+
+        return progresses
     }
 
     private func fetchChatMessages() async throws -> [ChallengeChatMessage] {
