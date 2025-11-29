@@ -530,8 +530,7 @@ extension ChallengeManager {
 
         guard (resolvedChallenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
 
-        let latestState = try await challengeService.fetchPost(challengeId: post.challengeId, postId: post.id)?.jokerState
-        var state = latestState ?? currentState
+        var state = currentState
 
         if state.isConfirmed {
             print("ℹ️ Joker déjà confirmé pour ce post")
@@ -544,8 +543,8 @@ extension ChallengeManager {
             state.voters.append(currentUserId)
         }
 
-        let eligibleVoters = max(resolvedChallenge.participantUids.count - 1, 1)
-        let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
+        let participantsCount = resolvedChallenge.participantUids.count
+        let requiredVotes = participantsCount <= 2 ? participantsCount : (participantsCount / 2 + 1)
         let isConfirmed = state.voters.count >= requiredVotes
 
         state.isConfirmed = isConfirmed

@@ -272,8 +272,8 @@ class PostPagerViewModel: ObservableObject {
             state.voters.append(currentUserId)
         }
 
-        let eligibleVoters = max(challenge.participantUids.count - 1, 1)
-        let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
+        let participantCount = max(1, challenge.participantUids.count)
+        let requiredVotes = participantCount <= 2 ? participantCount : (participantCount / 2 + 1)
         let isConfirmed = state.voters.count >= requiredVotes
 
         state.isConfirmed = isConfirmed
