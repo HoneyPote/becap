@@ -697,6 +697,8 @@ extension ChallengeManager {
                                              declaredByAuthor: declaredByAuthor,
                                              voters: voters)
 
+        let remainingAfterConfirmation = jokerProgress.remaining
+
         progress.jokerProgress = jokerProgress
 
         if shouldAppendDay(progress: progress, day: date) {
@@ -717,6 +719,14 @@ extension ChallengeManager {
         }
 
         _ = try? await accountManager.updateCurrentUser(with: userId)
+
+        if !alreadyRecorded {
+            await notificationService.sendJokerConsumedNotification(to: userId,
+                                                                    challenge: challenge,
+                                                                    postId: postId,
+                                                                    remainingJokers: remainingAfterConfirmation,
+                                                                    votersCount: voters.count)
+        }
 
         if !newMedals.isEmpty {
             for medal in newMedals {

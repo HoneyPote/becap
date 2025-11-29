@@ -199,6 +199,48 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
+    // MARK: - Joker notification
+    func sendJokerConsumedNotification(to authorUid: String,
+                                       challenge: Challenge,
+                                       postId: String?,
+                                       remainingJokers: Int,
+                                       votersCount: Int) async {
+
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: [authorUid], excludeCurrentUser: false)) ?? []
+
+        let remainingTextEn = remainingJokers > 1 ? "jokers left" : "joker left"
+        let remainingTextFr = remainingJokers > 1 ? "jokers restants" : "joker restant"
+
+        let headings = ["en": "Joker used", "fr": "Joker consommé"]
+        let contents = [
+            "en": "A joker was validated on your post in \"\(challenge.title)\" (votes: \(votersCount)). \(remainingJokers) \(remainingTextEn).",
+            "fr": "Un joker a été validé sur ta publication dans \"\(challenge.title)\" (votes : \(votersCount)). Il t'en reste \(remainingJokers) \(remainingTextFr)."
+        ]
+
+        let deepLink = postId.flatMap { makePostDeepLink(challengeId: challenge.id, postId: $0) }
+            ?? makeChallengeDeepLink(challengeId: challenge.id)
+
+        var additionalData: [String: Any] = [
+            "type": "joker_consumed",
+            "challengeId": challenge.id
+        ]
+
+        if let postId, !postId.isEmpty {
+            additionalData["photoId"] = postId
+        }
+
+        print("🔔 JOKER → authorUid=\(authorUid) playerIds=\(playerIds)")
+
+        sendForUser(externalIds: [authorUid],
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: authorUid,
+                    context: "sendJokerConsumedNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
+    }
+
     // MARK: - Firestore fetch
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
         var ids: [String] = []
