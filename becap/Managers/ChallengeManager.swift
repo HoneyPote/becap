@@ -543,8 +543,9 @@ extension ChallengeManager {
             state.voters.append(currentUserId)
         }
 
-        let participantsCount = resolvedChallenge.participantUids.count
-        let requiredVotes = participantsCount <= 2 ? participantsCount : (participantsCount / 2 + 1)
+        let totalParticipants = resolvedChallenge.participantUids.count
+        let eligibleVoters = max(totalParticipants - 1, 1)
+        let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
         let isConfirmed = state.voters.count >= requiredVotes
 
         state.isConfirmed = isConfirmed
