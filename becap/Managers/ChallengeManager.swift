@@ -21,6 +21,7 @@ protocol ChallengeManagerProtocol {
     func ensureMembership(in challengeId: String) async throws
     func deleteChallenge(_ challengeId: String) async throws
     func joinChallenge(_ challenge: Challenge, userId: String) async throws
+    func joinChallenge(withCode code: String) async throws -> Challenge
 
     // Posts
     func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
@@ -150,6 +151,30 @@ extension ChallengeManager {
             remoteChallenge.participantUids.append(userId)
             try await joinChallenge(remoteChallenge, userId: userId)
         }
+    }
+
+    func joinChallenge(withCode code: String) async throws -> Challenge {
+        guard let currentUser, let userId = currentUser.id else {
+            throw ChallengeManagerError.userNotLoggedIn
+        }
+
+        let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedCode.isEmpty else {
+            throw ChallengeManagerError.challengeNotFound
+        }
+
+        guard var remoteChallenge = try await challengeService.fetchChallenge(byCode: trimmedCode) else {
+            throw ChallengeManagerError.challengeNotFound
+        }
+
+        if !remoteChallenge.participantUids.contains(userId) {
+            remoteChallenge.participantUids.append(userId)
+            try await joinChallenge(remoteChallenge, userId: userId)
+        } else {
+            try await fetchAndFilterChallenges()
+        }
+
+        return remoteChallenge
     }
 
     func deleteChallenge(_ challengeId: String) async throws {

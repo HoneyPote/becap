@@ -6,14 +6,17 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct ShareChallengeView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
 
     @StateObject private var viewModel = ShareChallengeViewModel()
 
     @State private var shareItems: [Any] = []
     @State private var isShareSheetPresented = false
+    @State private var showCopiedToast = false
 
     var body: some View {
         NavigationView {
@@ -33,6 +36,14 @@ struct ShareChallengeView: View {
 
                         GlassCard {
                             shareDescriptionSection
+                        }
+
+                        GlassCard {
+                            challengeCodeSection
+                        }
+
+                        GlassCard {
+                            joinByCodeSection
                         }
 
                         shareButton
@@ -71,6 +82,21 @@ struct ShareChallengeView: View {
                 message: Text(viewModel.alertMessage),
                 dismissButton: .default(Text("OK"))
             )
+        }
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                toastView
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+            }
+        }
+        .onChange(of: viewModel.joinedChallenge) { challenge in
+            guard let challenge else { return }
+
+            deepLinkRouter.pendingCalendarChallengeId = challenge.id
+            dismiss()
+            viewModel.joinedChallenge = nil
         }
     }
 
@@ -168,6 +194,115 @@ struct ShareChallengeView: View {
             Text("Un lien personnalisé sera généré et redirigera directement vers le calendrier du défi sélectionné.")
                 .font(.system(.footnote, design: .rounded))
                 .foregroundColor(.white.opacity(0.78))
+
+            Text("Le code du défi est également disponible si tu préfères le partager manuellement.")
+                .font(.system(.footnote, design: .rounded))
+                .foregroundColor(.white.opacity(0.78))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var challengeCodeSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Code du défi")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+
+            if let code = viewModel.selectedChallenge?.code, !code.isEmpty {
+                HStack(spacing: 12) {
+                    Text(code)
+                        .font(.system(.title2, design: .monospaced).weight(.heavy))
+                        .foregroundColor(.white)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 14)
+                        .background(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                        )
+                        .cornerRadius(12)
+
+                    Spacer()
+
+                    Button {
+                        let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+                        impactGenerator.impactOccurred()
+                        UIPasteboard.general.string = code
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showCopiedToast = true
+                        }
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_600_000_000)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showCopiedToast = false
+                            }
+                        }
+                    } label: {
+                        Label("Copier", systemImage: "doc.on.doc")
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white)
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(12)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Text("Partage ce code si ton équipier ne peut pas ouvrir le lien.")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+            } else {
+                Text("Sélectionne un défi actif pour afficher son code de partage.")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.72))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var joinByCodeSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Rejoindre un défi via un code")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+
+            Text("Colle ici le code reçu pour rejoindre un défi déjà créé.")
+                .font(.system(.footnote, design: .rounded))
+                .foregroundColor(.white.opacity(0.75))
+
+            HStack(spacing: 12) {
+                TextField("Ex: 123456", text: $viewModel.joinCodeInput)
+                    .textInputAutocapitalization(.never)
+                    .disableAutocorrection(true)
+                    .keyboardType(.numberPad)
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .background(Color.white.opacity(0.08))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                    )
+                    .cornerRadius(14)
+
+                Button {
+                    Task { await viewModel.joinChallengeByCode() }
+                } label: {
+                    if viewModel.isJoiningByCode {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .frame(minWidth: 44, minHeight: 44)
+                    } else {
+                        Image(systemName: "arrow.right.circle.fill")
+                            .font(.system(size: 24, weight: .bold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 44, minHeight: 44)
+                    }
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isJoiningByCode)
+                .opacity(viewModel.isJoiningByCode ? 0.6 : 1)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -209,5 +344,24 @@ struct ShareChallengeView: View {
         .opacity((viewModel.selectedChallenge == nil || viewModel.isLoading) ? 0.6 : 1)
         .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
         .padding(.top, -6)
+    }
+
+    private var toastView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color(red: 0.33, green: 0.82, blue: 0.55))
+
+            Text("Code copié !")
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundColor(.white)
+
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
     }
 }

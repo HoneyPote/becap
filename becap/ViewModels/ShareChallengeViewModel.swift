@@ -12,7 +12,11 @@ final class ShareChallengeViewModel: ObservableObject {
     @Published var challenges: [Challenge] = []
     @Published var selectedChallenge: Challenge?
     @Published var isLoading = false
+    @Published var isJoiningByCode = false
+    @Published var joinCodeInput: String = ""
     @Published var shakeChallenge = false
+
+    @Published var joinedChallenge: Challenge?
 
     @Published var showingAlert = false
     @Published var alertTitle: String = ""
@@ -64,6 +68,49 @@ final class ShareChallengeViewModel: ObservableObject {
         }
 
         return items
+    }
+
+    func joinChallengeByCode() async {
+        let trimmedCode = joinCodeInput.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        guard !trimmedCode.isEmpty else {
+            await MainActor.run {
+                presentAlert(title: "Code manquant", message: "Entre le code du défi partagé pour le rejoindre.")
+            }
+            return
+        }
+
+        await MainActor.run {
+            isJoiningByCode = true
+        }
+
+        do {
+            var joinedChallenge = try await challengeManager.joinChallenge(withCode: trimmedCode)
+            let resolvedChallenge = challengeManager.challenges.first(where: { $0.id == joinedChallenge.id }) ?? joinedChallenge
+
+            await MainActor.run {
+                selectedChallenge = resolvedChallenge
+                joinCodeInput = ""
+                joinedChallenge = resolvedChallenge
+                presentAlert(title: "Défi rejoint", message: "Tu as bien rejoint \"\(resolvedChallenge.title)\".")
+            }
+        } catch {
+            let message: String
+
+            if let localizedError = error as? LocalizedError, let description = localizedError.errorDescription {
+                message = description
+            } else {
+                message = "Impossible de rejoindre ce défi pour le moment. Réessaie plus tard."
+            }
+
+            await MainActor.run {
+                presentAlert(title: "Oups", message: message)
+            }
+        }
+
+        await MainActor.run {
+            isJoiningByCode = false
+        }
     }
 
     // MARK: - Private
