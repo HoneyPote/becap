@@ -15,6 +15,7 @@ struct ShareChallengeView: View {
 
     @State private var shareItems: [Any] = []
     @State private var isShareSheetPresented = false
+    @State private var showCopiedToast = false
 
     var body: some View {
         NavigationView {
@@ -80,6 +81,14 @@ struct ShareChallengeView: View {
                 message: Text(viewModel.alertMessage),
                 dismissButton: .default(Text("OK"))
             )
+        }
+        .overlay(alignment: .top) {
+            if showCopiedToast {
+                toastView
+                    .transition(.move(edge: .top).combined(with: .opacity))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 14)
+            }
         }
     }
 
@@ -209,6 +218,15 @@ struct ShareChallengeView: View {
 
                     Button {
                         UIPasteboard.general.string = code
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                            showCopiedToast = true
+                        }
+                        Task {
+                            try? await Task.sleep(nanoseconds: 1_600_000_000)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                showCopiedToast = false
+                            }
+                        }
                     } label: {
                         Label("Copier", systemImage: "doc.on.doc")
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
@@ -316,5 +334,24 @@ struct ShareChallengeView: View {
         .opacity((viewModel.selectedChallenge == nil || viewModel.isLoading) ? 0.6 : 1)
         .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
         .padding(.top, -6)
+    }
+
+    private var toastView: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(Color(red: 0.33, green: 0.82, blue: 0.55))
+
+            Text("Code copié !")
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundColor(.white)
+
+            Spacer(minLength: 8)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(.ultraThinMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 4)
     }
 }
