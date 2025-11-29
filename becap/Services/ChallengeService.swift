@@ -24,6 +24,7 @@ protocol ChallengeServiceProtocol {
     func deleteChallenge(challengeId: String) async throws
 
     // Posts
+    func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost?
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost]
     func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost
     func deletePost(_ post: ChallengePost) async throws
@@ -218,6 +219,17 @@ extension ChallengeService {
         try savePostToFirebase(post, challengeId: challengeId)
 
         return post
+    }
+
+    func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost? {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecPhotos)
+            .document(postId)
+
+        let snapshot = try await ref.getDocument()
+        return try snapshot.data(as: ChallengePost.self)
     }
 
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost] {
