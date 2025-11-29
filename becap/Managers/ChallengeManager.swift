@@ -677,10 +677,24 @@ extension ChallengeManager {
                               postId: String?,
                               declaredByAuthor: Bool,
                               voters: [String]) async throws {
-        guard var progress = try await fetchProgress(challengeId: challenge.id, userId: userId) else {
-            print("❌ Impossible de récupérer la progression pour appliquer le joker")
-            return
+        var progress = try await fetchProgress(challengeId: challenge.id, userId: userId)
+
+        if progress == nil {
+            print("⚠️ Aucune progression trouvée pour \(userId), initialisation d'un suivi avec jokers par défaut")
+
+            let jokerTotal = challenge.jokerConfiguration?.jokersPerParticipant ?? 0
+            let newProgress = ParticipantProgress(id: userId,
+                                                  joinedDate: Date(),
+                                                  validatedDays: [],
+                                                  medals: [],
+                                                  currentStreak: 0,
+                                                  jokerProgress: ParticipantJokerProgress(total: jokerTotal))
+
+            try setUserProgress(userId: userId, challengeId: challenge.id, progress: newProgress)
+            progress = newProgress
         }
+
+        guard var progress else { return }
 
         var jokerProgress = progress.jokerProgress
             ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
