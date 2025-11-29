@@ -718,6 +718,13 @@ extension ChallengeManager {
 
         _ = try? await accountManager.updateCurrentUser(with: userId)
 
+        if !declaredByAuthor, let postId {
+            await notificationService.sendJokerConsumedNotification(to: userId,
+                                                                    challenge: challenge,
+                                                                    postId: postId,
+                                                                    remainingJokers: jokerProgress.remaining)
+        }
+
         if !newMedals.isEmpty {
             for medal in newMedals {
                 await MainActor.run {

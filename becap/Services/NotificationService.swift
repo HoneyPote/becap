@@ -199,6 +199,41 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
+    // MARK: - Joker consumed notification
+    func sendJokerConsumedNotification(to userId: String,
+                                       challenge: Challenge,
+                                       postId: String,
+                                       remainingJokers: Int) async {
+        if userId.isEmpty {
+            print("ℹ️ sendJokerConsumedNotification ignoré: userId vide")
+            return
+        }
+
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: [userId], excludeCurrentUser: false)) ?? []
+
+        let headings = ["en": "Joker used", "fr": "Joker utilisé"]
+        let contents = ["en": "Your joker was consumed in \"\(challenge.title)\". Remaining: \(remainingJokers)",
+                        "fr": "Ton joker a été utilisé dans \"\(challenge.title)\". Plus que \(remainingJokers) restant(s)"]
+
+        print("🔔 JOKER → userId=\(userId) playerIds=\(playerIds) remaining=\(remainingJokers)")
+
+        let deepLink = makePostDeepLink(challengeId: challenge.id, postId: postId)
+        let additionalData: [String: Any] = [
+            "type": "joker_consumed",
+            "challengeId": challenge.id,
+            "photoId": postId
+        ]
+
+        sendForUser(externalIds: [userId],
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: userId,
+                    context: "sendJokerConsumedNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
+    }
+
     // MARK: - Firestore fetch
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
         var ids: [String] = []
