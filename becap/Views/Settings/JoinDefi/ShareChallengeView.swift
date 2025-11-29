@@ -217,6 +217,8 @@ struct ShareChallengeView: View {
                     Spacer()
 
                     Button {
+                        let impactGenerator = UIImpactFeedbackGenerator(style: .light)
+                        impactGenerator.impactOccurred()
                         UIPasteboard.general.string = code
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             showCopiedToast = true
