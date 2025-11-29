@@ -18,6 +18,10 @@ enum ChallengeShareBuilder {
 
         if let linkURL { parts += ["", "➡️ Accès direct : \(linkURL.absoluteString)"] }
 
+        if let challengeCode = challenge.code, !challengeCode.isEmpty {
+            parts += ["", "🔢 Code du défi : \(challengeCode)"]
+        }
+
         let message = parts.joined(separator: "\n")
 
         #if canImport(UIKit)
