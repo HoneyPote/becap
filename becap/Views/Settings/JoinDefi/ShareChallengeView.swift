@@ -10,6 +10,7 @@ import UIKit
 
 struct ShareChallengeView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
 
     @StateObject private var viewModel = ShareChallengeViewModel()
 
@@ -89,6 +90,13 @@ struct ShareChallengeView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 14)
             }
+        }
+        .onChange(of: viewModel.joinedChallenge) { challenge in
+            guard let challenge else { return }
+
+            deepLinkRouter.pendingCalendarChallengeId = challenge.id
+            dismiss()
+            viewModel.joinedChallenge = nil
         }
     }
 

@@ -16,6 +16,8 @@ final class ShareChallengeViewModel: ObservableObject {
     @Published var joinCodeInput: String = ""
     @Published var shakeChallenge = false
 
+    @Published var joinedChallenge: Challenge?
+
     @Published var showingAlert = false
     @Published var alertTitle: String = ""
     @Published var alertMessage: String = ""
@@ -89,6 +91,7 @@ final class ShareChallengeViewModel: ObservableObject {
             await MainActor.run {
                 selectedChallenge = resolvedChallenge
                 joinCodeInput = ""
+                joinedChallenge = resolvedChallenge
                 presentAlert(title: "Défi rejoint", message: "Tu as bien rejoint \"\(resolvedChallenge.title)\".")
             }
         } catch {
