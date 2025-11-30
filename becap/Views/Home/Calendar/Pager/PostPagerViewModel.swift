@@ -151,14 +151,18 @@ final class PostViewModel: ObservableObject, Identifiable {
         challengeService.listenToPost(challengeId: challengeId, postId: postId) { [weak self] updated in
             guard let updated else { return }
 
-            self?.likes = updated.likes ?? []
-            self?.jokerState = updated.jokerState ?? PostJokerState()
+            DispatchQueue.main.async {
+                self?.likes = updated.likes ?? []
+                self?.jokerState = updated.jokerState ?? PostJokerState()
+            }
         }
     }
 
     private func listenToComments(postId: String, challengeId: String) {
         challengeService.listenToComments(challengeId: challengeId, postId: postId) { [weak self] updated in
-            self?.comments = updated
+            DispatchQueue.main.async {
+                self?.comments = updated
+            }
         }
     }
 }
