@@ -730,7 +730,9 @@ extension ChallengeManager {
             await rewardService.addMedals(to: userId, medals: newMedals)
         }
 
-        _ = try? await accountManager.updateCurrentUser(with: userId)
+        if currentUser?.id == userId {
+            _ = try? await accountManager.updateCurrentUser(with: userId)
+        }
 
         if !declaredByAuthor, let postId {
             await notificationService.sendJokerConsumedNotification(to: userId,
