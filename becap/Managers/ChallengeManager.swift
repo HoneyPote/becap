@@ -539,9 +539,8 @@ extension ChallengeManager {
         }
 
         if state.voters.contains(currentUserId) {
-            state.voters.removeAll { $0 == currentUserId }
-        } else {
-            state.voters.append(currentUserId)
+            print("ℹ️ L'utilisateur a déjà voté pour ce joker")
+            return
         }
 
         let eligibleVoters = max(resolvedChallenge.participantUids.count - 1, 1)
@@ -677,10 +676,24 @@ extension ChallengeManager {
                               postId: String?,
                               declaredByAuthor: Bool,
                               voters: [String]) async throws {
-        guard var progress = try await fetchProgress(challengeId: challenge.id, userId: userId) else {
-            print("❌ Impossible de récupérer la progression pour appliquer le joker")
-            return
+        var progress = try await fetchProgress(challengeId: challenge.id, userId: userId)
+
+        if progress == nil {
+            print("⚠️ Aucune progression trouvée pour \(userId), initialisation d'un suivi avec jokers par défaut")
+
+            let jokerTotal = challenge.jokerConfiguration?.jokersPerParticipant ?? 0
+            let newProgress = ParticipantProgress(id: userId,
+                                                  joinedDate: Date(),
+                                                  validatedDays: [],
+                                                  medals: [],
+                                                  currentStreak: 0,
+                                                  jokerProgress: ParticipantJokerProgress(total: jokerTotal))
+
+            try setUserProgress(userId: userId, challengeId: challenge.id, progress: newProgress)
+            progress = newProgress
         }
+
+        guard var progress else { return }
 
         var jokerProgress = progress.jokerProgress
             ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
@@ -716,7 +729,16 @@ extension ChallengeManager {
             await rewardService.addMedals(to: userId, medals: newMedals)
         }
 
-        _ = try? await accountManager.updateCurrentUser(with: userId)
+        if declaredByAuthor, currentUser?.id == userId {
+            _ = try? await accountManager.updateCurrentUser(with: userId)
+        }
+
+        if !declaredByAuthor, let postId {
+            await notificationService.sendJokerConsumedNotification(to: userId,
+                                                                    challenge: challenge,
+                                                                    postId: postId,
+                                                                    remainingJokers: jokerProgress.remaining)
+        }
 
         if !newMedals.isEmpty {
             for medal in newMedals {
