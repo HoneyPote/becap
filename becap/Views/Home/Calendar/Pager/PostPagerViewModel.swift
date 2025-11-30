@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 
 final class PostStore: ObservableObject {
@@ -71,7 +72,7 @@ final class PostStore: ObservableObject {
 final class PostViewModel: ObservableObject, Identifiable {
     @Published var likes: [String]
     @Published var comments: [PostCommentModel] = []
-	@Published var jokerState: PostJokerState
+    @Published var jokerState: PostJokerState
 
     let post: ChallengePost
 
@@ -128,9 +129,10 @@ final class PostViewModel: ObservableObject, Identifiable {
         }
     }
 
-    func toggleJokerVote() {
+    func toggleJokerVote(using currentState: PostJokerState? = nil) {
         Task {
-            try await challengeManager.toggleJokerVote(for: post, currentState: jokerState)
+            let state = currentState ?? jokerState
+            try await challengeManager.toggleJokerVote(for: post, currentState: state)
         }
     }
 
@@ -151,14 +153,18 @@ final class PostViewModel: ObservableObject, Identifiable {
         challengeService.listenToPost(challengeId: challengeId, postId: postId) { [weak self] updated in
             guard let updated else { return }
 
-            self?.likes = updated.likes ?? []
-            self?.jokerState = updated.jokerState ?? PostJokerState()
+            DispatchQueue.main.async {
+                self?.likes = updated.likes ?? []
+                self?.jokerState = updated.jokerState ?? PostJokerState()
+            }
         }
     }
 
     private func listenToComments(postId: String, challengeId: String) {
         challengeService.listenToComments(challengeId: challengeId, postId: postId) { [weak self] updated in
-            self?.comments = updated
+            DispatchQueue.main.async {
+                self?.comments = updated
+            }
         }
     }
 }
@@ -166,15 +172,21 @@ final class PostViewModel: ObservableObject, Identifiable {
 class PostPagerViewModel: ObservableObject {
     @Published var postViewModels: [PostViewModel]
     @Published var selectedPostVM: PostViewModel
+    @Published var selectedJokerState: PostJokerState
     @Published var selectedIndex: Int {
         didSet {
             selectedPostVM = postViewModels[selectedIndex]
+            selectedJokerState = selectedPostVM.jokerState
+            bindToSelectedPostViewModel()
         }
     }
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
     let challenge: Challenge
+
+    private var selectedPostSubscription: AnyCancellable?
+    private var selectedJokerSubscription: AnyCancellable?
 
     var postFormattedDate: String {
         selectedPostVM.postFormattedDate
@@ -190,16 +202,19 @@ class PostPagerViewModel: ObservableObject {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
         return currentUserId != selectedPostVM.post.authorUid
+        && !selectedJokerState.voters.contains(currentUserId)
+    }
+
+    var hasCurrentUserVoted: Bool {
+        guard let currentUserId = challengeManager.currentUser?.id else { return false }
+
+        return selectedJokerState.voters.contains(currentUserId)
     }
 
     var canDeclareJoker: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
         return currentUserId == selectedPostVM.post.authorUid
-    }
-
-    var selectedJokerState: PostJokerState {
-        selectedPostVM.jokerState
     }
 
     init(challengeService: ChallengeServiceProtocol = ChallengeService.shared,
@@ -215,7 +230,10 @@ class PostPagerViewModel: ObservableObject {
         let postViewModels = posts.map { PostStore.shared.getViewModel(for: $0) }
         self.selectedIndex = selectedPostIndex
         self.selectedPostVM = postViewModels[selectedPostIndex]
+        self.selectedJokerState = postViewModels[selectedPostIndex].jokerState
         self.postViewModels = postViewModels
+
+        bindToSelectedPostViewModel()
     }
 
     func deletePost(isDeleted: @escaping (Bool, ChallengePost?) -> Void) {
@@ -264,25 +282,26 @@ class PostPagerViewModel: ObservableObject {
         guard canToggleJokerVote,
               let currentUserId = challengeManager.currentUser?.id else { return }
 
-        var state = selectedPostVM.jokerState
+        let baseState = selectedPostVM.jokerState
+        var optimisticState = baseState
 
-        if state.voters.contains(currentUserId) {
-            state.voters.removeAll { $0 == currentUserId }
-        } else {
-            state.voters.append(currentUserId)
+        if optimisticState.voters.contains(currentUserId) {
+            return
         }
+
+        optimisticState.voters.append(currentUserId)
 
         let eligibleVoters = max(challenge.participantUids.count - 1, 1)
         let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
-        let isConfirmed = state.voters.count >= requiredVotes
+        let isConfirmed = optimisticState.voters.count >= requiredVotes
 
-        state.isConfirmed = isConfirmed
-        state.confirmedAt = isConfirmed ? Date() : nil
+        optimisticState.isConfirmed = isConfirmed
+        optimisticState.confirmedAt = isConfirmed ? Date() : nil
 
-        selectedPostVM.jokerState = state
+        selectedPostVM.jokerState = optimisticState
         objectWillChange.send()
 
-        selectedPostVM.toggleJokerVote()
+        selectedPostVM.toggleJokerVote(using: baseState)
     }
 
     func declareJokerUsage() {
@@ -315,5 +334,22 @@ class PostPagerViewModel: ObservableObject {
 
     private func reloadView() {
         objectWillChange.send()
+    }
+
+    private func bindToSelectedPostViewModel() {
+        selectedPostSubscription?.cancel()
+        selectedJokerSubscription?.cancel()
+
+        selectedPostSubscription = selectedPostVM.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+
+        selectedJokerSubscription = selectedPostVM.$jokerState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newState in
+                self?.selectedJokerState = newState
+            }
     }
 }
