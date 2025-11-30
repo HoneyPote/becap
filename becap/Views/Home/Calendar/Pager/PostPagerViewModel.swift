@@ -72,7 +72,7 @@ final class PostStore: ObservableObject {
 final class PostViewModel: ObservableObject, Identifiable {
     @Published var likes: [String]
     @Published var comments: [PostCommentModel] = []
-	@Published var jokerState: PostJokerState
+    @Published var jokerState: PostJokerState
 
     let post: ChallengePost
 
@@ -129,9 +129,10 @@ final class PostViewModel: ObservableObject, Identifiable {
         }
     }
 
-    func toggleJokerVote() {
+    func toggleJokerVote(using currentState: PostJokerState? = nil) {
         Task {
-            try await challengeManager.toggleJokerVote(for: post, currentState: jokerState)
+            let state = currentState ?? jokerState
+            try await challengeManager.toggleJokerVote(for: post, currentState: state)
         }
     }
 
@@ -171,9 +172,11 @@ final class PostViewModel: ObservableObject, Identifiable {
 class PostPagerViewModel: ObservableObject {
     @Published var postViewModels: [PostViewModel]
     @Published var selectedPostVM: PostViewModel
+    @Published var selectedJokerState: PostJokerState
     @Published var selectedIndex: Int {
         didSet {
             selectedPostVM = postViewModels[selectedIndex]
+            selectedJokerState = selectedPostVM.jokerState
             bindToSelectedPostViewModel()
         }
     }
@@ -183,6 +186,7 @@ class PostPagerViewModel: ObservableObject {
     let challenge: Challenge
 
     private var selectedPostSubscription: AnyCancellable?
+    private var selectedJokerSubscription: AnyCancellable?
 
     var postFormattedDate: String {
         selectedPostVM.postFormattedDate
@@ -198,23 +202,19 @@ class PostPagerViewModel: ObservableObject {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
         return currentUserId != selectedPostVM.post.authorUid
-        && !selectedPostVM.jokerState.voters.contains(currentUserId)
+        && !selectedJokerState.voters.contains(currentUserId)
     }
 
     var hasCurrentUserVoted: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
-        return selectedPostVM.jokerState.voters.contains(currentUserId)
+        return selectedJokerState.voters.contains(currentUserId)
     }
 
     var canDeclareJoker: Bool {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
         return currentUserId == selectedPostVM.post.authorUid
-    }
-
-    var selectedJokerState: PostJokerState {
-        selectedPostVM.jokerState
     }
 
     init(challengeService: ChallengeServiceProtocol = ChallengeService.shared,
@@ -230,6 +230,7 @@ class PostPagerViewModel: ObservableObject {
         let postViewModels = posts.map { PostStore.shared.getViewModel(for: $0) }
         self.selectedIndex = selectedPostIndex
         self.selectedPostVM = postViewModels[selectedPostIndex]
+        self.selectedJokerState = postViewModels[selectedPostIndex].jokerState
         self.postViewModels = postViewModels
 
         bindToSelectedPostViewModel()
@@ -281,25 +282,26 @@ class PostPagerViewModel: ObservableObject {
         guard canToggleJokerVote,
               let currentUserId = challengeManager.currentUser?.id else { return }
 
-        var state = selectedPostVM.jokerState
+        let baseState = selectedPostVM.jokerState
+        var optimisticState = baseState
 
-        if state.voters.contains(currentUserId) {
+        if optimisticState.voters.contains(currentUserId) {
             return
         }
 
-        state.voters.append(currentUserId)
+        optimisticState.voters.append(currentUserId)
 
         let eligibleVoters = max(challenge.participantUids.count - 1, 1)
         let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
-        let isConfirmed = state.voters.count >= requiredVotes
+        let isConfirmed = optimisticState.voters.count >= requiredVotes
 
-        state.isConfirmed = isConfirmed
-        state.confirmedAt = isConfirmed ? Date() : nil
+        optimisticState.isConfirmed = isConfirmed
+        optimisticState.confirmedAt = isConfirmed ? Date() : nil
 
-        selectedPostVM.jokerState = state
+        selectedPostVM.jokerState = optimisticState
         objectWillChange.send()
 
-        selectedPostVM.toggleJokerVote()
+        selectedPostVM.toggleJokerVote(using: baseState)
     }
 
     func declareJokerUsage() {
@@ -335,10 +337,19 @@ class PostPagerViewModel: ObservableObject {
     }
 
     private func bindToSelectedPostViewModel() {
+        selectedPostSubscription?.cancel()
+        selectedJokerSubscription?.cancel()
+
         selectedPostSubscription = selectedPostVM.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.objectWillChange.send()
+            }
+
+        selectedJokerSubscription = selectedPostVM.$jokerState
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] newState in
+                self?.selectedJokerState = newState
             }
     }
 }
