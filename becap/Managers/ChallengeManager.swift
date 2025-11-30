@@ -539,10 +539,11 @@ extension ChallengeManager {
         }
 
         if state.voters.contains(currentUserId) {
-            state.voters.removeAll { $0 == currentUserId }
-        } else {
-            state.voters.append(currentUserId)
+            print("ℹ️ L'utilisateur a déjà voté pour ce joker")
+            return
         }
+
+        state.voters.append(currentUserId)
 
         let eligibleVoters = max(resolvedChallenge.participantUids.count - 1, 1)
         let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
@@ -730,7 +731,7 @@ extension ChallengeManager {
             await rewardService.addMedals(to: userId, medals: newMedals)
         }
 
-        if currentUser?.id == userId {
+        if declaredByAuthor, currentUser?.id == userId {
             _ = try? await accountManager.updateCurrentUser(with: userId)
         }
 

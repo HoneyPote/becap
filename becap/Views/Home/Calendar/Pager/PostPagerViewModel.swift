@@ -190,6 +190,13 @@ class PostPagerViewModel: ObservableObject {
         guard let currentUserId = challengeManager.currentUser?.id else { return false }
 
         return currentUserId != selectedPostVM.post.authorUid
+        && !selectedPostVM.jokerState.voters.contains(currentUserId)
+    }
+
+    var hasCurrentUserVoted: Bool {
+        guard let currentUserId = challengeManager.currentUser?.id else { return false }
+
+        return selectedPostVM.jokerState.voters.contains(currentUserId)
     }
 
     var canDeclareJoker: Bool {
@@ -267,10 +274,10 @@ class PostPagerViewModel: ObservableObject {
         var state = selectedPostVM.jokerState
 
         if state.voters.contains(currentUserId) {
-            state.voters.removeAll { $0 == currentUserId }
-        } else {
-            state.voters.append(currentUserId)
+            return
         }
+
+        state.voters.append(currentUserId)
 
         let eligibleVoters = max(challenge.participantUids.count - 1, 1)
         let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)

@@ -259,9 +259,10 @@ extension PostPagerView {
     @ViewBuilder
     private func jokerBadge(for state: PostJokerState) -> some View {
         let voteCount = state.voters.count
+        let hasCurrentUserVoted = viewModel.hasCurrentUserVoted
         let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
 
-        let decorated = JokerIconView(size: 40, isDimmed: state.isConfirmed)
+        let decorated = JokerIconView(size: 40, isDimmed: state.isConfirmed || hasCurrentUserVoted)
             .overlay(alignment: .topTrailing) {
                 voteBubble(for: voteCount)
             }
