@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import FirebaseFirestore
 
 final class PostStore: ObservableObject {
@@ -173,12 +174,15 @@ class PostPagerViewModel: ObservableObject {
     @Published var selectedIndex: Int {
         didSet {
             selectedPostVM = postViewModels[selectedIndex]
+            bindToSelectedPostViewModel()
         }
     }
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
     let challenge: Challenge
+
+    private var selectedPostSubscription: AnyCancellable?
 
     var postFormattedDate: String {
         selectedPostVM.postFormattedDate
@@ -227,6 +231,8 @@ class PostPagerViewModel: ObservableObject {
         self.selectedIndex = selectedPostIndex
         self.selectedPostVM = postViewModels[selectedPostIndex]
         self.postViewModels = postViewModels
+
+        bindToSelectedPostViewModel()
     }
 
     func deletePost(isDeleted: @escaping (Bool, ChallengePost?) -> Void) {
@@ -326,5 +332,13 @@ class PostPagerViewModel: ObservableObject {
 
     private func reloadView() {
         objectWillChange.send()
+    }
+
+    private func bindToSelectedPostViewModel() {
+        selectedPostSubscription = selectedPostVM.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
     }
 }
