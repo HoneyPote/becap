@@ -17,6 +17,7 @@ struct NewPostView: View {
 
     @State private var showCamera = false
     @State private var showMediaPreview = false
+    @State private var showChallengeSelector = false
 
     var body: some View {
         NavigationView {
@@ -111,7 +112,7 @@ struct NewPostView: View {
                     .textCase(.uppercase)
                     .foregroundColor(.white)
 
-                Text("Reste concentré en sélectionnant le défi à alimenter aujourd'hui.")
+                Text("Sélection obligatoire pour publier : choisis précisément le défi à alimenter.")
                     .font(.system(.footnote, design: .rounded))
                     .foregroundColor(.white.opacity(0.72))
             }
@@ -142,24 +143,103 @@ struct NewPostView: View {
                         )
                 )
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(viewModel.challenges) { challenge in
-                            ChallengeChip(
-                                title: challenge.title,
-                                subtitle: challenge.category?.displayName,
-                                isSelected: viewModel.selectedChallenge == challenge
-                            )
-                            .onTapGesture {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                                    viewModel.selectedChallenge = challenge
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            showChallengeSelector.toggle()
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(viewModel.selectedChallenge?.title ?? "Sélectionner un défi")
+                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                    .foregroundColor(.white)
+
+                                Text(viewModel.selectedChallenge?.category?.displayName ?? "Aucun défi sélectionné")
+                                    .font(.system(.caption, design: .rounded))
+                                    .foregroundColor(.white.opacity(0.72))
+                            }
+
+                            Spacer()
+
+                            Image(systemName: showChallengeSelector ? "chevron.up" : "chevron.down")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white.opacity(0.9))
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal, 16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .fill(Color.white.opacity(0.07))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                                )
+                        )
+                    }
+                    .buttonStyle(PressableButtonStyle())
+                    .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
+
+                    if showChallengeSelector {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                ForEach(viewModel.challenges) { challenge in
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            viewModel.selectChallenge(challenge)
+                                            showChallengeSelector = false
+                                        }
+                                    } label: {
+                                        HStack(alignment: .center, spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text(challenge.title)
+                                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                                    .foregroundColor(.white)
+
+                                                if let categoryName = challenge.category?.displayName {
+                                                    Text(categoryName)
+                                                        .font(.system(.caption, design: .rounded))
+                                                        .foregroundColor(.white.opacity(0.75))
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            if viewModel.selectedChallenge == challenge {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(Color(red: 0.92, green: 0.86, blue: 0.72))
+                                                    .imageScale(.large)
+                                            }
+                                        }
+                                        .padding(.vertical, 14)
+                                        .padding(.horizontal, 16)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                                .fill(Color.white.opacity(viewModel.selectedChallenge == challenge ? 0.16 : 0.08))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(PressableButtonStyle(scale: 0.985))
                                 }
                             }
+                            .padding(.vertical, 4)
                         }
+                        .frame(maxHeight: 260)
+                        .transition(.move(edge: .top).combined(with: .opacity))
                     }
-                    .padding(.horizontal, 2)
+
+                    if viewModel.selectedChallenge == nil {
+                        Text("Choisis un défi pour éviter toute erreur d'envoi.")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundColor(.yellow.opacity(0.8))
+                            .padding(.horizontal, 4)
+                    }
                 }
-                .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
             }
         }
         .padding(4)
@@ -202,8 +282,8 @@ struct NewPostView: View {
                 )
             }
             .buttonStyle(PressableButtonStyle())
-            .disabled(viewModel.isUploadingPost)
-            .opacity(viewModel.isUploadingPost ? 0.85 : 1.0)
+            .disabled(viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil)
+            .opacity((viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
         }
         .padding(4)
     }
@@ -355,7 +435,8 @@ struct NewPostView: View {
         }
     }
 }
- struct ChallengeChip: View {
+
+struct ChallengeChip: View {
     let title: String
     let subtitle: String?
     let isSelected: Bool

@@ -8,6 +8,9 @@
 import SwiftUI
 import Combine
 import AVFoundation
+#if canImport(UIKit)
+import UIKit
+#endif
 
 class NewPostViewModel: ObservableObject {
     @Published var selectedChallenge: Challenge?
@@ -71,6 +74,11 @@ class NewPostViewModel: ObservableObject {
         selectedMedia = media
     }
 
+    func selectChallenge(_ challenge: Challenge) {
+        selectedChallenge = challenge
+        playSelectionHaptic()
+    }
+
     func closeToast() {
         toast.timer?.invalidate()
         withAnimation { toast.isShown = false }
@@ -97,6 +105,14 @@ class NewPostViewModel: ObservableObject {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
+
+    private func playSelectionHaptic() {
+        #if canImport(UIKit)
+        let generator = UISelectionFeedbackGenerator()
+        generator.prepare()
+        generator.selectionChanged()
+        #endif
+    }
 }
 
 // MARK: - Observers
@@ -109,8 +125,11 @@ extension NewPostViewModel {
 
                 self.challenges = challenges.filter { $0.status == .active }
 
-                if !self.challenges.isEmpty, let first = self.challenges.first {
-                    self.selectedChallenge = first
+                if let currentSelection = self.selectedChallenge,
+                   self.challenges.contains(currentSelection) {
+                    self.selectedChallenge = currentSelection
+                } else {
+                    self.selectedChallenge = nil
                 }
             }
             .store(in: &cancellables)
