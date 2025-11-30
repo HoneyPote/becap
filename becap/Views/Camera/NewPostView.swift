@@ -29,12 +29,6 @@ struct NewPostView: View {
                     GlassCard {
                         challengePickerSection
                     }
-                    .sheet(isPresented: $showChallengeSelector) {
-                        ChallengeSelectionSheet(
-                            challenges: viewModel.challenges,
-                            selectedChallenge: $viewModel.selectedChallenge
-                        )
-                    }
 
                     GlassCard {
                         mediaSection
@@ -152,7 +146,7 @@ struct NewPostView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     Button {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
-                            showChallengeSelector = true
+                            showChallengeSelector.toggle()
                         }
                     } label: {
                         HStack(spacing: 12) {
@@ -168,7 +162,7 @@ struct NewPostView: View {
 
                             Spacer()
 
-                            Image(systemName: "chevron.up.chevron.down")
+                            Image(systemName: showChallengeSelector ? "chevron.up" : "chevron.down")
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white.opacity(0.9))
                         }
@@ -186,6 +180,58 @@ struct NewPostView: View {
                     }
                     .buttonStyle(PressableButtonStyle())
                     .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))
+
+                    if showChallengeSelector {
+                        ScrollView(showsIndicators: false) {
+                            LazyVStack(spacing: 12) {
+                                ForEach(viewModel.challenges) { challenge in
+                                    Button {
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                            viewModel.selectedChallenge = challenge
+                                            showChallengeSelector = false
+                                        }
+                                    } label: {
+                                        HStack(alignment: .center, spacing: 12) {
+                                            VStack(alignment: .leading, spacing: 6) {
+                                                Text(challenge.title)
+                                                    .font(.system(.body, design: .rounded).weight(.semibold))
+                                                    .foregroundColor(.white)
+
+                                                if let categoryName = challenge.category?.displayName {
+                                                    Text(categoryName)
+                                                        .font(.system(.caption, design: .rounded))
+                                                        .foregroundColor(.white.opacity(0.75))
+                                                }
+                                            }
+
+                                            Spacer()
+
+                                            if viewModel.selectedChallenge == challenge {
+                                                Image(systemName: "checkmark.circle.fill")
+                                                    .foregroundColor(Color(red: 0.92, green: 0.86, blue: 0.72))
+                                                    .imageScale(.large)
+                                            }
+                                        }
+                                        .padding(.vertical, 14)
+                                        .padding(.horizontal, 16)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                                .fill(Color.white.opacity(viewModel.selectedChallenge == challenge ? 0.16 : 0.08))
+                                                .overlay(
+                                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                                                )
+                                        )
+                                    }
+                                    .buttonStyle(PressableButtonStyle(scale: 0.985))
+                                }
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .frame(maxHeight: 260)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                    }
 
                     if viewModel.selectedChallenge == nil {
                         Text("Choisis un défi pour éviter toute erreur d'envoi.")
@@ -385,56 +431,6 @@ struct NewPostView: View {
                     .padding(.trailing, 6)
 
                 Spacer()
-            }
-        }
-    }
-}
-
-private struct ChallengeSelectionSheet: View {
-    let challenges: [Challenge]
-    @Binding var selectedChallenge: Challenge?
-
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationView {
-            List {
-                ForEach(challenges) { challenge in
-                    Button {
-                        selectedChallenge = challenge
-                        dismiss()
-                    } label: {
-                        HStack(spacing: 12) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(challenge.title)
-                                    .font(.system(.body, design: .rounded).weight(.semibold))
-                                    .foregroundColor(.primary)
-
-                                if let categoryName = challenge.category?.displayName {
-                                    Text(categoryName)
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-
-                            Spacer()
-
-                            if selectedChallenge == challenge {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundColor(.accentColor)
-                            }
-                        }
-                        .padding(.vertical, 4)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Sélectionne un défi")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Fermer") { dismiss() }
-                }
             }
         }
     }
