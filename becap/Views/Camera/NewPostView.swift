@@ -187,7 +187,7 @@ struct NewPostView: View {
                                 ForEach(viewModel.challenges) { challenge in
                                     Button {
                                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                                            viewModel.selectedChallenge = challenge
+                                            viewModel.selectChallenge(challenge)
                                             showChallengeSelector = false
                                         }
                                     } label: {
