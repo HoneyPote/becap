@@ -109,8 +109,11 @@ extension NewPostViewModel {
 
                 self.challenges = challenges.filter { $0.status == .active }
 
-                if !self.challenges.isEmpty, let first = self.challenges.first {
-                    self.selectedChallenge = first
+                if let currentSelection = self.selectedChallenge,
+                   self.challenges.contains(currentSelection) {
+                    self.selectedChallenge = currentSelection
+                } else {
+                    self.selectedChallenge = nil
                 }
             }
             .store(in: &cancellables)
