@@ -402,17 +402,29 @@ extension ChallengeManager {
 
         try setUserProgress(userId: userId, challengeId: challenge.id, progress: userProgress)
     }
-
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
         var progresses = try await challengeService.fetchParticipantsProgress(for: challengeId)
 
-        guard let challenge = challenge(for: challengeId) ?? (try await fetchChallenge(by: challengeId)) else {
+
+        let resolvedChallenge: Challenge
+        if let local = challenge(for: challengeId) {
+            resolvedChallenge = local
+        } else if let fetched = try await fetchChallenge(by: challengeId) {
+            resolvedChallenge = fetched
+        } else {
+            // si le challenge n'existe plus, on renvoie juste les progresses
             return progresses
+           
+            // throw ChallengeManagerError.challengeNotFound
         }
 
+        // Étape 2 : auto-déclaration pour le user courant
         if let currentUserId = currentUser?.id,
            let index = progresses.firstIndex(where: { $0.id == currentUserId }),
-           let updatedProgress = await autoDeclareMissedDayIfNeeded(for: challenge, progress: progresses[index]) {
+           let updatedProgress = await autoDeclareMissedDayIfNeeded(
+                for: resolvedChallenge,
+                progress: progresses[index]
+           ) {
             progresses[index] = updatedProgress
         }
 
