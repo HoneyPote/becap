@@ -404,7 +404,19 @@ extension ChallengeManager {
     }
 
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
-        return try await challengeService.fetchParticipantsProgress(for: challengeId)
+        var progresses = try await challengeService.fetchParticipantsProgress(for: challengeId)
+
+        guard let challenge = challenge(for: challengeId) ?? (try await fetchChallenge(by: challengeId)) else {
+            return progresses
+        }
+
+        if let currentUserId = currentUser?.id,
+           let index = progresses.firstIndex(where: { $0.id == currentUserId }),
+           let updatedProgress = await autoDeclareMissedDayIfNeeded(for: challenge, progress: progresses[index]) {
+            progresses[index] = updatedProgress
+        }
+
+        return progresses
     }
 
     func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws {
