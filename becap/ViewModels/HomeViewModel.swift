@@ -41,7 +41,7 @@ class HomeViewModel: ObservableObject {
         jokerConfiguration: nil,
         isPremium: true,
         price: 4.99,
-        infoText: "Débloque ce défi premium pour découvrir un challenge exclusif avec suivi quotidien et récompenses.",
+        infoText: "Programme premium guidé avec vidéos, rappel quotidien et récompenses exclusives pour garder la motivation.",
         infoVideoURL: nil
     )
 

@@ -41,7 +41,7 @@ struct LockedChallengeCell: View {
                     .buttonStyle(.plain)
                     .popover(isPresented: $showInfo) {
                         ChallengeInfoBubble(challenge: challenge)
-                            .frame(width: 240)
+                            .frame(width: 320)
                             .padding()
                     }
                 }
