@@ -11,6 +11,8 @@ import PassKit
 struct ChallengePaywallView: View {
     let challenge: Challenge
     @Binding var isProcessing: Bool
+    let statusMessage: String?
+    let awaitingConfirmation: Bool
     let errorMessage: String?
     let onApplePay: () -> Void
     let onCard: () -> Void
@@ -27,13 +29,13 @@ struct ChallengePaywallView: View {
                     if PKPaymentAuthorizationController.canMakePayments() {
                         ApplePayButton(action: onApplePay)
                             .frame(height: 50)
-                            .opacity(isProcessing ? 0.6 : 1)
+                            .opacity((isProcessing || awaitingConfirmation) ? 0.6 : 1)
                             .overlay(alignment: .center) {
                                 if isProcessing {
                                     ProgressView().tint(.white)
                                 }
                             }
-                            .disabled(isProcessing)
+                            .disabled(isProcessing || awaitingConfirmation)
                     }
 
                     Button(action: onCard) {
@@ -48,8 +50,15 @@ struct ChallengePaywallView: View {
                         .foregroundColor(.white)
                         .cornerRadius(12)
                     }
-                    .disabled(isProcessing)
-                    .opacity(isProcessing ? 0.6 : 1)
+                    .disabled(isProcessing || awaitingConfirmation)
+                    .opacity((isProcessing || awaitingConfirmation) ? 0.6 : 1)
+                }
+
+                if let statusMessage {
+                    Text(statusMessage)
+                        .foregroundStyle(.white)
+                        .font(.subheadline)
+                        .padding(.top, 4)
                 }
 
                 if let errorMessage {

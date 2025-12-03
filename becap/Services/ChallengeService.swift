@@ -46,6 +46,11 @@ protocol ChallengeServiceProtocol {
     func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws
     func addReaction(_ reaction: String, to messageId: String, in challengeId: String, userId: String) async throws
     func removeReaction(_ reaction: String, from messageId: String, in challengeId: String, userId: String) async throws
+
+    // Enrollments / payments
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
 }
 
 final class ChallengeService: ChallengeServiceProtocol {
@@ -58,6 +63,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecParticipants = "participants"
     private let collecComments = "comments"
     private let collecChat = "chatMessages"
+    private let collecEnrollments = "enrollments"
 
     private init() {}
 }
@@ -663,6 +669,64 @@ extension ChallengeService {
         try await ref.updateData([
             "jokerState": try Firestore.Encoder().encode(state)
         ])
+    }
+}
+
+// MARK: - Enrollments / Payments
+extension ChallengeService {
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment? {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .document(userId)
+
+        do {
+            let snapshot = try await ref.getDocument()
+            return try snapshot.data(as: ChallengeEnrollment.self)
+        } catch {
+            print("❌ Erreur Firestore lors de l’obtention de l’inscription: \(error)")
+            return nil
+        }
+    }
+
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration? {
+        return firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .document(userId)
+            .addSnapshotListener { snapshot, error in
+                if let error {
+                    print("❌ Erreur d’écoute enrollment: \(error)")
+                    onUpdate(nil)
+                    return
+                }
+
+                guard let snapshot else {
+                    onUpdate(nil)
+                    return
+                }
+
+                let enrollment = try? snapshot.data(as: ChallengeEnrollment.self)
+                onUpdate(enrollment)
+            }
+    }
+    }
+
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(enrollment.challengeId)
+            .collection(collecEnrollments)
+            .document(enrollment.userId)
+
+        do {
+            try ref.setData(from: enrollment)
+        } catch {
+            print("❌ Erreur d’upsert enrollment: \(error)")
+            throw error
+        }
     }
 }
 

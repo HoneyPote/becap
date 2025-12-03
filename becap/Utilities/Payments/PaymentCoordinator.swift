@@ -4,26 +4,41 @@
 //
 //  Created by OpenAI Assistant on 2025-xx-xx.
 //
+//  The coordinator now delegates payment validation to the backend (Stripe Checkout / PaymentIntent)
+//  instead of marking success locally. It opens the provider flow and relies on Firestore enrollments
+//  updated by webhooks to unlock challenges.
 
 import Foundation
-import PassKit
+import SafariServices
+import UIKit
+
+enum PaymentFlowOutcome {
+    case initiated
+    case awaitingConfirmation
+}
 
 enum PaymentCoordinatorError: LocalizedError {
     case unavailable
     case missingMerchantId
     case presentationFailed
     case cancelled
+    case backendFailure(String)
+    case invalidResponse
 
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return "Apple Pay n’est pas disponible sur cet appareil."
+            return "Le paiement n’est pas disponible sur cet appareil."
         case .missingMerchantId:
             return "Aucun identifiant marchand Apple Pay n’a été trouvé."
         case .presentationFailed:
-            return "Impossible d’ouvrir Apple Pay pour le moment."
+            return "Impossible d’ouvrir le flux de paiement pour le moment."
         case .cancelled:
             return "Le paiement a été annulé."
+        case .backendFailure(let reason):
+            return reason
+        case .invalidResponse:
+            return "Réponse de paiement invalide."
         }
     }
 }
@@ -31,60 +46,56 @@ enum PaymentCoordinatorError: LocalizedError {
 final class PaymentCoordinator: NSObject {
     static let shared = PaymentCoordinator()
 
-    private var paymentController: PKPaymentAuthorizationController?
-    private var completion: ((Result<Void, PaymentCoordinatorError>) -> Void)?
-    private var didAuthorizePayment = false
+    private let backendClient: PaymentBackendClient
+    private var safariController: SFSafariViewController?
 
-    func canMakePayments() -> Bool {
-        PKPaymentAuthorizationController.canMakePayments(usingNetworks: PaymentConfiguration.shared.supportedNetworks)
+    init(backendClient: PaymentBackendClient = .shared) {
+        self.backendClient = backendClient
     }
 
     func startPayment(for challenge: Challenge,
+                      userId: String,
                       method: PaymentMethod,
-                      completion: @escaping (Result<Void, PaymentCoordinatorError>) -> Void) {
-        guard canMakePayments() else {
-            completion(.failure(.unavailable))
-            return
-        }
+                      completion: @escaping (Result<PaymentFlowOutcome, PaymentCoordinatorError>) -> Void) {
+        Task {
+            do {
+                let response = try await backendClient.createPaymentSession(challengeId: challenge.id, userId: userId, method: method)
 
-        guard let request = PaymentConfiguration.shared.buildRequest(for: challenge, method: method) else {
-            completion(.failure(.missingMerchantId))
-            return
-        }
+                if let checkoutURL = response.checkoutUrl, let url = URL(string: checkoutURL) {
+                    await presentSafari(for: url)
+                    completion(.success(.initiated))
+                    return
+                }
 
-        self.completion = completion
-        self.didAuthorizePayment = false
-
-        let controller = PKPaymentAuthorizationController(paymentRequest: request)
-        controller.delegate = self
-        self.paymentController = controller
-
-        controller.present { [weak self] presented in
-            guard let self else { return }
-            if !presented {
-                completion(.failure(.presentationFailed))
+                if response.message != nil {
+                    completion(.failure(.backendFailure(response.message ?? "")))
+                } else {
+                    completion(.failure(.invalidResponse))
+                }
+            } catch {
+                completion(.failure(.backendFailure(error.localizedDescription)))
             }
         }
     }
-}
 
-extension PaymentCoordinator: PKPaymentAuthorizationControllerDelegate {
-    func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController,
-                                        didAuthorizePayment payment: PKPayment,
-                                        handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
-        didAuthorizePayment = true
-        completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
-        self.completion?(.success(()))
-    }
+    private func presentSafari(for url: URL) async {
+        await MainActor.run {
+            let controller = SFSafariViewController(url: url)
+            controller.dismissButtonStyle = .done
+            safariController = controller
 
-    func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
-        controller.dismiss { [weak self] in
-            guard let self else { return }
-            if !self.didAuthorizePayment {
-                self.completion?(.failure(.cancelled))
+            guard let topController = UIApplication.shared.connectedScenes
+                .compactMap({ scene in
+                    (scene as? UIWindowScene)?.windows.first(where: { $0.isKeyWindow })
+                })
+                .first?.rootViewController else { return }
+
+            var presenter = topController
+            while let presented = presenter.presentedViewController {
+                presenter = presented
             }
-            self.completion = nil
-            self.paymentController = nil
+
+            presenter.present(controller, animated: true)
         }
     }
 }

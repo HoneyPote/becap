@@ -41,7 +41,7 @@ struct PaymentConfiguration {
     }
 }
 
-enum PaymentMethod {
-    case applePay
-    case card
+enum PaymentMethod: String {
+    case applePay = "apple_pay"
+    case card = "card"
 }

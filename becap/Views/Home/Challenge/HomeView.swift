@@ -85,6 +85,8 @@ struct HomeView: View {
             ChallengePaywallView(
                 challenge: challenge,
                 isProcessing: $viewModel.isProcessingPayment,
+                statusMessage: viewModel.paymentStatusMessage,
+                awaitingConfirmation: viewModel.isAwaitingBackendConfirmation,
                 errorMessage: viewModel.paymentErrorMessage,
                 onApplePay: { viewModel.payForSelectedChallenge(using: .applePay) },
                 onCard: { viewModel.payForSelectedChallenge(using: .card) },

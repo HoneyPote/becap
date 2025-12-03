@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
 
 class HomeViewModel: ObservableObject {
     @Published var showDeleteAlert = false
@@ -19,8 +20,12 @@ class HomeViewModel: ObservableObject {
     @Published var paywallChallenge: Challenge?
     @Published var isProcessingPayment = false
     @Published var paymentErrorMessage: String?
+    @Published var enrollments: [String: ChallengeEnrollment] = [:]
+    @Published var paymentStatusMessage: String?
+    @Published var isAwaitingBackendConfirmation = false
 
     private var cancellables = Set<AnyCancellable>()
+    private var enrollmentListeners: [String: ListenerRegistration] = [:]
 
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
@@ -153,31 +158,43 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge) -> Bool {
-        challenge.isLocked(for: challengeManager.currentUser?.id)
+        let enrollment = enrollments[challenge.id]
+        return challenge.isLocked(for: challengeManager.currentUser?.id, enrollment: enrollment)
     }
 
     func presentPaywall(for challenge: Challenge) {
         paymentErrorMessage = nil
         paywallChallenge = challenge
+        paymentStatusMessage = nil
+        isAwaitingBackendConfirmation = false
     }
 
     func cancelPaywall() {
         isProcessingPayment = false
         paywallChallenge = nil
+        isAwaitingBackendConfirmation = false
+        paymentStatusMessage = nil
     }
 
     func payForSelectedChallenge(using method: PaymentMethod) {
         guard let challenge = paywallChallenge else { return }
+        guard let userId = challengeManager.currentUser?.id else {
+            paymentErrorMessage = "Connectez-vous pour payer ce défi."
+            return
+        }
         paymentErrorMessage = nil
         isProcessingPayment = true
+        paymentStatusMessage = "Initialisation du paiement…"
 
-        paymentCoordinator.startPayment(for: challenge, method: method) { [weak self] result in
+        paymentCoordinator.startPayment(for: challenge, userId: userId, method: method) { [weak self] result in
             guard let self else { return }
 
             DispatchQueue.main.async {
                 switch result {
                 case .success:
-                    self.joinPurchasedChallenge(challenge)
+                    self.isProcessingPayment = false
+                    self.isAwaitingBackendConfirmation = true
+                    self.paymentStatusMessage = "Paiement envoyé. Vérification…"
                 case .failure(let error):
                     self.isProcessingPayment = false
                     self.paymentErrorMessage = error.errorDescription
@@ -186,35 +203,6 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    private func joinPurchasedChallenge(_ challenge: Challenge) {
-        guard let userId = challengeManager.currentUser?.id else {
-            paymentErrorMessage = "Connectez-vous pour rejoindre ce défi."
-            isProcessingPayment = false
-            return
-        }
-
-        Task {
-            var updatedChallenge = challenge
-
-            if !updatedChallenge.participantUids.contains(userId) {
-                updatedChallenge.participantUids.append(userId)
-            }
-
-            do {
-                try await challengeManager.joinChallenge(updatedChallenge, userId: userId)
-
-                await MainActor.run {
-                    self.isProcessingPayment = false
-                    self.paywallChallenge = nil
-                }
-            } catch {
-                await MainActor.run {
-                    self.paymentErrorMessage = "Impossible d’ajouter le défi après paiement."
-                    self.isProcessingPayment = false
-                }
-            }
-        }
-    }
 }
 
 // MARK: - Observers
@@ -235,11 +223,66 @@ extension HomeViewModel {
                 }
 
                 self?.challenges = sorted
+                self?.attachEnrollmentListeners(for: sorted)
             }
             .store(in: &cancellables)
     }
 
     private func hasLockedShowcase(in challenges: [Challenge]) -> Bool {
         challenges.contains(where: { $0.id == lockedShowcaseChallenge.id || ($0.isPremium ?? false) })
+    }
+
+    private func attachEnrollmentListeners(for challenges: [Challenge]) {
+        guard let userId = challengeManager.currentUser?.id else { return }
+
+        let premiumIds = Set(challenges.compactMap { ($0.isPremium ?? false) ? $0.id : nil })
+
+        // Clean old listeners
+        for (challengeId, listener) in enrollmentListeners where !premiumIds.contains(challengeId) {
+            listener.remove()
+            enrollmentListeners.removeValue(forKey: challengeId)
+            enrollments.removeValue(forKey: challengeId)
+        }
+
+        for challengeId in premiumIds {
+            guard enrollmentListeners[challengeId] == nil else { continue }
+
+            let registration = challengeManager.listenEnrollment(for: challengeId, userId: userId) { [weak self] enrollment in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    self.enrollments[challengeId] = enrollment
+                    self.handleEnrollmentChange(enrollment, for: challengeId)
+                }
+            }
+
+            if let registration {
+                enrollmentListeners[challengeId] = registration
+            }
+        }
+    }
+
+    private func handleEnrollmentChange(_ enrollment: ChallengeEnrollment?, for challengeId: String) {
+        guard let enrollment else { return }
+        guard let challenge = challenges.first(where: { $0.id == challengeId }) else { return }
+        guard let userId = challengeManager.currentUser?.id else { return }
+
+        if enrollment.paymentStatus == .paid {
+            Task {
+                await MainActor.run {
+                    self.isAwaitingBackendConfirmation = false
+                    self.paymentStatusMessage = "Paiement confirmé"
+                    self.paywallChallenge = nil
+                }
+
+                if !challenge.participantUids.contains(userId) {
+                    try? await challengeManager.joinChallenge(challenge, userId: userId)
+                }
+            }
+        } else if enrollment.paymentStatus == .failed {
+            DispatchQueue.main.async {
+                self.paymentErrorMessage = "Le paiement a échoué."
+                self.isAwaitingBackendConfirmation = false
+            }
+        }
     }
 }

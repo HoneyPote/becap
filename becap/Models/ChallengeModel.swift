@@ -125,14 +125,22 @@ extension Challenge {
         NSDecimalNumber(value: price ?? 4.99)
     }
 
-    func isLocked(for userId: String?) -> Bool {
+    func isLocked(for userId: String?, enrollment: ChallengeEnrollment?) -> Bool {
         guard let userId else { return isPremium ?? false }
 
         if creatorUID == userId || participantUids.contains(userId) {
             return false
         }
 
-        return isPremium ?? false
+        if !(isPremium ?? false) {
+            return false
+        }
+
+        if let enrollment, enrollment.isPaid {
+            return false
+        }
+
+        return true
     }
 }
 

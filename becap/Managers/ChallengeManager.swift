@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
 import OneSignalFramework
 
 protocol ChallengeManagerProtocol {
@@ -48,6 +49,11 @@ protocol ChallengeManagerProtocol {
     func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool
     func addChatReaction(_ reaction: String, to message: ChallengeChatMessage, challengeId: String, userId: String) async throws
     func removeChatReaction(_ reaction: String, from message: ChallengeChatMessage, challengeId: String, userId: String) async throws
+
+    // Enrollments / payments
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
 }
 
 enum ChallengeManagerError: LocalizedError {
@@ -274,6 +280,22 @@ extension ChallengeManager {
                                                   from: messageId,
                                                   in: challengeId,
                                                   userId: userId)
+    }
+}
+
+// MARK: - Enrollments / payments
+extension ChallengeManager {
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment? {
+        try await challengeService.enrollment(for: challengeId, userId: userId)
+    }
+
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration? {
+        let registration = challengeService.listenEnrollment(for: challengeId, userId: userId, onUpdate: onUpdate)
+        return registration
+    }
+
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
+        try await challengeService.upsertEnrollment(enrollment)
     }
 }
 
