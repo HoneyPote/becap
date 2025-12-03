@@ -27,6 +27,23 @@ class HomeViewModel: ObservableObject {
     private let paymentCoordinator: PaymentCoordinator
     private var challengeToDelete: Challenge?
 
+    private let lockedShowcaseChallenge = Challenge(
+        _id: "locked-showcase",
+        title: "Challenge Premium",
+        duration: 7,
+        startDate: Date(),
+        creatorUID: "premium@becap",
+        participantUids: [],
+        category: .sport,
+        notificationsConfig: nil,
+        code: nil,
+        jokerConfiguration: nil,
+        isPremium: true,
+        price: 4.99,
+        infoText: "Débloque ce défi premium pour découvrir un challenge exclusif avec suivi quotidien et récompenses.",
+        infoVideoURL: nil
+    )
+
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
          reportManager: ReportManagerProtocol = ReportManager.shared,
          paymentCoordinator: PaymentCoordinator = PaymentCoordinator.shared) {
@@ -198,13 +215,23 @@ extension HomeViewModel {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
             .sink { [weak self] challenges in
-                self?.challenges = challenges.sorted(by: {
+                var sorted = challenges.sorted(by: {
                     // Ordre du tri : les actifs en premiers et date de création de la plus récente avant
                     guard $0.status == $1.status else { return $0.status == .active && $1.status == .finished }
 
                     return $0.startDate > $1.startDate
                 })
+
+                if let self, !hasLockedShowcase(in: sorted) {
+                    sorted.insert(lockedShowcaseChallenge, at: 0)
+                }
+
+                self?.challenges = sorted
             }
             .store(in: &cancellables)
+    }
+
+    private func hasLockedShowcase(in challenges: [Challenge]) -> Bool {
+        challenges.contains(where: { $0.id == lockedShowcaseChallenge.id || ($0.isPremium ?? false) })
     }
 }
