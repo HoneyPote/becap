@@ -675,6 +675,11 @@ extension ChallengeService {
 // MARK: - Enrollments / Payments
 extension ChallengeService {
     func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment? {
+        guard !challengeId.isEmpty, !userId.isEmpty else {
+            print("⚠️ Ignorer l’écoute enrollment: challengeId ou userId vide")
+            return nil
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -691,6 +696,11 @@ extension ChallengeService {
     }
 
     func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration? {
+        guard !challengeId.isEmpty, !userId.isEmpty else {
+            print("⚠️ Ignorer l’écoute enrollment: challengeId ou userId vide")
+            return nil
+        }
+
         return firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -715,6 +725,11 @@ extension ChallengeService {
     }
 
     func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
+        guard !enrollment.challengeId.isEmpty, !enrollment.userId.isEmpty else {
+            print("⚠️ Ignorer l’upsert enrollment: challengeId ou userId vide")
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
             .document(enrollment.challengeId)

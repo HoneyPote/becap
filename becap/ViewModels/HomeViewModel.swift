@@ -235,7 +235,7 @@ extension HomeViewModel {
     private func attachEnrollmentListeners(for challenges: [Challenge]) {
         guard let userId = challengeManager.currentUser?.id else { return }
 
-        let premiumIds = Set(challenges.compactMap { ($0.isPremium ?? false) ? $0.id : nil })
+        let premiumIds = Set(challenges.compactMap { ($0.isPremium ?? false) ? $0.id : nil }.filter { !$0.isEmpty })
 
         // Clean old listeners
         for (challengeId, listener) in enrollmentListeners where !premiumIds.contains(challengeId) {
