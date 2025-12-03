@@ -143,6 +143,14 @@ class HomeViewModel: ObservableObject {
         }
     }
 
+    var premiumChallenges: [Challenge] {
+        challenges.filter { $0.isPremium ?? false }
+    }
+
+    var standardChallenges: [Challenge] {
+        challenges.filter { !($0.isPremium ?? false) }
+    }
+
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge) -> Bool {
         challenge.isLocked(for: challengeManager.currentUser?.id)

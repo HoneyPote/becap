@@ -36,6 +36,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
                         shareCreateChallengeSection
+                        premiumChallengesSection
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -174,7 +175,7 @@ struct HomeView: View {
             .multilineTextAlignment(.center)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
-                ForEach(viewModel.challenges) { challenge in
+                ForEach(viewModel.standardChallenges) { challenge in
                     if viewModel.isLocked(challenge) {
                         LockedChallengeCell(challenge: challenge) {
                             viewModel.presentPaywall(for: challenge)
@@ -204,6 +205,44 @@ struct HomeView: View {
         Group {
             Button("Delete", role: .destructive) { viewModel.performDelete() }
             Button("Cancel", role: .cancel) { viewModel.cancelDelete() }
+        }
+    }
+
+    private var premiumChallengesSection: some View {
+        Group {
+            if !viewModel.premiumChallenges.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.yellow)
+                            .imageScale(.large)
+                        Text("CHALLENGE PRENIUM")
+                            .font(.system(.title2, design: .rounded).weight(.heavy))
+                            .textCase(.uppercase)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 26)
+                    .padding(.horizontal, 6)
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
+                        ForEach(viewModel.premiumChallenges) { challenge in
+                            if viewModel.isLocked(challenge) {
+                                LockedChallengeCell(challenge: challenge) {
+                                    viewModel.presentPaywall(for: challenge)
+                                }
+                            } else {
+                                NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
+                                    DefiCell(challenge: challenge,
+                                             onDelete: { viewModel.confirmDelete(challenge) },
+                                             onReport: { viewModel.presentReport(for: challenge) })
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 12)
+            }
         }
     }
 
