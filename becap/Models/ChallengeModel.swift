@@ -66,6 +66,10 @@ struct Challenge: Identifiable, Codable, Hashable {
     var notificationsConfig: [ChallengeNotification]?
     var code: String?
     var jokerConfiguration: ChallengeJokerConfiguration?
+    var isPremium: Bool?
+    var price: Double?
+    var infoText: String?
+    var infoVideoURL: String?
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -108,6 +112,27 @@ extension Challenge {
         }
 
         return category?.calendarBackgroundImageName ?? "photoBg"
+    }
+
+    var formattedPrice: String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.numberStyle = .currency
+        return formatter.string(from: NSNumber(value: price ?? 4.99)) ?? "4,99 €"
+    }
+
+    var paymentAmount: NSDecimalNumber {
+        NSDecimalNumber(value: price ?? 4.99)
+    }
+
+    func isLocked(for userId: String?) -> Bool {
+        guard let userId else { return isPremium ?? false }
+
+        if creatorUID == userId || participantUids.contains(userId) {
+            return false
+        }
+
+        return isPremium ?? false
     }
 }
 
