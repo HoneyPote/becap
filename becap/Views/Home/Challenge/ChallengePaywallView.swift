@@ -67,7 +67,6 @@ struct ChallengePaywallView: View {
                 LinearGradient(colors: [Color.black, Color.gray.opacity(0.75)], startPoint: .top, endPoint: .bottom)
                     .ignoresSafeArea()
             )
-            .navigationTitle("Débloquer le défi")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Fermer", action: onClose)

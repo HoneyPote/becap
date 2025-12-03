@@ -11,6 +11,9 @@ import AVKit
 struct ChallengeInfoBubble: View {
     let challenge: Challenge
 
+    @State private var player = AVPlayer()
+    @State private var loadedVideoURL: URL?
+
     private var promoVideoURL: URL? {
         if let infoVideoURL = challenge.infoVideoURL, let remoteURL = URL(string: infoVideoURL) {
             return remoteURL
@@ -30,7 +33,7 @@ struct ChallengeInfoBubble: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             if let videoURL = promoVideoURL {
-                VideoPlayer(player: AVPlayer(url: videoURL))
+                VideoPlayer(player: player)
                     .frame(height: 160)
                     .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     .overlay(alignment: .topLeading) {
@@ -42,6 +45,14 @@ struct ChallengeInfoBubble: View {
                             .padding(10)
                     }
                     .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 8)
+                    .onAppear {
+                        configurePlayerIfNeeded(with: videoURL)
+                        player.play()
+                    }
+                    .onDisappear {
+                        player.pause()
+                        player.seek(to: .zero)
+                    }
             }
 
             VStack(alignment: .leading, spacing: 8) {
@@ -88,5 +99,14 @@ struct ChallengeInfoBubble: View {
                 .stroke(Color.primary.opacity(0.08), lineWidth: 1)
         )
         .shadow(color: Color.black.opacity(0.18), radius: 16, x: 0, y: 10)
+    }
+}
+
+private extension ChallengeInfoBubble {
+    func configurePlayerIfNeeded(with url: URL) {
+        guard loadedVideoURL != url else { return }
+
+        loadedVideoURL = url
+        player.replaceCurrentItem(with: AVPlayerItem(url: url))
     }
 }
