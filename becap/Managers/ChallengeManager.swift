@@ -123,18 +123,28 @@ extension ChallengeManager {
     func fetchAndFilterChallenges() async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
-        let filtered = try await fetchAllChallenges().filter { challenge in
+        let allChallenges = try await fetchAllChallenges()
+        let filtered = allChallenges.filter { challenge in
             challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
         }
 
         // TODO: Temporary piece of code, to be removed when all the users have an existing participatingChallenges field in database
         for filter in filtered {
             try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: filter.id)
+
+        let paywalled = allChallenges.filter { challenge in
+            (challenge.isPremium ?? false)
+            && challenge.creatorUID != currentUserId
+            && !challenge.participantUids.contains(currentUserId)
+        }
+
+        let merged = filtered + paywalled.filter { paywalledChallenge in
+            !filtered.contains(where: { $0.id == paywalledChallenge.id })
         }
 
         await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+            self.challenges = merged
+            print("✅ Défis filtrés pour \(currentUser.name):", merged.map(\.title))
         }
     }
 

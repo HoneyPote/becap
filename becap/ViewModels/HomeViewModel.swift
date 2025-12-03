@@ -16,17 +16,24 @@ class HomeViewModel: ObservableObject {
     @Published var isSubmittingReport = false
     @Published var reportErrorMessage: String?
     @Published var showReportSuccessToast = false
+    @Published var paywallChallenge: Challenge?
+    @Published var isProcessingPayment = false
+    @Published var paymentErrorMessage: String?
 
     private var cancellables = Set<AnyCancellable>()
     private var challengeToQuit: Challenge?
 
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
+    private let paymentCoordinator: PaymentCoordinator
+    private var challengeToDelete: Challenge?
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         reportManager: ReportManagerProtocol = ReportManager.shared) {
+         reportManager: ReportManagerProtocol = ReportManager.shared,
+         paymentCoordinator: PaymentCoordinator = PaymentCoordinator.shared) {
         self.challengeManager = challengeManager
         self.reportManager = reportManager
+        self.paymentCoordinator = paymentCoordinator
 
         observeChallengesChanges()
     }
@@ -106,6 +113,71 @@ class HomeViewModel: ObservableObject {
                 await MainActor.run {
                     self.isSubmittingReport = false
                     self.reportErrorMessage = "Impossible d’envoyer le signalement. Veuillez réessayer."
+                }
+            }
+        }
+    }
+
+    // MARK: - Paywall
+    func isLocked(_ challenge: Challenge) -> Bool {
+        challenge.isLocked(for: challengeManager.currentUser?.id)
+    }
+
+    func presentPaywall(for challenge: Challenge) {
+        paymentErrorMessage = nil
+        paywallChallenge = challenge
+    }
+
+    func cancelPaywall() {
+        isProcessingPayment = false
+        paywallChallenge = nil
+    }
+
+    func payForSelectedChallenge(using method: PaymentMethod) {
+        guard let challenge = paywallChallenge else { return }
+        paymentErrorMessage = nil
+        isProcessingPayment = true
+
+        paymentCoordinator.startPayment(for: challenge, method: method) { [weak self] result in
+            guard let self else { return }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.joinPurchasedChallenge(challenge)
+                case .failure(let error):
+                    self.isProcessingPayment = false
+                    self.paymentErrorMessage = error.errorDescription
+                }
+            }
+        }
+    }
+
+    private func joinPurchasedChallenge(_ challenge: Challenge) {
+        guard let userId = challengeManager.currentUser?.id else {
+            paymentErrorMessage = "Connectez-vous pour rejoindre ce défi."
+            isProcessingPayment = false
+            return
+        }
+
+        Task {
+            var updatedChallenge = challenge
+
+            if !updatedChallenge.participantUids.contains(userId) {
+                updatedChallenge.participantUids.append(userId)
+            }
+
+            do {
+                try await challengeManager.joinChallenge(updatedChallenge, userId: userId)
+
+                await MainActor.run {
+                    self.isProcessingPayment = false
+                    self.paywallChallenge = nil
+                }
+            } catch {
+                await MainActor.run {
+                    self.paymentErrorMessage = "Impossible d’ajouter le défi après paiement."
+                    self.isProcessingPayment = false
                 }
             }
         }

@@ -80,6 +80,16 @@ struct HomeView: View {
                 onCancel: { viewModel.cancelReport() }
             )
         }
+        .sheet(item: $viewModel.paywallChallenge) { challenge in
+            ChallengePaywallView(
+                challenge: challenge,
+                isProcessing: $viewModel.isProcessingPayment,
+                errorMessage: viewModel.paymentErrorMessage,
+                onApplePay: { viewModel.payForSelectedChallenge(using: .applePay) },
+                onCard: { viewModel.payForSelectedChallenge(using: .card) },
+                onClose: { viewModel.cancelPaywall() }
+            )
+        }
         .overlay(alignment: .top) {
             if showCreationToast {
                 challengeCreatedToast
@@ -165,13 +175,19 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.challenges) { challenge in
-                    NavigationLink(destination: {
+                    if viewModel.isLocked(challenge) {
+                        LockedChallengeCell(challenge: challenge) {
+                            viewModel.presentPaywall(for: challenge)
+                        }
+                    } else {
+             NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)
                             .onDisappear { viewModel.refreshChallenges() }
                     }) {
                         DefiCell(challenge: challenge,
                                  onQuit: { viewModel.confirmQuit(challenge) },
                                  onReport: { viewModel.presentReport(for: challenge) })
+                        }
                     }
                 }
             }
