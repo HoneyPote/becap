@@ -128,28 +128,15 @@ extension ChallengeManager {
         return try await challengeService.fetchAllChallenges()
     }
 
-    /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
+    /// Récupère tous les défis sans exclure ceux auxquels l'utilisateur n'appartient pas.
+    /// Cela préserve l'expérience existante où tous les défis visibles dans Firestore
+    /// restent affichés dans le flux, tout en laissant l'UI gérer l'état verrouillé/premium.
     func fetchAndFilterChallenges() async throws {
-        guard let currentUser, let currentUserId = currentUser.id else { return }
-
         let allChallenges = try await fetchAllChallenges()
-        let filtered = allChallenges.filter { challenge in
-            challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
-        }
-
-        let paywalled = allChallenges.filter { challenge in
-            (challenge.isPremium ?? false)
-            && challenge.creatorUID != currentUserId
-            && !challenge.participantUids.contains(currentUserId)
-        }
-
-        let merged = filtered + paywalled.filter { paywalledChallenge in
-            !filtered.contains(where: { $0.id == paywalledChallenge.id })
-        }
 
         await MainActor.run {
-            self.challenges = merged
-            print("✅ Défis filtrés pour \(currentUser.name):", merged.map(\.title))
+            self.challenges = allChallenges
+            print("✅ Défis récupérés:", allChallenges.map(\.title))
         }
     }
 
