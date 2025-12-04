@@ -259,6 +259,26 @@ struct HomeView: View {
                     .padding(.top, 26)
                     .padding(.horizontal, 6)
 
+                    if let sample = viewModel.premiumChallenges.first {
+                        Button {
+                            viewModel.presentPaywall(for: sample)
+                        } label: {
+                            HStack {
+                                Image(systemName: "lock.fill")
+                                    .font(.body.weight(.semibold))
+                                Text("Tester le paywall premium")
+                                    .font(.headline)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(14)
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
                             if challenge.isCoachProgram {
