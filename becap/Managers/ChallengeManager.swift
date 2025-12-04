@@ -128,17 +128,27 @@ extension ChallengeManager {
         return try await challengeService.fetchAllChallenges()
     }
 
-    /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
+    /// Récupère tous les défis et expose :
+    /// - ceux créés ou rejoints par l'utilisateur
+    /// - les défis premium non encore rejoints afin d'afficher le verrou/paiement
     func fetchAndFilterChallenges() async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
-        let filtered = try await fetchAllChallenges().filter { challenge in
+        let allChallenges = try await fetchAllChallenges()
+
+        let userChallenges = allChallenges.filter { challenge in
             challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
         }
 
+        let premiumLocked = allChallenges.filter { challenge in
+            (challenge.isPremium ?? false) && !userChallenges.contains(where: { $0.id == challenge.id })
+        }
+
+        let merged = userChallenges + premiumLocked
+
         await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+            self.challenges = merged
+            print("✅ Défis chargés pour \(currentUser.name):", merged.map(\.title))
         }
     }
 
