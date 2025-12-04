@@ -156,6 +156,17 @@ class HomeViewModel: ObservableObject {
         challenges.filter { !($0.isPremium ?? false) }
     }
 
+    var coachPrograms: [Challenge] {
+        challenges.filter { $0.isCoachProgram }
+    }
+
+    var creatorPrograms: [Challenge] {
+        guard let userId = challengeManager.currentUser?.id else { return [] }
+        return challenges.filter { $0.isCoachProgram && (($0.creatorId ?? $0.creatorUID) == userId) }
+    }
+
+    var hasCreatorPrograms: Bool { !creatorPrograms.isEmpty }
+
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge) -> Bool {
         let enrollment = enrollments[challenge.id]

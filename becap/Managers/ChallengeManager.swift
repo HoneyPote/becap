@@ -54,6 +54,11 @@ protocol ChallengeManagerProtocol {
     func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
     func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
     func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
+
+    // Creator updates / coach programs
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration?
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws
+    func enrollmentCount(for challengeId: String) async throws -> Int
 }
 
 enum ChallengeManagerError: LocalizedError {
@@ -296,6 +301,18 @@ extension ChallengeManager {
 
     func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
         try await challengeService.upsertEnrollment(enrollment)
+    }
+
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration? {
+        challengeService.listenCreatorUpdates(for: challengeId, onUpdate: onUpdate)
+    }
+
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws {
+        try await challengeService.createCreatorUpdate(for: challengeId, update: update)
+    }
+
+    func enrollmentCount(for challengeId: String) async throws -> Int {
+        try await challengeService.enrollmentCount(for: challengeId)
     }
 }
 

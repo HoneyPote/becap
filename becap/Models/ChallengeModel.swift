@@ -70,6 +70,18 @@ struct Challenge: Identifiable, Codable, Hashable {
     var price: Double?
     var infoText: String?
     var infoVideoURL: String?
+    var isCreatorProgram: Bool = false
+    var creatorId: String?
+    // TODO: Renseigner ces métadonnées coach manuellement dans Firestore pour les premiers programmes.
+    var coachName: String?
+    var coachAvatarUrl: String?
+    var heroImageUrl: String?
+    var shortTagline: String?
+    var longDescription: String?
+    var durationDays: Int?
+    var difficultyLabel: String?
+    var introVideoUrl: String?
+    var dayPlan: [CoachDayPlanItem]?
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -125,6 +137,10 @@ extension Challenge {
         NSDecimalNumber(value: price ?? 4.99)
     }
 
+    var isCoachProgram: Bool {
+        isCreatorProgram && creatorId != nil
+    }
+
     func isLocked(for userId: String?, enrollment: ChallengeEnrollment?) -> Bool {
         guard let userId else { return isPremium ?? false }
 
@@ -142,6 +158,13 @@ extension Challenge {
 
         return true
     }
+}
+
+struct CoachDayPlanItem: Codable, Identifiable, Hashable {
+    var id: String
+    var dayIndex: Int
+    var title: String
+    var description: String
 }
 
 struct ChallengePost: Identifiable, Codable, Hashable {

@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPostId: String?
     @State private var deepLinkJoinError: String?
+    @State private var showCreatorConsole = false
 
     var body: some View {
         NavigationStack {
@@ -32,6 +33,23 @@ struct HomeView: View {
                     .padding(.top, 42)
                     .padding(.bottom, 12)
                     .padding(.horizontal, 24)
+
+                if viewModel.hasCreatorPrograms {
+                    Button {
+                        showCreatorConsole = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.crop.square.fill.and.at.rectangle")
+                            Text("Console coach")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                }
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
@@ -97,6 +115,11 @@ struct HomeView: View {
             if showCreationToast {
                 challengeCreatedToast
                     .padding(.bottom, 40)
+            }
+        }
+        .sheet(isPresented: $showCreatorConsole) {
+            NavigationStack {
+                CreatorConsoleView()
             }
         }
         .onAppear {
@@ -178,7 +201,16 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    if viewModel.isLocked(challenge) {
+                    if challenge.isCoachProgram {
+                        NavigationLink(destination: CoachProgramDetailView(challenge: challenge) {
+                            viewModel.presentPaywall(for: challenge)
+                        }) {
+                            CoachProgramCardView(challenge: challenge,
+                                                 isLocked: viewModel.isLocked(challenge),
+                                                 enrollment: viewModel.enrollments[challenge.id])
+                        }
+                        .buttonStyle(.plain)
+                    } else if viewModel.isLocked(challenge) {
                         LockedChallengeCell(challenge: challenge) {
                             viewModel.presentPaywall(for: challenge)
                         }
@@ -229,7 +261,16 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                            if viewModel.isLocked(challenge) {
+                            if challenge.isCoachProgram {
+                                NavigationLink(destination: CoachProgramDetailView(challenge: challenge) {
+                                    viewModel.presentPaywall(for: challenge)
+                                }) {
+                                    CoachProgramCardView(challenge: challenge,
+                                                         isLocked: viewModel.isLocked(challenge),
+                                                         enrollment: viewModel.enrollments[challenge.id])
+                                }
+                                .buttonStyle(.plain)
+                            } else if viewModel.isLocked(challenge) {
                                 LockedChallengeCell(challenge: challenge) {
                                     viewModel.presentPaywall(for: challenge)
                                 }

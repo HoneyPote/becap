@@ -51,6 +51,11 @@ protocol ChallengeServiceProtocol {
     func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
     func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
     func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
+
+    // Creator updates / programs
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration?
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws
+    func enrollmentCount(for challengeId: String) async throws -> Int
 }
 
 final class ChallengeService: ChallengeServiceProtocol {
@@ -742,6 +747,70 @@ extension ChallengeService {
             print("❌ Erreur d’upsert enrollment: \(error)")
             throw error
         }
+    }
+}
+
+// MARK: - Creator updates / Coach programs
+extension ChallengeService {
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration? {
+        guard !challengeId.isEmpty else {
+            print("⚠️ Ignorer l’écoute creator updates: challengeId vide")
+            return nil
+        }
+
+        return firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection("creatorUpdates")
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let error {
+                    print("❌ Erreur d’écoute creator updates: \(error)")
+                    onUpdate([])
+                    return
+                }
+
+                guard let snapshot else {
+                    onUpdate([])
+                    return
+                }
+
+                let updates = snapshot.documents.compactMap { try? $0.data(as: CreatorUpdate.self) }
+                onUpdate(updates)
+            }
+    }
+
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws {
+        guard !challengeId.isEmpty else {
+            print("⚠️ Ignorer la création d’update: challengeId vide")
+            return
+        }
+
+        let documentId = update.id ?? UUID().uuidString
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection("creatorUpdates")
+            .document(documentId)
+
+        do {
+            try ref.setData(from: update)
+        } catch {
+            print("❌ Erreur de création d’update: \(error)")
+            throw error
+        }
+    }
+
+    func enrollmentCount(for challengeId: String) async throws -> Int {
+        guard !challengeId.isEmpty else { return 0 }
+
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .getDocuments()
+
+        return snapshot.count
     }
 }
 
