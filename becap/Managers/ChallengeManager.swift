@@ -128,23 +128,13 @@ extension ChallengeManager {
         return try await challengeService.fetchAllChallenges()
     }
 
-    /// Récupère tous les défis présents dans Firestore et ne conserve que ceux de l'utilisateur ou les premiums visibles
+    /// Récupère tous les défis présents dans Firestore
     func fetchAndFilterChallenges() async throws {
         let all = try await fetchAllChallenges()
-        let filtered: [Challenge]
-
-        if let userId = currentUser?.id, !userId.isEmpty {
-            filtered = all.filter { challenge in
-                challenge.creatorUID == userId || challenge.participantUids.contains(userId) || (challenge.isPremium ?? false)
-            }
-        } else {
-            // Pas d'utilisateur connecté : on remonte tout pour debug/aperçu afin d'éviter une liste vide
-            filtered = all
-        }
 
         await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour l'utilisateur (incluant premiums):", filtered.map(\.title))
+            self.challenges = all
+            print("✅ Défis chargés:", all.map(\.title))
         }
     }
 
@@ -448,6 +438,7 @@ extension ChallengeManager {
         try setUserProgress(userId: userId, challengeId: challenge.id, progress: userProgress)
     }
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        guard !challengeId.isEmpty else { return [] }
         var progresses = try await challengeService.fetchParticipantsProgress(for: challengeId)
 
 

@@ -507,6 +507,8 @@ extension ChallengeService {
     }
 
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        guard !challengeId.isEmpty else { return [] }
+
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
