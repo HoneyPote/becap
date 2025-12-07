@@ -60,4 +60,18 @@ struct ChallengeEnrollment: Identifiable, Codable, Equatable {
 extension ChallengeEnrollment {
     var isPaid: Bool { paymentStatus == .paid || paymentStatus == .free }
     var isPending: Bool { paymentStatus == .pending }
+
+    static func paidPreview(userId: String, challengeId: String) -> ChallengeEnrollment {
+        ChallengeEnrollment(
+            userId: userId,
+            challengeId: challengeId,
+            createdAt: Date(),
+            lastUpdatedAt: Date(),
+            paymentStatus: .paid,
+            paymentProvider: "preview",
+            paymentIntentId: nil,
+            amountCents: nil,
+            currency: nil
+        )
+    }
 }

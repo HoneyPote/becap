@@ -187,6 +187,14 @@ class HomeViewModel: ObservableObject {
         paymentStatusMessage = nil
     }
 
+    func simulatePremiumUnlockPreview() {
+        guard let premium = premiumChallenges.first ?? challenges.first(where: { $0.isPremium ?? false }) else { return }
+        let userId = challengeManager.currentUser?.id ?? "preview-user"
+
+        let previewEnrollment = ChallengeEnrollment.paidPreview(userId: userId, challengeId: premium.id)
+        enrollments[premium.id] = previewEnrollment
+    }
+
     func payForSelectedChallenge(using method: PaymentMethod) {
         guard let challenge = paywallChallenge else { return }
         guard let userId = challengeManager.currentUser?.id else {

@@ -278,6 +278,24 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
 
+                        Button {
+                            viewModel.simulatePremiumUnlockPreview()
+                        } label: {
+                            HStack {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.body.weight(.semibold))
+                                Text("Voir un défi premium débloqué")
+                                    .font(.headline)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(14)
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
+
                     }
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
