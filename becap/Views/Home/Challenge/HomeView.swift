@@ -278,23 +278,6 @@ struct HomeView: View {
                         }
                         .buttonStyle(.plain)
 
-                        Button {
-                            viewModel.previewUnlockPremium()
-                        } label: {
-                            HStack {
-                                Image(systemName: "wand.and.stars")
-                                    .font(.body.weight(.semibold))
-                                Text("Voir un premium déjà débloqué")
-                                    .font(.headline)
-                            }
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 14)
-                            .frame(maxWidth: .infinity)
-                            .background(Color.white.opacity(0.12))
-                            .cornerRadius(14)
-                            .foregroundColor(.white)
-                        }
-                        .buttonStyle(.plain)
                     }
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {

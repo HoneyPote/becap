@@ -128,13 +128,21 @@ extension ChallengeManager {
         return try await challengeService.fetchAllChallenges()
     }
 
-    /// Récupère tous les défis présents dans Firestore et les publie tels quels pour conserver l'existant
+    /// Récupère tous les défis présents dans Firestore et ne conserve que ceux de l'utilisateur ou les premiums visibles
     func fetchAndFilterChallenges() async throws {
+        guard let userId = currentUser?.id else {
+            await MainActor.run { self.challenges = [] }
+            return
+        }
+
         let all = try await fetchAllChallenges()
+        let filtered = all.filter { challenge in
+            challenge.creatorUID == userId || challenge.participantUids.contains(userId) || (challenge.isPremium ?? false)
+        }
 
         await MainActor.run {
-            self.challenges = all
-            print("✅ Défis chargés (sans filtrage):", all.map(\.title))
+            self.challenges = filtered
+            print("✅ Défis filtrés pour l'utilisateur (incluant premiums):", filtered.map(\.title))
         }
     }
 
