@@ -23,6 +23,7 @@ class HomeViewModel: ObservableObject {
     @Published var enrollments: [String: ChallengeEnrollment] = [:]
     @Published var paymentStatusMessage: String?
     @Published var isAwaitingBackendConfirmation = false
+    @Published var forceUnlockPreview = false
 
     private var cancellables = Set<AnyCancellable>()
     private var enrollmentListeners: [String: ListenerRegistration] = [:]
@@ -169,6 +170,9 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge) -> Bool {
+        if challenge.id == lockedShowcaseChallenge.id && forceUnlockPreview {
+            return false
+        }
         let enrollment = enrollments[challenge.id]
         return challenge.isLocked(for: challengeManager.currentUser?.id, enrollment: enrollment)
     }
@@ -212,6 +216,27 @@ class HomeViewModel: ObservableObject {
                 }
             }
         }
+    }
+
+    func previewUnlockPremium() {
+        if challengeManager.currentUser?.id == nil {
+            // Sans session, on force seulement l'aperçu visuel du showcase
+            forceUnlockPreview = true
+            return
+        }
+
+        forceUnlockPreview = true
+        guard let userId = challengeManager.currentUser?.id else { return }
+
+        let enrollment = ChallengeEnrollment(
+            userId: userId,
+            challengeId: lockedShowcaseChallenge.id,
+            paymentStatus: .paid,
+            paymentProvider: "preview",
+            amountCents: Int((lockedShowcaseChallenge.price ?? 4.99) * 100),
+            currency: lockedShowcaseChallenge.currency
+        )
+        enrollments[lockedShowcaseChallenge.id] = enrollment
     }
 
 }
