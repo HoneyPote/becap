@@ -57,6 +57,11 @@ final class PaymentCoordinator: NSObject {
                       userId: String,
                       method: PaymentMethod,
                       completion: @escaping (Result<PaymentFlowOutcome, PaymentCoordinatorError>) -> Void) {
+        guard !challenge.id.isEmpty else {
+            completion(.failure(.invalidResponse))
+            return
+        }
+
         Task {
             do {
                 let response = try await backendClient.createPaymentSession(challengeId: challenge.id, userId: userId, method: method)

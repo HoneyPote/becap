@@ -82,6 +82,11 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // lien de deep link caché
         }
+        .task {
+            if viewModel.challenges.isEmpty {
+                viewModel.refreshChallenges()
+            }
+        }
         .refreshable { viewModel.refreshChallenges() }
         .sheet(isPresented: $showShareChallengeView) {
             ShareChallengeView()

@@ -49,6 +49,23 @@ class HomeViewModel: ObservableObject {
         infoVideoURL: nil
     )
 
+    private let unlockedPreviewChallenge = Challenge(
+        _id: "premium-unlocked-preview",
+        title: "Programme Premium (débloqué)",
+        duration: 10,
+        startDate: Date(),
+        creatorUID: "premium@becap",
+        participantUids: ["preview-user"],
+        category: .sport,
+        notificationsConfig: nil,
+        code: nil,
+        jokerConfiguration: nil,
+        isPremium: true,
+        price: 4.99,
+        infoText: "Aperçu d’un défi premium déjà débloqué pour tester l’UI sans paiement.",
+        infoVideoURL: nil
+    )
+
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
          reportManager: ReportManagerProtocol = ReportManager.shared,
          paymentCoordinator: PaymentCoordinator = PaymentCoordinator.shared) {
@@ -241,6 +258,10 @@ extension HomeViewModel {
                     sorted.insert(lockedShowcaseChallenge, at: 0)
                 }
 
+                if let self, !sorted.contains(where: { $0.id == unlockedPreviewChallenge.id }) {
+                    sorted.insert(unlockedPreviewChallenge, at: 1)
+                }
+
                 self?.challenges = sorted
                 self?.attachEnrollmentListeners(for: sorted)
             }
@@ -254,7 +275,11 @@ extension HomeViewModel {
     private func attachEnrollmentListeners(for challenges: [Challenge]) {
         guard let userId = challengeManager.currentUser?.id else { return }
 
-        let premiumIds = Set(challenges.compactMap { ($0.isPremium ?? false) ? $0.id : nil }.filter { !$0.isEmpty })
+        let premiumIds = Set(challenges.compactMap {
+            guard ($0.isPremium ?? false) else { return nil }
+            guard $0.id != lockedShowcaseChallenge.id, $0.id != unlockedPreviewChallenge.id else { return nil }
+            return $0.id.isEmpty ? nil : $0.id
+        })
 
         // Clean old listeners
         for (challengeId, listener) in enrollmentListeners where !premiumIds.contains(challengeId) {
