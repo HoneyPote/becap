@@ -79,9 +79,16 @@ extension ChallengeService {
     func fetchAllChallenges() async throws -> [Challenge] {
         do {
             let snapshot = try await firestoreDB.collection(collecChallenges).getDocuments()
-            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            let challenges = snapshot.documents.compactMap { document -> Challenge? in
+                do {
+                    return try document.data(as: Challenge.self)
+                } catch {
+                    print("⚠️ Ignorer un défi illisible (id=\(document.documentID)): \(error)")
+                    return nil
+                }
+            }
 
-            return challenges.filter { $0.id != "" }
+            return challenges.filter { !$0.id.isEmpty }
         } catch {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
@@ -89,6 +96,8 @@ extension ChallengeService {
     }
 
     func fetchChallenge(by id: String) async throws -> Challenge? {
+        guard !id.isEmpty else { return nil }
+
         do {
             let snapshot = try await firestoreDB
                 .collection(collecChallenges)

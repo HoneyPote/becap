@@ -139,6 +139,8 @@ extension ChallengeManager {
     }
 
     func ensureMembership(in challengeId: String) async throws {
+        guard !challengeId.isEmpty else { return }
+
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
             return
