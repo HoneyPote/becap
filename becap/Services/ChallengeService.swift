@@ -70,6 +70,10 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecChat = "chatMessages"
     private let collecEnrollments = "enrollments"
 
+    /// Certains documents peuvent servir de placeholders premium/tests et ne suivent pas le schéma `Challenge`.
+    /// Ils doivent être ignorés pour ne pas casser le décodage des vrais défis.
+    private let premiumPlaceholderFlags: Set<String> = ["isPremiumPlaceholder", "premiumTemplate"]
+
     private init() {}
 }
 
@@ -80,6 +84,12 @@ extension ChallengeService {
         do {
             let snapshot = try await firestoreDB.collection(collecChallenges).getDocuments()
             let challenges = snapshot.documents.compactMap { document -> Challenge? in
+                // Ignore les documents premium/placeholder qui ne respectent pas le schéma Challenge.
+                if isPremiumPlaceholder(document: document) {
+                    print("⚠️ Ignorer un document premium placeholder (id=\(document.documentID))")
+                    return nil
+                }
+
                 do {
                     return try document.data(as: Challenge.self)
                 } catch {
@@ -93,6 +103,18 @@ extension ChallengeService {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
         }
+    }
+
+    private func isPremiumPlaceholder(document: QueryDocumentSnapshot) -> Bool {
+        let data = document.data()
+        // Si un flag booléen est posé pour marquer le doc comme modèle premium, on le saute.
+        if premiumPlaceholderFlags.contains(where: { (data[$0] as? Bool) == true }) {
+            return true
+        }
+
+        // Sauvegarde supplémentaire : un document sans titre ni dates n'est pas un défi exploitable.
+        let hasMinimalFields = data["title"] != nil && data["startDate"] != nil && data["duration"] != nil
+        return !hasMinimalFields
     }
 
     func fetchChallenge(by id: String) async throws -> Challenge? {

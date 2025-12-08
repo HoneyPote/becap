@@ -130,11 +130,17 @@ extension ChallengeManager {
 
     /// Récupère tous les défis présents dans Firestore
     func fetchAndFilterChallenges() async throws {
-        let all = try await fetchAllChallenges()
+        do {
+            let all = try await fetchAllChallenges()
 
-        await MainActor.run {
-            self.challenges = all
-            print("✅ Défis chargés:", all.map(\.title))
+            await MainActor.run {
+                self.challenges = all
+                print("✅ Défis chargés:", all.map(\.title))
+            }
+        } catch {
+            await MainActor.run {
+                print("❌ Impossible de charger les défis: \(error)")
+            }
         }
     }
 
