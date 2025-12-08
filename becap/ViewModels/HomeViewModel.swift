@@ -46,7 +46,8 @@ class HomeViewModel: ObservableObject {
         isPremium: true,
         price: 4.99,
         infoText: "Programme premium guidé avec vidéos, rappel quotidien et récompenses exclusives pour garder la motivation.",
-        infoVideoURL: nil
+        infoVideoURL: nil,
+        isLocalPremiumPreview: true
     )
 
     private let unlockedPreviewChallenge = Challenge(
@@ -63,7 +64,8 @@ class HomeViewModel: ObservableObject {
         isPremium: true,
         price: 4.99,
         infoText: "Aperçu d’un défi premium déjà débloqué pour tester l’UI sans paiement.",
-        infoVideoURL: nil
+        infoVideoURL: nil,
+        isLocalPremiumPreview: true
     )
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
@@ -186,6 +188,10 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge) -> Bool {
+        if challenge.isLocalPremiumPreview {
+            return challenge.id == lockedShowcaseChallenge.id
+        }
+
         let enrollment = enrollments[challenge.id]
         return challenge.isLocked(for: challengeManager.currentUser?.id, enrollment: enrollment)
     }
@@ -277,7 +283,7 @@ extension HomeViewModel {
 
         let premiumIds = Set(challenges.compactMap {
             guard ($0.isPremium ?? false) else { return nil }
-            guard $0.id != lockedShowcaseChallenge.id, $0.id != unlockedPreviewChallenge.id else { return nil }
+            guard !$0.isLocalPremiumPreview else { return nil }
             return $0.id.isEmpty ? nil : $0.id
         })
 

@@ -82,6 +82,8 @@ struct Challenge: Identifiable, Codable, Hashable {
     var difficultyLabel: String?
     var introVideoUrl: String?
     var dayPlan: [CoachDayPlanItem]?
+    /// Local-only preview toggle to avoid touching Firestore for showcase items.
+    var isLocalPremiumPreview: Bool = false
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -100,6 +102,34 @@ struct Challenge: Identifiable, Codable, Hashable {
 
     static func ==(lhs: Challenge, rhs: Challenge) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case _id
+        case title
+        case duration
+        case startDate
+        case creatorUID
+        case participantUids
+        case category
+        case notificationsConfig
+        case code
+        case jokerConfiguration
+        case isPremium
+        case price
+        case infoText
+        case infoVideoURL
+        case isCreatorProgram
+        case creatorId
+        case coachName
+        case coachAvatarUrl
+        case heroImageUrl
+        case shortTagline
+        case longDescription
+        case durationDays
+        case difficultyLabel
+        case introVideoUrl
+        case dayPlan
     }
 }
 

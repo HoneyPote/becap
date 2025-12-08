@@ -57,6 +57,12 @@ final class PaymentCoordinator: NSObject {
                       userId: String,
                       method: PaymentMethod,
                       completion: @escaping (Result<PaymentFlowOutcome, PaymentCoordinatorError>) -> Void) {
+        // Local preview challenges bypass backend payment to avoid invalid Firestore/document lookups.
+        if challenge.isLocalPremiumPreview {
+            completion(.success(.initiated))
+            return
+        }
+
         guard !challenge.id.isEmpty else {
             completion(.failure(.invalidResponse))
             return
