@@ -78,6 +78,10 @@ extension ChallengeService {
     }
 
     func fetchChallenge(by id: String) async throws -> Challenge? {
+        guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            print("❌ fetchChallenge(by:) called with empty id")
+            return nil
+        }
         do {
             let snapshot = try await firestoreDB
                 .collection(collecChallenges)
@@ -122,7 +126,13 @@ extension ChallengeService {
     }
 
     func updateChallenge(_ challenge: Challenge) async throws {
-        let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
+        let trimmedId = challenge.id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            print("❌ updateChallenge called with empty id")
+            return
+        }
+
+        let ref = firestoreDB.collection(collecChallenges).document(trimmedId)
 
         do {
             try ref.setData(from: challenge) { error in
@@ -138,7 +148,13 @@ extension ChallengeService {
     }
 
     func deleteChallenge(challengeId: String) async throws {
-        let challengePosts = try await fetchPosts(for: challengeId)
+        let trimmedId = challengeId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            print("❌ deleteChallenge called with empty id")
+            return
+        }
+
+        let challengePosts = try await fetchPosts(for: trimmedId)
 
         // 1. Supprimer les photos dans Storage + Firestore
         for post in challengePosts {
@@ -146,10 +162,10 @@ extension ChallengeService {
         }
 
         // 2. Supprimer les documents collecParticipants dans Firestore
-        try await deleteParticipantDocument(challengeId: challengeId)
+        try await deleteParticipantDocument(challengeId: trimmedId)
 
         // 3. Supprimer le document du challenge
-        try await deleteChallengeDocument(challengeId: challengeId)
+        try await deleteChallengeDocument(challengeId: trimmedId)
     }
 
     // Privates
@@ -522,18 +538,30 @@ extension ChallengeService {
     }
 
     func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
+        let trimmedId = challengeId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            print("❌ setUserProgress called with empty challengeId")
+            return
+        }
+
         return try firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecParticipants)
             .document(userId)
             .setData(from: progress)
     }
 
     func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
+        let trimmedId = challengeId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            print("❌ fetchProgress called with empty challengeId")
+            return nil
+        }
+
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecParticipants)
             .document(userId)
             .getDocument()
