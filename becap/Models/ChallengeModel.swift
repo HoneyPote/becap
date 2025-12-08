@@ -70,6 +70,13 @@ struct Challenge: Identifiable, Codable, Hashable {
     var price: Double?
     var infoText: String?
     var infoVideoURL: String?
+    var isCoachProgram: Bool? = nil
+    var heroImageUrl: String? = nil
+    var coachAvatarUrl: String? = nil
+    var coachName: String? = nil
+    var shortTagline: String? = nil
+    var difficulty: String? = nil
+    var longDescription: String? = nil
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
