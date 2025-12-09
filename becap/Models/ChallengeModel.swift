@@ -141,6 +141,13 @@ extension Challenge {
 
         return isPremium ?? false
     }
+
+    /// Challenge identifier trimmed and validated.
+    /// Returns `nil` when the document id is absent or blank, to avoid Firestore crashes on empty paths.
+    var sanitizedId: String? {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
 }
 
 struct ChallengePost: Identifiable, Codable, Hashable {

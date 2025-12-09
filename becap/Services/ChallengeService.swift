@@ -12,6 +12,7 @@ import AVFoundation
 
 enum ChallengeServiceError: Error {
     case invalidImageData(String)
+    case invalidChallengeId
 }
 
 protocol ChallengeServiceProtocol {
@@ -60,6 +61,24 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecChat = "chatMessages"
 
     private init() {}
+
+    // MARK: - Utilities
+    private func trimmedChallengeId(from id: String, context: String) -> String? {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            print("❌ \(context) called with empty challengeId")
+            return nil
+        }
+        return trimmed
+    }
+
+    private func trimmedChallengeId(from challenge: Challenge, context: String) -> String? {
+        guard let sanitized = challenge.sanitizedId else {
+            print("❌ \(context) called with empty challengeId from challenge model")
+            return nil
+        }
+        return sanitized
+    }
 }
 
 // MARK: - Challenges
@@ -78,14 +97,11 @@ extension ChallengeService {
     }
 
     func fetchChallenge(by id: String) async throws -> Challenge? {
-        guard !id.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            print("❌ fetchChallenge(by:) called with empty id")
-            return nil
-        }
+        guard let trimmedId = trimmedChallengeId(from: id, context: "fetchChallenge(by:)") else { return nil }
         do {
             let snapshot = try await firestoreDB
                 .collection(collecChallenges)
-                .document(id)
+                .document(trimmedId)
                 .getDocument()
 
             return try snapshot.data(as: Challenge.self)
@@ -126,11 +142,7 @@ extension ChallengeService {
     }
 
     func updateChallenge(_ challenge: Challenge) async throws {
-        let trimmedId = challenge.id.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedId.isEmpty else {
-            print("❌ updateChallenge called with empty id")
-            return
-        }
+        guard let trimmedId = trimmedChallengeId(from: challenge, context: "updateChallenge") else { return }
 
         let ref = firestoreDB.collection(collecChallenges).document(trimmedId)
 
@@ -209,6 +221,9 @@ extension ChallengeService {
 extension ChallengeService {
     func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost {
         guard let authorId = author.id else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "uploadPost") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
 
         var challengeMedia: ChallengeMedia?
 
@@ -225,22 +240,26 @@ extension ChallengeService {
 
         guard let challengeMedia else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
 
-        let post = ChallengePost(challengeId: challengeId,
+        let post = ChallengePost(challengeId: trimmedId,
                                  authorUid: authorId,
                                  authorName: author.name,
                                  description: description,
                                  date: Date(),
                                  media: challengeMedia)
 
-        try savePostToFirebase(post, challengeId: challengeId)
+        try savePostToFirebase(post, challengeId: trimmedId)
 
         return post
     }
 
     func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost? {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "fetchPost") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
 
@@ -249,9 +268,13 @@ extension ChallengeService {
     }
 
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost] {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "fetchPosts") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let allPosts = try await firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .getDocuments()
 
@@ -266,9 +289,13 @@ extension ChallengeService {
     // Privates
 
     private func savePostToFirebase(_ post: ChallengePost, challengeId: String) throws {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "savePostToFirebase") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let docRef = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document()
 
@@ -380,9 +407,13 @@ extension ChallengeService {
 
     // TODO: Différencier photo et vidéo pour adapter ref
     private func deletePostInFirestore(post: ChallengePost) async throws {
+        guard let trimmedId = trimmedChallengeId(from: post.challengeId, context: "deletePostInFirestore") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let postRef = firestoreDB
             .collection(collecChallenges)
-            .document(post.challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(post.id)
 
@@ -415,12 +446,16 @@ extension ChallengeService {
 
 }
 
-// MARK: - Chat
+    // MARK: - Chat
 extension ChallengeService {
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage] {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "fetchChatMessages") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecChat)
             .order(by: "createdAt", descending: false)
             .getDocuments()
@@ -429,9 +464,13 @@ extension ChallengeService {
     }
 
     func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "addChatMessage") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         try firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecChat)
             .addDocument(from: message)
     }
@@ -440,9 +479,13 @@ extension ChallengeService {
                      to messageId: String,
                      in challengeId: String,
                      userId: String) async throws {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "addReaction") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecChat)
             .document(messageId)
 
@@ -463,9 +506,13 @@ extension ChallengeService {
                         from messageId: String,
                         in challengeId: String,
                         userId: String) async throws {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "removeReaction") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecChat)
             .document(messageId)
 
@@ -486,9 +533,14 @@ extension ChallengeService {
 // MARK: - Reward flow
 extension ChallengeService {
     func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "addParticipant") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecParticipants)
             .document(progress.id)
 
@@ -502,7 +554,12 @@ extension ChallengeService {
     }
 
     func fetchParticipants(for challengeId: String, completion: @escaping ([ParticipantProgress]) -> Void) {
-        let ref = firestoreDB.collection(collecChallenges).document(challengeId).collection(collecParticipants)
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "fetchParticipants") else {
+            completion([])
+            return
+        }
+
+        let ref = firestoreDB.collection(collecChallenges).document(trimmedId).collection(collecParticipants)
 
         ref.addSnapshotListener { snapshot, error in
             let progresses = snapshot?.documents.compactMap { try? $0.data(as: ParticipantProgress.self) } ?? []
@@ -512,9 +569,13 @@ extension ChallengeService {
     }
 
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "fetchParticipantsProgress") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecParticipants)
             .getDocuments()
 
@@ -522,9 +583,14 @@ extension ChallengeService {
     }
 
     func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "updateProgress") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecParticipants)
             .document(progress.id)
 
@@ -587,7 +653,12 @@ extension ChallengeService {
                     "times": notif.times.map { Timestamp(date: $0) }] as [String : Any]
         }
 
-        let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
+        guard let trimmedId = trimmedChallengeId(from: challenge, context: "updateNotifications") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
+        let ref = firestoreDB.collection(collecChallenges).document(trimmedId)
 
         ref.updateData([
             "notificationsConfig": firestoreConfig
@@ -600,9 +671,14 @@ extension ChallengeService {
 // MARK: - Like/Unlike Post
 extension ChallengeService {
     func likePost(challengeId: String, postId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "likePost") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
 
@@ -612,9 +688,14 @@ extension ChallengeService {
     }
 
     func unlikePost(challengeId: String, postId: String, userId: String, completion: ((Error?) -> Void)? = nil) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "unlikePost") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
 
@@ -637,9 +718,14 @@ extension ChallengeService {
                                           "content": content,
                                           "timestamp": Timestamp(date: Date())]
 
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "addComment") else {
+            completion?(NSError(domain: "ChallengeService", code: -1))
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
             .collection(collecComments)
@@ -650,9 +736,14 @@ extension ChallengeService {
     }
 
     func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "listenToComments") else {
+            onUpdate([])
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
             .collection(collecComments)
@@ -668,9 +759,14 @@ extension ChallengeService {
     }
 
     func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void) {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "listenToPost") else {
+            onUpdate(nil)
+            return
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
 
@@ -682,9 +778,13 @@ extension ChallengeService {
     }
 
     func updatePostJokerState(challengeId: String, postId: String, state: PostJokerState) async throws {
+        guard let trimmedId = trimmedChallengeId(from: challengeId, context: "updatePostJokerState") else {
+            throw ChallengeServiceError.invalidChallengeId
+        }
+
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(trimmedId)
             .collection(collecPhotos)
             .document(postId)
 
