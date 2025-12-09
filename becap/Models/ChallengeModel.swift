@@ -78,6 +78,21 @@ struct Challenge: Identifiable, Codable, Hashable {
     var difficulty: String? = nil
     var longDescription: String? = nil
 
+    var isCoachProgramEnabled: Bool {
+        if isCoachProgram ?? false { return true }
+
+        return hasContent(heroImageUrl) ||
+        hasContent(coachAvatarUrl) ||
+        hasContent(coachName) ||
+        hasContent(shortTagline) ||
+        hasContent(longDescription)
+    }
+
+    private func hasContent(_ value: String?) -> Bool {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+        return !trimmed.isEmpty
+    }
+
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
     }

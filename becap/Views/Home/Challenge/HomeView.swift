@@ -176,7 +176,7 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    if challenge.isCoachProgram ?? false {
+                    if challenge.isCoachProgramEnabled {
                         NavigationLink(destination: CoachProgramDetailView(challenge: challenge, isLocked: viewModel.isLocked(challenge)).environmentObject(viewModel)) {
                             CoachProgramCardView(challenge: challenge, isLocked: viewModel.isLocked(challenge))
                         }
@@ -231,7 +231,7 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                            if challenge.isCoachProgram ?? false {
+                            if challenge.isCoachProgramEnabled {
                                 NavigationLink(destination: CoachProgramDetailView(challenge: challenge, isLocked: viewModel.isLocked(challenge)).environmentObject(viewModel)) {
                                     CoachProgramCardView(challenge: challenge, isLocked: viewModel.isLocked(challenge))
                                 }
