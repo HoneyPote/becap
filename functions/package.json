@@ -1,0 +1,20 @@
+{
+  "name": "becap-functions",
+  "description": "Firebase Cloud Functions for Becap",
+  "engines": {
+    "node": "18"
+  },
+  "scripts": {
+    "lint": "echo \"No lint configured\"",
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "test": "echo \"No test specified\" && exit 0"
+  },
+  "dependencies": {
+    "firebase-admin": "^11.11.1",
+    "firebase-functions": "^4.9.0",
+    "stripe": "^14.23.0"
+  }
+}
