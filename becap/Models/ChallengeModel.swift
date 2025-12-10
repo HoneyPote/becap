@@ -70,6 +70,28 @@ struct Challenge: Identifiable, Codable, Hashable {
     var price: Double?
     var infoText: String?
     var infoVideoURL: String?
+    var isCoachProgram: Bool? = nil
+    var heroImageUrl: String? = nil
+    var coachAvatarUrl: String? = nil
+    var coachName: String? = nil
+    var shortTagline: String? = nil
+    var difficulty: String? = nil
+    var longDescription: String? = nil
+
+    var isCoachProgramEnabled: Bool {
+        if isCoachProgram ?? false { return true }
+
+        return hasContent(heroImageUrl) ||
+        hasContent(coachAvatarUrl) ||
+        hasContent(coachName) ||
+        hasContent(shortTagline) ||
+        hasContent(longDescription)
+    }
+
+    private func hasContent(_ value: String?) -> Bool {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines) else { return false }
+        return !trimmed.isEmpty
+    }
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -133,6 +155,13 @@ extension Challenge {
         }
 
         return isPremium ?? false
+    }
+
+    /// Challenge identifier trimmed and validated.
+    /// Returns `nil` when the document id is absent or blank, to avoid Firestore crashes on empty paths.
+    var sanitizedId: String? {
+        let trimmed = id.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
 

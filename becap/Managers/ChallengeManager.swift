@@ -143,7 +143,12 @@ extension ChallengeManager {
     }
 
     func ensureMembership(in challengeId: String) async throws {
-        if challenges.contains(where: { $0.id == challengeId }) {
+        let trimmedId = challengeId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedId.isEmpty else {
+            throw ChallengeManagerError.challengeNotFound
+        }
+
+        if challenges.contains(where: { $0.id == trimmedId }) {
             try await fetchAndFilterChallenges()
             return
         }
@@ -152,7 +157,7 @@ extension ChallengeManager {
             throw ChallengeManagerError.userNotLoggedIn
         }
 
-        guard var remoteChallenge = try await challengeService.fetchChallenge(by: challengeId) else {
+        guard var remoteChallenge = try await challengeService.fetchChallenge(by: trimmedId) else {
             throw ChallengeManagerError.challengeNotFound
         }
 
