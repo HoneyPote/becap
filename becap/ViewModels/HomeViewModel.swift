@@ -147,6 +147,10 @@ class HomeViewModel: ObservableObject {
 
     // MARK: - Paywall
     func isLocked(_ challenge: Challenge, hasPremium: Bool) -> Bool {
+        if challenge.id == lockedShowcaseChallenge.id {
+            return true
+        }
+
         challenge.isLocked(for: challengeManager.currentUser?.id, hasPremium: hasPremium)
     }
 }
