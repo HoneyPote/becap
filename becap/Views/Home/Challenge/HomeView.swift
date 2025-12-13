@@ -171,7 +171,7 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
+                    let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
                     if locked {
                         LockedChallengeCell(challenge: challenge) {
                             showPaywall = true
@@ -226,7 +226,7 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                            let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
+                            let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
                             if locked {
                                 LockedChallengeCell(challenge: challenge) {
                                     showPaywall = true
