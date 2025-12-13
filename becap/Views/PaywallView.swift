@@ -65,6 +65,8 @@ struct PaywallView: View {
                     .padding(.horizontal)
             }
 
+            manualLockSection
+
             Spacer()
 
             Button("Fermer") { dismiss() }
@@ -82,7 +84,7 @@ struct PaywallView: View {
             .ignoresSafeArea()
         )
         .onAppear {
-            if store.isPremium {
+            if store.hasPremiumAccess {
                 dismiss()
             }
         }
@@ -92,7 +94,7 @@ struct PaywallView: View {
             await store.refreshEntitlements()
             isLoadingProducts = false
         }
-        .onChange(of: store.isPremium) { hasPremium in
+        .onChange(of: store.hasPremiumAccess) { hasPremium in
             if hasPremium {
                 dismiss()
             }
@@ -175,6 +177,30 @@ private extension PaywallView {
 
     var buttonsDisabled: Bool {
         isProcessing || isLoadingProducts || store.products.isEmpty
+    }
+
+    @ViewBuilder
+    var manualLockSection: some View {
+        if store.isPremium {
+            VStack(spacing: 6) {
+                Divider().overlay(Color.white.opacity(0.2))
+
+                Text("Reverrouiller localement pour tester ?")
+                    .font(.footnote)
+                    .foregroundColor(.white.opacity(0.8))
+
+                Toggle(isOn: Binding(
+                    get: { store.isManuallyLocked },
+                    set: { store.setManualLock($0) }
+                )) {
+                    Text("Forcer le verrouillage premium sur cet appareil")
+                        .font(.footnote)
+                        .foregroundColor(.white)
+                }
+                .toggleStyle(SwitchToggleStyle(tint: .yellow))
+            }
+            .padding(.top, 8)
+        }
     }
 }
 

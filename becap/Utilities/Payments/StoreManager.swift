@@ -21,13 +21,19 @@ final class StoreManager: ObservableObject {
     @Published var isPremium: Bool = false {
         didSet {
             guard isPremium != oldValue else { return }
+            updateHasPremiumAccess()
             Task { await syncPremiumFlagIfNeeded() }
         }
     }
+    @Published private(set) var hasPremiumAccess: Bool = false
+    @Published private(set) var isManuallyLocked: Bool = false
 
     private var updateListenerTask: Task<Void, Never>?
+    private let manualLockKey = "becap.premium.manualLock"
 
     init() {
+        isManuallyLocked = UserDefaults.standard.bool(forKey: manualLockKey)
+        updateHasPremiumAccess()
         startListeningForTransactions()
     }
 
@@ -100,7 +106,17 @@ final class StoreManager: ObservableObject {
         if isPremium != hasPremium {
             isPremium = hasPremium
             debugPrint("⭐️ Premium entitlement updated: \(hasPremium)")
+        } else {
+            updateHasPremiumAccess()
         }
+    }
+
+    func setManualLock(_ enabled: Bool) {
+        guard enabled != isManuallyLocked else { return }
+        isManuallyLocked = enabled
+        UserDefaults.standard.set(enabled, forKey: manualLockKey)
+        updateHasPremiumAccess()
+        debugPrint(enabled ? "🔒 Premium manually locked for testing" : "🔓 Manual lock cleared")
     }
 }
 
@@ -147,6 +163,10 @@ private extension StoreManager {
         } catch {
             debugPrint("⚠️ Unable to sync premium flag:", error.localizedDescription)
         }
+    }
+
+    func updateHasPremiumAccess() {
+        hasPremiumAccess = isPremium && !isManuallyLocked
     }
 }
 
