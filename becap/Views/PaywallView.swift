@@ -15,6 +15,7 @@ struct PaywallView: View {
     @State private var isProcessing = false
     @State private var isLoadingProducts = false
     @State private var errorMessage: String?
+    @State private var initialPremiumStatus: Bool?
 
     private var monthlyProduct: Product? {
         store.products.first(where: { $0.id == IAPProductIDs.premiumMonthly })
@@ -83,11 +84,7 @@ struct PaywallView: View {
             )
             .ignoresSafeArea()
         )
-        .onAppear {
-            if store.hasPremiumAccess {
-                dismiss()
-            }
-        }
+        .onAppear { initialPremiumStatus = store.hasPremiumAccess }
         .task {
             isLoadingProducts = true
             await store.loadProducts()
@@ -95,7 +92,8 @@ struct PaywallView: View {
             isLoadingProducts = false
         }
         .onChange(of: store.hasPremiumAccess) { hasPremium in
-            if hasPremium {
+            guard let initialPremiumStatus else { return }
+            if !initialPremiumStatus && hasPremium {
                 dismiss()
             }
         }
