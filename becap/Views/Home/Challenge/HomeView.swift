@@ -10,11 +10,13 @@ import SwiftUI
 // TODO: Faire un bouton réutilisable pour les challenges de partage et création
 struct HomeView: View {
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
+    @EnvironmentObject private var store: StoreManager
     @StateObject var viewModel = HomeViewModel()
 
     @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
+    @State private var showPaywall = false
     @State private var deepLinkedChallenge: Challenge?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
@@ -81,15 +83,8 @@ struct HomeView: View {
                 onCancel: { viewModel.cancelReport() }
             )
         }
-        .sheet(item: $viewModel.paywallChallenge) { challenge in
-            ChallengePaywallView(
-                challenge: challenge,
-                isProcessing: $viewModel.isProcessingPayment,
-                errorMessage: viewModel.paymentErrorMessage,
-                onApplePay: { viewModel.payForSelectedChallenge(using: .applePay) },
-                onCard: { viewModel.payForSelectedChallenge(using: .card) },
-                onClose: { viewModel.cancelPaywall() }
-            )
+        .sheet(isPresented: $showPaywall) {
+            PaywallView()
         }
         .overlay(alignment: .top) {
             if showCreationToast {
@@ -176,10 +171,15 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    if viewModel.isLocked(challenge) {
-                        LockedChallengeCell(challenge: challenge) {
-                            viewModel.presentPaywall(for: challenge)
-                        }
+                    let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
+                    if locked {
+                        DefiCell(
+                            challenge: challenge,
+                            onDelete: { viewModel.confirmDelete(challenge) },
+                            onReport: { viewModel.presentReport(for: challenge) },
+                            isLocked: true,
+                            onLockedTap: { showPaywall = true }
+                        )
                     } else {
              NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)
@@ -230,10 +230,15 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                            if viewModel.isLocked(challenge) {
-                                LockedChallengeCell(challenge: challenge) {
-                                    viewModel.presentPaywall(for: challenge)
-                                }
+                            let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
+                            if locked {
+                                DefiCell(
+                                    challenge: challenge,
+                                    onDelete: { viewModel.confirmDelete(challenge) },
+                                    onReport: { viewModel.presentReport(for: challenge) },
+                                    isLocked: true,
+                                    onLockedTap: { showPaywall = true }
+                                )
                             } else {
                                 NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
                                     DefiCell(challenge: challenge,

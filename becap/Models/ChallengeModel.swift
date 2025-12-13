@@ -126,8 +126,12 @@ extension Challenge {
         NSDecimalNumber(value: price ?? 4.99)
     }
 
-    func isLocked(for userId: String?) -> Bool {
-        guard let userId else { return isPremium ?? false }
+    func isLocked(for userId: String?, hasPremium: Bool = false) -> Bool {
+        guard let userId else { return (isPremium ?? false) && !hasPremium }
+
+        if hasPremium {
+            return false
+        }
 
         if creatorUID == userId || participantUids.contains(userId) {
             return false

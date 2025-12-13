@@ -11,6 +11,8 @@ struct DefiCell: View {
     let challenge: Challenge
     let onQuit: () -> Void
     let onReport: () -> Void
+    var isLocked: Bool = false
+    var onLockedTap: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -62,18 +64,52 @@ struct DefiCell: View {
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
-            Button(role: .destructive) {
-                onQuit()
-            } label: {
-                Label("Quitter le défi", systemImage: "trash")
-            }
+            if !isLocked {
+	            Button(role: .destructive) {
+	                onQuit()
+	            } label: {
+	                Label("Quitter le défi", systemImage: "trash")
+	            }
 
-            Button {
-                onReport()
-            } label: {
-                Label("Signaler", systemImage: "exclamationmark.bubble")
+                Button {
+                    onReport()
+                } label: {
+                    Label("Signaler", systemImage: "exclamationmark.bubble")
+                }
             }
         }
         .padding(4)
+        .overlay(alignment: .topTrailing) {
+            if isLocked {
+                Label("Premium", systemImage: "lock.fill")
+                    .padding(8)
+                    .font(.caption.bold())
+                    .foregroundColor(.white)
+                    .background(Color.black.opacity(0.5))
+                    .clipShape(Capsule())
+                    .padding(10)
+            }
+        }
+        .overlay {
+            if isLocked {
+                Color.black.opacity(0.35)
+                    .cornerRadius(18)
+                    .overlay(
+                        VStack(spacing: 6) {
+                            Image(systemName: "lock.fill")
+                                .foregroundColor(.white)
+                                .font(.title3)
+                            Text("Premium")
+                                .font(.caption.bold())
+                                .foregroundColor(.white)
+                        }
+                    )
+            }
+        }
+        .onTapGesture {
+            if isLocked {
+                onLockedTap?()
+            }
+        }
     }
 }
