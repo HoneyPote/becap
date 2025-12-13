@@ -77,9 +77,11 @@ struct DefiCell: View {
             }
         }
         .padding(4)
-        .onTapGesture {
+        .overlay {
             if isLocked {
-                onLockedTap?()
+                Color.clear
+                    .contentShape(RoundedRectangle(cornerRadius: 18))
+                    .onTapGesture { onLockedTap?() }
             }
         }
     }
