@@ -189,6 +189,7 @@ private extension PaywallView {
                     .font(.footnote)
                     .foregroundColor(.white.opacity(0.8))
 
+                // Local-only: lets QA relock premium on device without altering entitlements/Firestore.
                 Toggle(isOn: Binding(
                     get: { store.isManuallyLocked },
                     set: { store.setManualLock($0) }

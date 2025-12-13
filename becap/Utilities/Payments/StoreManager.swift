@@ -18,6 +18,7 @@ import FirebaseFirestore
 @MainActor
 final class StoreManager: ObservableObject {
     @Published var products: [Product] = []
+    /// Raw entitlement state coming from StoreKit.
     @Published var isPremium: Bool = false {
         didSet {
             guard isPremium != oldValue else { return }
@@ -25,7 +26,9 @@ final class StoreManager: ObservableObject {
             Task { await syncPremiumFlagIfNeeded() }
         }
     }
+    /// Effective premium access after applying the local manual lock override.
     @Published private(set) var hasPremiumAccess: Bool = false
+    /// Local-only toggle so testers can relock premium without touching entitlements/Firestore.
     @Published private(set) var isManuallyLocked: Bool = false
 
     private var updateListenerTask: Task<Void, Never>?
