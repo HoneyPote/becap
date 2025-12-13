@@ -57,12 +57,14 @@ struct becap: App {
 
     @StateObject private var appState = AppState.shared
     @StateObject private var deepLinkRouter = DeepLinkRouter()
+    @StateObject private var store = StoreManager()
 
     var body: some Scene {
         WindowGroup {
             SplashScreenView()
                 .environmentObject(appState)
                 .environmentObject(deepLinkRouter)
+                .environmentObject(store)
                 .onContinueUserActivity(NSUserActivityTypeBrowsingWeb) { activity in
                     if let url = activity.webpageURL {
                         deepLinkRouter.handle(url: url)
@@ -71,6 +73,10 @@ struct becap: App {
 
                 .onOpenURL { url in
                     deepLinkRouter.handle(url: url)
+                }
+                .task {
+                    await store.loadProducts()
+                    await store.refreshEntitlements()
                 }
         }
     }
