@@ -64,48 +64,19 @@ struct DefiCell: View {
         .contentShape(RoundedRectangle(cornerRadius: 18))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
-            if !isLocked {
-                Button(role: .destructive) {
-                    onDelete()
-                } label: {
-                    Label("Supprimer", systemImage: "trash")
-                }
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Supprimer", systemImage: "trash")
+            }
 
-                Button {
-                    onReport()
-                } label: {
-                    Label("Signaler", systemImage: "exclamationmark.bubble")
-                }
+            Button {
+                onReport()
+            } label: {
+                Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
         .padding(4)
-        .overlay(alignment: .topTrailing) {
-            if isLocked {
-                Label("Premium", systemImage: "lock.fill")
-                    .padding(8)
-                    .font(.caption.bold())
-                    .foregroundColor(.white)
-                    .background(Color.black.opacity(0.5))
-                    .clipShape(Capsule())
-                    .padding(10)
-            }
-        }
-        .overlay {
-            if isLocked {
-                Color.black.opacity(0.35)
-                    .cornerRadius(18)
-                    .overlay(
-                        VStack(spacing: 6) {
-                            Image(systemName: "lock.fill")
-                                .foregroundColor(.white)
-                                .font(.title3)
-                            Text("Premium")
-                                .font(.caption.bold())
-                                .foregroundColor(.white)
-                        }
-                    )
-            }
-        }
         .onTapGesture {
             if isLocked {
                 onLockedTap?()
