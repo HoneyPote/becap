@@ -13,6 +13,7 @@ struct PaywallView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isProcessing = false
+    @State private var isLoadingProducts = false
     @State private var errorMessage: String?
 
     private var monthlyProduct: Product? {
@@ -49,7 +50,7 @@ struct PaywallView: View {
                 .buttonStyle(.bordered)
                 .tint(.gray.opacity(0.4))
             }
-            .disabled(isProcessing)
+            .disabled(buttonsDisabled)
 
             if isProcessing {
                 ProgressView("Traitement en cours…")
@@ -80,6 +81,17 @@ struct PaywallView: View {
             )
             .ignoresSafeArea()
         )
+        .onAppear {
+            if store.isPremium {
+                dismiss()
+            }
+        }
+        .task {
+            isLoadingProducts = true
+            await store.loadProducts()
+            await store.refreshEntitlements()
+            isLoadingProducts = false
+        }
         .onChange(of: store.isPremium) { hasPremium in
             if hasPremium {
                 dismiss()
@@ -131,7 +143,7 @@ private extension PaywallView {
         .buttonStyle(.borderedProminent)
         .tint(Color(red: 0.28, green: 0.52, blue: 0.96))
         .opacity(product == nil ? 0.7 : 1)
-        .disabled(product == nil || isProcessing)
+        .disabled(product == nil || buttonsDisabled)
     }
 
     func purchase(_ product: Product?) async {
@@ -140,16 +152,29 @@ private extension PaywallView {
             return
         }
 
+        guard !isLoadingProducts else { return }
+
         isProcessing = true
         errorMessage = nil
 
-        await store.buy(product)
+        let outcome = await store.buy(product)
 
-        if !store.isPremium {
-            errorMessage = "Achat non finalisé. Vérifiez votre compte App Store."
+        switch outcome {
+        case .success:
+            errorMessage = nil
+        case .cancelled:
+            errorMessage = "Achat annulé. Vous pouvez réessayer à tout moment."
+        case .pending:
+            errorMessage = "Achat en attente de validation. Vérifiez votre compte App Store."
+        case .failed(let error):
+            errorMessage = "Échec de la transaction : \(error.localizedDescription)"
         }
 
         isProcessing = false
+    }
+
+    var buttonsDisabled: Bool {
+        isProcessing || isLoadingProducts || store.products.isEmpty
     }
 }
 

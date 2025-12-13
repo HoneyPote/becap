@@ -7,6 +7,8 @@
 //  ⚙️ Enable the "In-App Purchase" capability in the main target.
 //  💡 For local StoreKit tests, add a StoreKit.storekit file to the project
 //  and select it in the scheme's Run configuration.
+//  🧪 Sandbox: sign out of App Store on device/simulator, sign in with a
+//  sandbox tester account, then purchase through this paywall.
 //
 
 import Foundation
@@ -18,6 +20,7 @@ final class StoreManager: ObservableObject {
     @Published var products: [Product] = []
     @Published var isPremium: Bool = false {
         didSet {
+            guard isPremium != oldValue else { return }
             Task { await syncPremiumFlagIfNeeded() }
         }
     }
@@ -42,24 +45,33 @@ final class StoreManager: ObservableObject {
         }
     }
 
-    func buy(_ product: Product) async {
+    func buy(_ product: Product) async -> PurchaseOutcome {
         do {
             let result = try await product.purchase()
 
             switch result {
             case .success(let verification):
                 let transaction = try checkVerified(verification)
+                guard transaction.revocationDate == nil else {
+                    await transaction.finish()
+                    return .failed(StoreKitError.revoked)
+                }
+
                 await transaction.finish()
                 await refreshEntitlements()
+                return .success
             case .userCancelled:
                 debugPrint("ℹ️ Purchase cancelled by user for product: \(product.id)")
+                return .cancelled
             case .pending:
                 debugPrint("⏳ Purchase pending for product: \(product.id)")
+                return .pending
             default:
-                break
+                return .failed(StoreKitError.unknown)
             }
         } catch {
             debugPrint("❌ Purchase failed for product \(product.id):", error.localizedDescription)
+            return .failed(error)
         }
     }
 
@@ -78,6 +90,7 @@ final class StoreManager: ObservableObject {
 
         for await entitlement in Transaction.currentEntitlements {
             guard case .verified(let transaction) = entitlement else { continue }
+            guard transaction.revocationDate == nil else { continue }
 
             if IAPProductIDs.allProductIds.contains(transaction.productID) {
                 hasPremium = true
@@ -99,6 +112,11 @@ private extension StoreManager {
             for await result in Transaction.updates {
                 do {
                     let transaction = try checkVerified(result)
+                    guard transaction.revocationDate == nil else {
+                        await transaction.finish()
+                        continue
+                    }
+
                     await transaction.finish()
                     await refreshEntitlements()
                 } catch {
@@ -134,4 +152,13 @@ private extension StoreManager {
 
 private enum StoreKitError: Error {
     case failedVerification
+    case revoked
+    case unknown
+}
+
+enum PurchaseOutcome {
+    case success
+    case cancelled
+    case pending
+    case failed(Error)
 }
