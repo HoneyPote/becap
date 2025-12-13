@@ -151,7 +151,7 @@ class HomeViewModel: ObservableObject {
             return true
         }
 
-        challenge.isLocked(for: challengeManager.currentUser?.id, hasPremium: hasPremium)
+        return challenge.isLocked(for: challengeManager.currentUser?.id, hasPremium: hasPremium)
     }
 }
 
