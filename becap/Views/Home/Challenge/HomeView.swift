@@ -173,13 +173,9 @@ struct HomeView: View {
                 ForEach(viewModel.standardChallenges) { challenge in
                     let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
                     if locked {
-                        DefiCell(
-                            challenge: challenge,
-                            onDelete: { viewModel.confirmDelete(challenge) },
-                            onReport: { viewModel.presentReport(for: challenge) },
-                            isLocked: true,
-                            onLockedTap: { showPaywall = true }
-                        )
+                        LockedChallengeCell(challenge: challenge) {
+                            showPaywall = true
+                        }
                     } else {
              NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)
@@ -232,13 +228,9 @@ struct HomeView: View {
                         ForEach(viewModel.premiumChallenges) { challenge in
                             let locked = viewModel.isLocked(challenge, hasPremium: store.isPremium)
                             if locked {
-                                DefiCell(
-                                    challenge: challenge,
-                                    onDelete: { viewModel.confirmDelete(challenge) },
-                                    onReport: { viewModel.presentReport(for: challenge) },
-                                    isLocked: true,
-                                    onLockedTap: { showPaywall = true }
-                                )
+                                LockedChallengeCell(challenge: challenge) {
+                                    showPaywall = true
+                                }
                             } else {
                                 NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
                                     DefiCell(challenge: challenge,
