@@ -11,6 +11,8 @@ struct DefiCell: View {
     let challenge: Challenge
     let onDelete: () -> Void
     let onReport: () -> Void
+    var isLocked: Bool = false
+    var onLockedTap: (() -> Void)?
 
     var body: some View {
         ZStack {
@@ -75,5 +77,12 @@ struct DefiCell: View {
             }
         }
         .padding(4)
+        .overlay {
+            if isLocked {
+                Color.clear
+                    .contentShape(RoundedRectangle(cornerRadius: 18))
+                    .onTapGesture { onLockedTap?() }
+            }
+        }
     }
 }

@@ -7,14 +7,34 @@
 
 import SwiftUI
 
+enum HomeSheet: Identifiable {
+    case share
+    case newChallenge
+    case report(Challenge)
+    case paywall
+
+    var id: String {
+        switch self {
+        case .share:
+            return "share"
+        case .newChallenge:
+            return "new"
+        case .paywall:
+            return "paywall"
+        case .report(let challenge):
+            return "report-\(challenge.id)"
+        }
+    }
+}
+
 // TODO: Faire un bouton réutilisable pour les challenges de partage et création
 struct HomeView: View {
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
+    @EnvironmentObject private var store: StoreManager
     @StateObject var viewModel = HomeViewModel()
 
-    @State private var showShareChallengeView = false
-    @State private var showNewChallengeView = false
     @State private var showCreationToast = false
+    @State private var sheet: HomeSheet?
     @State private var deepLinkedChallenge: Challenge?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
@@ -65,37 +85,35 @@ struct HomeView: View {
             .background(deepLinkNavigationLink) // lien de deep link caché
         }
         .refreshable { viewModel.refreshChallenges() }
-        .sheet(isPresented: $showShareChallengeView) {
-            ShareChallengeView()
-        }
-        .sheet(isPresented: $showNewChallengeView) {
-            NewChallengeView(challengeCreated: $showCreationToast)
-        }
-        .sheet(item: $viewModel.challengeToReport) { challenge in
-            ReportContentView(
-                challenge: challenge,
-                isSubmitting: $viewModel.isSubmittingReport,
-                errorMessage: $viewModel.reportErrorMessage,
-                onSubmit: { reason, details in
-                    viewModel.submitReport(reason: reason, details: details) },
-                onCancel: { viewModel.cancelReport() }
-            )
-        }
-        .sheet(item: $viewModel.paywallChallenge) { challenge in
-            ChallengePaywallView(
-                challenge: challenge,
-                isProcessing: $viewModel.isProcessingPayment,
-                errorMessage: viewModel.paymentErrorMessage,
-                onApplePay: { viewModel.payForSelectedChallenge(using: .applePay) },
-                onCard: { viewModel.payForSelectedChallenge(using: .card) },
-                onClose: { viewModel.cancelPaywall() }
-            )
+        .sheet(item: $sheet) { sheet in
+            switch sheet {
+            case .share:
+                ShareChallengeView()
+            case .newChallenge:
+                NewChallengeView(challengeCreated: $showCreationToast)
+            case .paywall:
+                PaywallView()
+            case .report(let challenge):
+                ReportContentView(
+                    challenge: challenge,
+                    isSubmitting: $viewModel.isSubmittingReport,
+                    errorMessage: $viewModel.reportErrorMessage,
+                    onSubmit: { reason, details in
+                        viewModel.submitReport(reason: reason, details: details) },
+                    onCancel: { viewModel.cancelReport() }
+                )
+                .onDisappear { viewModel.cancelReport() }
+            }
         }
         .overlay(alignment: .top) {
             if showCreationToast {
                 challengeCreatedToast
                     .padding(.bottom, 40)
             }
+        }
+        .onChange(of: viewModel.challengeToReport) { challenge in
+            guard let challenge else { return }
+            sheet = .report(challenge)
         }
         .onAppear {
             if let challengeId = deepLinkRouter.pendingCalendarChallengeId {
@@ -147,11 +165,11 @@ struct HomeView: View {
     private var shareCreateChallengeSection: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
             ShareButtonCell {
-                showShareChallengeView = true
+                sheet = .share
             }
 
             NewChallengeCell {
-                showNewChallengeView = true
+                sheet = .newChallenge
             }
         }
     }
@@ -176,9 +194,10 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    if viewModel.isLocked(challenge) {
+                    let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
+                    if locked {
                         LockedChallengeCell(challenge: challenge) {
-                            viewModel.presentPaywall(for: challenge)
+                            sheet = .paywall
                         }
                     } else {
                         NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
@@ -227,11 +246,12 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                            if viewModel.isLocked(challenge) {
-                                LockedChallengeCell(challenge: challenge) {
-                                    viewModel.presentPaywall(for: challenge)
-                                }
-                            } else {
+                        let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
+                        if locked {
+                            LockedChallengeCell(challenge: challenge) {
+                                sheet = .paywall
+                            }
+                        } else {
                                 NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
                                     DefiCell(challenge: challenge,
                                              onDelete: { viewModel.confirmDelete(challenge) },
