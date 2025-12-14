@@ -25,7 +25,6 @@ class HomeViewModel: ObservableObject {
     private var challengeToDelete: Challenge?
 
     private let lockedShowcaseChallenge = Challenge(
-        _id: "locked-showcase",
         title: "Challenge Premium",
         duration: 7,
         startDate: Date(),
