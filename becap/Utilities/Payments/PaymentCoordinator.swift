@@ -33,7 +33,7 @@ final class PaymentCoordinator: NSObject {
 
     private var paymentController: PKPaymentAuthorizationController?
     private var completion: ((Result<Void, PaymentCoordinatorError>) -> Void)?
-    private var didAuthorizePayment = false
+    private var paymentResult: Result<Void, PaymentCoordinatorError>?
 
     func canMakePayments() -> Bool {
         PKPaymentAuthorizationController.canMakePayments(usingNetworks: PaymentConfiguration.shared.supportedNetworks)
@@ -53,7 +53,7 @@ final class PaymentCoordinator: NSObject {
         }
 
         self.completion = completion
-        self.didAuthorizePayment = false
+        self.paymentResult = nil
 
         let controller = PKPaymentAuthorizationController(paymentRequest: request)
         controller.delegate = self
@@ -62,6 +62,7 @@ final class PaymentCoordinator: NSObject {
         controller.present { [weak self] presented in
             guard let self else { return }
             if !presented {
+                self.paymentResult = .failure(.presentationFailed)
                 completion(.failure(.presentationFailed))
             }
         }
@@ -72,19 +73,18 @@ extension PaymentCoordinator: PKPaymentAuthorizationControllerDelegate {
     func paymentAuthorizationController(_ controller: PKPaymentAuthorizationController,
                                         didAuthorizePayment payment: PKPayment,
                                         handler completion: @escaping (PKPaymentAuthorizationResult) -> Void) {
-        didAuthorizePayment = true
+        paymentResult = .success(())
         completion(PKPaymentAuthorizationResult(status: .success, errors: nil))
-        self.completion?(.success(()))
     }
 
     func paymentAuthorizationControllerDidFinish(_ controller: PKPaymentAuthorizationController) {
         controller.dismiss { [weak self] in
             guard let self else { return }
-            if !self.didAuthorizePayment {
-                self.completion?(.failure(.cancelled))
-            }
+            let result = self.paymentResult ?? .failure(.cancelled)
+            self.completion?(result)
             self.completion = nil
             self.paymentController = nil
+            self.paymentResult = nil
         }
     }
 }

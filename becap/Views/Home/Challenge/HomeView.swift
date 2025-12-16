@@ -285,6 +285,11 @@ struct HomeView: View {
     }
 
     private func startPayment(for challenge: Challenge, method: PaymentMethod) {
+        guard viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess) else {
+            paymentErrorMessage = "Ce challenge est déjà débloqué."
+            return
+        }
+
         paymentErrorMessage = nil
         isProcessingPayment = true
 
