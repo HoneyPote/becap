@@ -144,6 +144,19 @@ class HomeViewModel: ObservableObject {
 
         return challenge.isLocked(for: challengeManager.currentUser?.id, hasPremium: hasPremium)
     }
+
+    func unlockChallenge(_ challenge: Challenge) async throws {
+        guard let userId = challengeManager.currentUser?.id else {
+            throw ChallengeManagerError.userNotLoggedIn
+        }
+
+        var updatedChallenge = challenge
+        if !updatedChallenge.participantUids.contains(userId) {
+            updatedChallenge.participantUids.append(userId)
+        }
+
+        try await challengeManager.joinChallenge(updatedChallenge, userId: userId)
+    }
 }
 
 // MARK: - Observers
