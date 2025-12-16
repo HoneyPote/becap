@@ -231,6 +231,11 @@ extension ChallengeManager {
         try await challengeService.blockParticipant(challengeId: challengeId, userId: userId)
     }
 
+    func savePremiumAttachments(_ updatedChallenge: Challenge) async throws -> Challenge {
+        try await updateChallenge(updatedChallenge)
+        return updatedChallenge
+    }
+
     // Challenges - Privates
 
     /// Récupère tous les défis présents dans Firestore sans filtrage

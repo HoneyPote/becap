@@ -13,6 +13,7 @@ struct CalendarMonthGrid: View {
     let days: Int
     let selectedDate: Date?
     let postCountByDay: [Date: Int]
+    let attachmentCountByDay: [Date: Int]
     let jokerCountByDay: [Date: Int]
     let currentUserJokerDays: Set<Date>
     let onSelectDate: (Date) -> Void
@@ -26,6 +27,7 @@ struct CalendarMonthGrid: View {
          days: Int,
          selectedDate: Date?,
          postCountByDay: [Date: Int],
+         attachmentCountByDay: [Date: Int],
          jokerCountByDay: [Date: Int],
          currentUserJokerDays: Set<Date>,
          onSelectDate: @escaping (Date) -> Void) {
@@ -33,6 +35,7 @@ struct CalendarMonthGrid: View {
         self.days = max(days, 0)
         self.selectedDate = selectedDate
         self.postCountByDay = postCountByDay
+        self.attachmentCountByDay = attachmentCountByDay
         self.jokerCountByDay = jokerCountByDay
         self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
@@ -98,6 +101,7 @@ struct CalendarMonthGrid: View {
         ForEach(dayItems) { item in
             let day = calendar.startOfDay(for: item.date)
             var hasPosts: Bool { postCountByDay[day] ?? 0 > 0 }
+            var hasAttachments: Bool { attachmentCountByDay[day] ?? 0 > 0 }
             var hasJokerUsage: Bool { jokerCountByDay[day] ?? 0 > 0 }
 
             let currentUserUsedJoker = currentUserJokerDays.contains(day)
@@ -126,6 +130,15 @@ struct CalendarMonthGrid: View {
                             .padding(.vertical, 3)
                             .background(Color.black.opacity(0.25))
                             .clipShape(Capsule())
+                        }
+
+                        if hasAttachments {
+                            Image(systemName: "paperclip")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(5)
+                                .background(Color.blue.opacity(0.25))
+                                .clipShape(Circle())
                         }
 
                         if hasJokerUsage {

@@ -10,6 +10,7 @@ import UserNotifications
 
 class NewChallengeViewModel: ObservableObject {
     private static let defaultDuration = 30
+    private static let defaultPremiumPrice: Double = 4.99
 
     @Published var nom: String = ""
     @Published var duree: Int = defaultDuration {
@@ -27,8 +28,11 @@ class NewChallengeViewModel: ObservableObject {
         }
     }
     @Published var categorie: ChallengeCategory = .autre
+    @Published var isPremium: Bool = false
+    @Published var premiumPrice: Double = NewChallengeViewModel.defaultPremiumPrice
 
     private let currentUser: User?
+    private let isInfluencer: Bool
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -50,6 +54,7 @@ class NewChallengeViewModel: ObservableObject {
         self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.alertManager = alertManager
+        self.isInfluencer = currentUser?.isInfluencer ?? false
     }
 
     func createChallenge(completion: @escaping (Bool) -> Void) {
@@ -121,7 +126,12 @@ class NewChallengeViewModel: ObservableObject {
                          category: categorie,
                          notificationsConfig: config,
                          code: code,
-                         jokerConfiguration: nombreJokers)
+                         jokerConfiguration: nombreJokers,
+                         isPremium: isPremium && isInfluencer,
+                         price: isPremium && isInfluencer ? premiumPrice : nil,
+                         infoText: nil,
+                         infoVideoURL: nil,
+                         premiumAttachments: [])
     }
 
     private func updateSuggestedJokersIfNeeded() {
@@ -147,6 +157,9 @@ class NewChallengeViewModel: ObservableObject {
             return max(4, Int(round(Double(duration) / 7.0)))
         }
     }
+
+    // MARK: - Premium controls
+    var canCreatePremium: Bool { isInfluencer }
 
     private var userCustomizedJokerCount = false
     private var shouldIgnoreJokerUpdate = false

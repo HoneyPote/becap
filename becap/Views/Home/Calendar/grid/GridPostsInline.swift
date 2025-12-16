@@ -31,6 +31,7 @@ struct GridPostsInline: View {
         return url
     }
     private var hasPosts: Bool { !cell.posts.isEmpty }
+    private var hasAttachments: Bool { !cell.premiumAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
     var body: some View {
@@ -66,6 +67,19 @@ struct GridPostsInline: View {
 
                             LazyVGrid(columns: columns, spacing: 8) {
                                 postsView
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if hasAttachments {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Contenus premium ➕")
+                                .font(.system(.headline, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
+
+                            ForEach(cell.premiumAttachments) { attachment in
+                                PremiumAttachmentRow(attachment: attachment)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -164,6 +178,54 @@ private struct JokerUsageRow: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+struct PremiumAttachmentRow: View {
+    let attachment: PremiumCalendarAttachment
+
+    private var iconName: String {
+        switch attachment.kind {
+        case .media: return "play.rectangle.fill"
+        case .pdf: return "doc.richtext.fill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: iconName)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.white, Color.white.opacity(0.7))
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(attachment.title)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+
+                Text(attachment.kind == .pdf ? "Document PDF" : "Média premium")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Spacer()
+
+            if let url = attachment.localFileURL {
+                ShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(10)
         .background(Color.white.opacity(0.08))
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }

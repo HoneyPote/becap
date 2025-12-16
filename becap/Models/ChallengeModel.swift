@@ -71,6 +71,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var price: Double?
     var infoText: String?
     var infoVideoURL: String?
+    var premiumAttachments: [PremiumCalendarAttachment]? = []
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -180,6 +181,35 @@ struct ChallengePost: Identifiable, Codable, Hashable {
     }
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+enum PremiumAttachmentKind: String, Codable, Hashable {
+    case media
+    case pdf
+}
+
+struct PremiumCalendarAttachment: Identifiable, Codable, Hashable {
+    var id: String
+    var dayIndex: Int
+    var title: String
+    var fileName: String
+    var kind: PremiumAttachmentKind
+
+    init(id: String = UUID().uuidString,
+         dayIndex: Int,
+         title: String,
+         fileName: String,
+         kind: PremiumAttachmentKind) {
+        self.id = id
+        self.dayIndex = dayIndex
+        self.title = title
+        self.fileName = fileName
+        self.kind = kind
+    }
+
+    var localFileURL: URL? {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent(fileName)
     }
 }
 
