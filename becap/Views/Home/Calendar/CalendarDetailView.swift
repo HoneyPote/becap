@@ -38,6 +38,7 @@ struct CalendarDetailView: View {
     @State private var showJokerBubble = false
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
+    @State private var showPremiumEditor = false
 
     init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -209,6 +210,7 @@ struct CalendarDetailView: View {
         }()
 
         let jokerCountByDay = viewModel.jokerUsageCounts(for: selectedParticipant)
+        let attachmentCountByDay = viewModel.attachmentCountByDay()
 
         let currentUserJokerDays: Set<Date> = {
             guard let currentUserId = viewModel.currentUserId else { return [] }
@@ -229,6 +231,7 @@ struct CalendarDetailView: View {
             days: viewModel.challenge.duration,
             selectedDate: selectedGridCell?.date,
             postCountByDay: postCountByDay,
+            attachmentCountByDay: attachmentCountByDay,
             jokerCountByDay: jokerCountByDay,
             currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
@@ -276,6 +279,13 @@ struct CalendarDetailView: View {
                             showJokerBubble = false
                             presentShareSheet()
                         }
+                    if viewModel.canEditPremiumContent {
+                        GlassCircleIcon(systemName: "plus.circle.fill")
+                            .onTapGesture {
+                                showJokerBubble = false
+                                showPremiumEditor = true
+                            }
+                    }
                     GlassCircleIcon(systemName: "person.2.fill")
                         .overlay(alignment: .topTrailing) {
                             if viewModel.chatHasUnreadMessages {
@@ -322,6 +332,10 @@ struct CalendarDetailView: View {
                     if !shareItems.isEmpty {
                         ShareSheet(activityItems: shareItems)
                     }
+                }
+                .sheet(isPresented: $showPremiumEditor) {
+                    PremiumAttachmentEditorView(viewModel: viewModel,
+                                                isPresented: $showPremiumEditor)
                 }
             }
             .padding(.horizontal, 14)

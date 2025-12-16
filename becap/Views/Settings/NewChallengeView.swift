@@ -21,6 +21,14 @@ struct NewChallengeView: View {
         case name
     }
 
+    private let priceFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        return formatter
+    }()
+
     // TODO: Découper, trop complexe
     var body: some View {
         ZStack {
@@ -126,6 +134,44 @@ struct NewChallengeView: View {
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(.ultraThinMaterial)
                                 .cornerRadius(12)
+                            }
+                        }
+                    }
+
+                    if viewModel.canCreatePremium {
+                        GlassCard {
+                            VStack(alignment: .leading, spacing: 14) {
+                                HStack {
+                                    Text("Défi premium")
+                                        .font(.system(.headline, design: .rounded).weight(.bold))
+                                        .foregroundColor(.white)
+
+                                    Spacer()
+
+                                    Toggle(isOn: $viewModel.isPremium) {
+                                        EmptyView()
+                                    }
+                                    .toggleStyle(SwitchToggleStyle(tint: .white))
+                                    .labelsHidden()
+                                }
+
+                                if viewModel.isPremium {
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        Text("Prix (USD)")
+                                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                            .foregroundColor(.white.opacity(0.9))
+
+                                        TextField("4.99", value: $viewModel.premiumPrice, formatter: priceFormatter)
+                                            .keyboardType(.decimalPad)
+                                            .padding(12)
+                                            .background(.ultraThinMaterial)
+                                            .cornerRadius(12)
+                                    }
+
+                                    Text("Permet d'ajouter du contenu média et des PDF sur le calendrier pour vos abonnés.")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.75))
+                                }
                             }
                         }
                     }
