@@ -16,6 +16,8 @@ struct User: Identifiable, Codable {
     var medals: [UserMedal]
     var participatingChallengesIds: [String]?
 	var isInfluencer: Bool?
+    /// Cloud-backed premium entitlement flag written by StoreKit sync.
+    var premiumEntitlement: Bool?
 }
 
 struct UserMedal: Codable, Identifiable, Equatable {

@@ -16,6 +16,7 @@ enum FirestoreUserKeys {
     static let name = "name"
     static let medals = "medals"
     static let createdAt = "createdAt"
+    static let premiumEntitlement = "premiumEntitlement"
 }
 
 enum AccountError: Error {
@@ -101,7 +102,8 @@ extension AccountService {
             FirestoreUserKeys.email: email,
             FirestoreUserKeys.name: name,
             FirestoreUserKeys.medals: [],
-            FirestoreUserKeys.createdAt: FieldValue.serverTimestamp()
+            FirestoreUserKeys.createdAt: FieldValue.serverTimestamp(),
+			FirestoreUserKeys.premiumEntitlement: false
         ])
     }
 }
