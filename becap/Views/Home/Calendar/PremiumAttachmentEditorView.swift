@@ -4,9 +4,9 @@ import UniformTypeIdentifiers
 
 struct PremiumAttachmentEditorView: View {
     @ObservedObject var viewModel: CalendarDetailViewModel
+    @Binding var selectedDay: Int
     @Binding var isPresented: Bool
 
-    @State private var selectedDay: Int = 1
     @State private var mediaPickerItem: PhotosPickerItem?
     @State private var isImportingPDF = false
     @State private var isProcessing = false
@@ -83,6 +83,9 @@ struct PremiumAttachmentEditorView: View {
             .onChange(of: mediaPickerItem) { newItem in
                 guard let newItem else { return }
                 Task { await handleMediaPick(newItem) }
+            }
+            .onAppear {
+                selectedDay = min(max(selectedDay, 1), viewModel.challenge.duration)
             }
             .fileImporter(isPresented: $isImportingPDF,
                           allowedContentTypes: [.pdf]) { result in

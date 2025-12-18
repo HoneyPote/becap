@@ -16,7 +16,9 @@ struct CalendarMonthGrid: View {
     let attachmentCountByDay: [Date: Int]
     let jokerCountByDay: [Date: Int]
     let currentUserJokerDays: Set<Date>
+    let isEditingPremiumContent: Bool
     let onSelectDate: (Date) -> Void
+    let onAddAttachmentForDay: (Int) -> Void
 
     private let calendar = Calendar.current
     private let dayItems: [DayItem]
@@ -30,7 +32,9 @@ struct CalendarMonthGrid: View {
          attachmentCountByDay: [Date: Int],
          jokerCountByDay: [Date: Int],
          currentUserJokerDays: Set<Date>,
-         onSelectDate: @escaping (Date) -> Void) {
+         isEditingPremiumContent: Bool,
+         onSelectDate: @escaping (Date) -> Void,
+         onAddAttachmentForDay: @escaping (Int) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
         self.selectedDate = selectedDate
@@ -39,6 +43,8 @@ struct CalendarMonthGrid: View {
         self.jokerCountByDay = jokerCountByDay
         self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
+        self.onAddAttachmentForDay = onAddAttachmentForDay
+        self.isEditingPremiumContent = isEditingPremiumContent
 
         let calendar = Calendar.current
         let startOfChallenge = calendar.startOfDay(for: startDate)
@@ -157,6 +163,29 @@ struct CalendarMonthGrid: View {
                     .padding(.top, -5)
                     .padding(.horizontal, -4)
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    if isEditingPremiumContent {
+                        Button {
+                            Haptics.lightTap()
+                            onAddAttachmentForDay(item.dayNumber)
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    LinearGradient(colors: [
+                                        Color.white,
+                                        Color.white.opacity(0.92)
+                                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                )
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(6)
+                    }
+                }
 
         }
 
@@ -210,4 +239,3 @@ struct CalendarMonthGrid: View {
         var id: Int { dayNumber }
     }
 }
-
