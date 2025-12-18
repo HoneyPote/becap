@@ -13,6 +13,9 @@ protocol ScoringServiceProtocol {
     func fetchUnscoredEntries(limit: Int) async throws -> [ScoreEntry]
     func processPendingEntries(limit: Int) async
     func computeAggregations(for participantId: String, challengeId: String) async throws
+    func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws
+    func fetchAggregations(for challengeId: String,
+                          granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
 }
 
 enum ScoringServiceError: LocalizedError {
@@ -43,10 +46,44 @@ final class ScoringService: ScoringServiceProtocol {
     private let maxRetries = 5
     private let dailyQuota = 50
     private let calendar = Calendar.current
+    private let promptDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter
+    }()
 
     private init() {}
 
     // MARK: - Public API
+
+    func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws {
+        let prompt = buildPrompt(for: post, challenge: challenge)
+        let scoreEntry = ScoreEntry(
+            participantId: post.authorUid,
+            challengeId: challenge.id,
+            prompt: prompt,
+            createdAt: Date(),
+            status: .pending,
+            responseJSON: nil,
+            score: nil,
+            scoredAt: nil,
+            lastError: nil
+        )
+
+        _ = try firestore.collection(entriesCollection).addDocument(from: scoreEntry)
+    }
+
+    func fetchAggregations(for challengeId: String,
+                          granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation] {
+        let snapshot = try await firestore.collection(aggregatesCollection)
+            .whereField("challengeId", isEqualTo: challengeId)
+            .whereField("granularity", isEqualTo: granularity.rawValue)
+            .order(by: "averageScore", descending: true)
+            .getDocuments()
+
+        return snapshot.documents.compactMap { try? $0.data(as: ScoreAggregation.self) }
+    }
 
     func fetchUnscoredEntries(limit: Int = 10) async throws -> [ScoreEntry] {
         let query = firestore.collection(entriesCollection)
@@ -91,6 +128,41 @@ final class ScoringService: ScoringServiceProtocol {
 
 // MARK: - Processing
 private extension ScoringService {
+    func buildPrompt(for post: ChallengePost, challenge: Challenge) -> String {
+        let description = post.description?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        let userDescription = description?.isEmpty == false ? description! : "Aucune description fournie"
+
+        return """
+        \(CulinaryFeedbackService.shared.guardrailPrompt)
+
+        Tu fais partie du jury du défi communautaire «\(challenge.title)» (catégorie : \(challenge.category?.displayName ?? "Non renseignée")).
+        Analyse la contribution suivante et attribue une note globale sur 10 en tenant compte du nom du plat, des ingrédients cités et de l'impression générale.
+
+        Détails du post :
+        - Participant : \(post.authorName)
+        - Période : \(promptDateFormatter.string(from: post.date))
+        - Type de média : \(mediaDescription(from: post.media))
+        - Description du plat : \(userDescription)
+
+        Réponds uniquement avec un JSON valide et minimal de la forme :
+        {"score": <nombre entre 0 et 10>, "commentaire": "<phrase courte et encourageante en français>"}
+        """
+    }
+
+    func mediaDescription(from media: ChallengeMedia) -> String {
+        switch media {
+        case .image:
+            return "Photo"
+        case .video(let data):
+            if let thumb = data.thumbnailURL {
+                return "Vidéo (miniature: \(thumb))"
+            }
+            return "Vidéo"
+        }
+    }
+
     func process(entry: ScoreEntry) async {
         guard let entryId = entry.id else { return }
 
