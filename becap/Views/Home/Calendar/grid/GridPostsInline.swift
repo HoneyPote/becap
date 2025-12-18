@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AVKit
+import QuickLook
 
 // TODO: Découper vue
 struct GridPostsInline: View {
@@ -13,6 +15,9 @@ struct GridPostsInline: View {
     let getParticipant: (String) -> ParticipantUIModel?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
+
+    @State private var quickLookURL: URL?
+    @State private var videoURL: URL?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
     private let jokerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 2)
@@ -53,6 +58,21 @@ struct GridPostsInline: View {
 
             ScrollView {
                 VStack {
+                    if let videoURL {
+                        VideoPlayer(player: AVPlayer(url: videoURL))
+                            .frame(height: 220)
+                            .cornerRadius(12)
+                            .padding(.bottom, 4)
+                    }
+
+                    if let quickLookURL {
+                        QuickLookPreview(url: quickLookURL)
+                            .frame(height: 320)
+                            .cornerRadius(12)
+                            .padding(.bottom, 4)
+                            .background(Color.white.opacity(0.08))
+                    }
+
                     if postsSorted.isEmpty {
                         Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
@@ -79,7 +99,12 @@ struct GridPostsInline: View {
                                 .foregroundColor(.white)
 
                             ForEach(cell.premiumAttachments) { attachment in
-                                PremiumAttachmentRow(attachment: attachment)
+                                Button {
+                                    open(attachment: attachment)
+                                } label: {
+                                    PremiumAttachmentRow(attachment: attachment)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -136,6 +161,17 @@ struct GridPostsInline: View {
                     .buttonStyle(.plain)
                 }
             }
+        }
+    }
+
+    private func open(attachment: PremiumCalendarAttachment) {
+        guard let url = attachment.localFileURL else { return }
+
+        switch attachment.kind {
+        case .pdf:
+            quickLookURL = url
+        case .media:
+            videoURL = url
         }
     }
 }
@@ -231,3 +267,32 @@ struct PremiumAttachmentRow: View {
     }
 }
 
+private struct QuickLookPreview: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+
+        init(url: URL) {
+            self.url = url
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as QLPreviewItem
+        }
+    }
+}

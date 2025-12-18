@@ -150,9 +150,9 @@ class CalendarDetailViewModel: ObservableObject {
         return counts
     }
 
-    func addAttachment(data: Data, title: String, kind: PremiumAttachmentKind, dayIndex: Int) async {
+    func addAttachment(data: Data, title: String, kind: PremiumAttachmentKind, dayIndex: Int, fileExtension: String? = nil) async {
         do {
-            let savedName = try persist(data: data, kind: kind)
+            let savedName = try persist(data: data, kind: kind, fileExtension: fileExtension)
             let attachment = PremiumCalendarAttachment(dayIndex: dayIndex,
                                                        title: title,
                                                        fileName: savedName,
@@ -258,8 +258,14 @@ class CalendarDetailViewModel: ObservableObject {
         return counts
     }
 
-    private func persist(data: Data, kind: PremiumAttachmentKind) throws -> String {
-        let ext: String = kind == .pdf ? "pdf" : "dat"
+    private func persist(data: Data, kind: PremiumAttachmentKind, fileExtension: String? = nil) throws -> String {
+        let ext: String = {
+            if let fileExtension, !fileExtension.isEmpty {
+                return fileExtension
+            }
+            return kind == .pdf ? "pdf" : "dat"
+        }()
+
         let fileName = "premium_\(UUID().uuidString).\(ext)"
         guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
             throw URLError(.fileDoesNotExist)
