@@ -313,18 +313,13 @@ struct CalendarDetailView: View {
                             presentShareSheet()
                         }
                     if viewModel.canEditPremiumContent {
+                        premiumQuickAddButton
                         GlassCircleIcon(systemName: isEditingPremiumAttachments ? "checkmark.circle.fill" : "pencil.circle.fill")
                             .onTapGesture {
                                 showJokerBubble = false
                                 withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
                                     isEditingPremiumAttachments.toggle()
                                 }
-                            }
-                        GlassCircleIcon(systemName: "plus.circle.fill")
-                            .onTapGesture {
-                                showJokerBubble = false
-                                premiumEditorDay = dayIndex(from: selectedGridCell?.date ?? Date())
-                                showPremiumEditor = true
                             }
                     }
                     GlassCircleIcon(systemName: "person.2.fill")
@@ -547,6 +542,25 @@ extension CalendarDetailView {
         let diff = calendar.dateComponents([.day], from: start, to: target).day ?? 0
         let maxDay = max(1, viewModel.challenge.duration)
         return min(max(diff + 1, 1), maxDay)
+    }
+
+    @ViewBuilder
+    private var premiumQuickAddButton: some View {
+        ZStack {
+            GlassCircleIcon(systemName: "photo")
+
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(.white)
+                .background(Color.clear)
+                .offset(x: 8, y: -12)
+        }
+        .onTapGesture {
+            showJokerBubble = false
+            premiumEditorDay = dayIndex(from: selectedGridCell?.date ?? Date())
+            showPremiumEditor = true
+        }
+        .accessibilityLabel("Ajouter un média premium")
     }
 
     private func openInitialPostIfNeeded() {

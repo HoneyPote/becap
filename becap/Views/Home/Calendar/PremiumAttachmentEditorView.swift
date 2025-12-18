@@ -79,6 +79,10 @@ struct PremiumAttachmentEditorView: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Fermer") { isPresented = false }
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Terminer") { isPresented = false }
+                        .disabled(viewModel.isSavingPremiumContent || isProcessing)
+                }
             }
             .onChange(of: mediaPickerItem) { newItem in
                 guard let newItem else { return }
@@ -106,6 +110,7 @@ struct PremiumAttachmentEditorView: View {
                                           title: filename,
                                           kind: .media,
                                           dayIndex: selectedDay)
+            await MainActor.run { isPresented = false }
         } catch {
             await MainActor.run { errorMessage = "Import impossible : \(error.localizedDescription)" }
         }
@@ -123,6 +128,7 @@ struct PremiumAttachmentEditorView: View {
                                               title: url.lastPathComponent,
                                               kind: .pdf,
                                               dayIndex: selectedDay)
+                await MainActor.run { isPresented = false }
             } catch {
                 await MainActor.run { errorMessage = "Lecture du PDF impossible." }
             }
