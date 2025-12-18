@@ -46,6 +46,16 @@ protocol ChallengeServiceProtocol {
     func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws
     func addReaction(_ reaction: String, to messageId: String, in challengeId: String, userId: String) async throws
     func removeReaction(_ reaction: String, from messageId: String, in challengeId: String, userId: String) async throws
+
+    // Enrollments / payments
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
+
+    // Creator updates / programs
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration?
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws
+    func enrollmentCount(for challengeId: String) async throws -> Int
 }
 
 final class ChallengeService: ChallengeServiceProtocol {
@@ -58,6 +68,11 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecParticipants = "participants"
     private let collecComments = "comments"
     private let collecChat = "chatMessages"
+    private let collecEnrollments = "enrollments"
+
+    /// Certains documents peuvent servir de placeholders premium/tests et ne suivent pas le schéma `Challenge`.
+    /// Ils doivent être ignorés pour ne pas casser le décodage des vrais défis.
+    private let premiumPlaceholderFlags: Set<String> = ["isPremiumPlaceholder", "premiumTemplate"]
 
     private init() {}
 }
@@ -68,16 +83,43 @@ extension ChallengeService {
     func fetchAllChallenges() async throws -> [Challenge] {
         do {
             let snapshot = try await firestoreDB.collection(collecChallenges).getDocuments()
-            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            let challenges = snapshot.documents.compactMap { document -> Challenge? in
+                // Ignore les documents premium/placeholder qui ne respectent pas le schéma Challenge.
+                if isPremiumPlaceholder(document: document) {
+                    print("⚠️ Ignorer un document premium placeholder (id=\(document.documentID))")
+                    return nil
+                }
 
-            return challenges.filter { $0.id != "" }
+                do {
+                    return try document.data(as: Challenge.self)
+                } catch {
+                    print("⚠️ Ignorer un défi illisible (id=\(document.documentID)): \(error)")
+                    return nil
+                }
+            }
+
+            return challenges.filter { !$0.id.isEmpty }
         } catch {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
         }
     }
 
+    private func isPremiumPlaceholder(document: QueryDocumentSnapshot) -> Bool {
+        let data = document.data()
+        // Si un flag booléen est posé pour marquer le doc comme modèle premium, on le saute.
+        if premiumPlaceholderFlags.contains(where: { (data[$0] as? Bool) == true }) {
+            return true
+        }
+
+        // Sauvegarde supplémentaire : un document sans titre ni dates n'est pas un défi exploitable.
+        let hasMinimalFields = data["title"] != nil && data["startDate"] != nil && data["duration"] != nil
+        return !hasMinimalFields
+    }
+
     func fetchChallenge(by id: String) async throws -> Challenge? {
+        guard !id.isEmpty else { return nil }
+
         do {
             let snapshot = try await firestoreDB
                 .collection(collecChallenges)
@@ -496,6 +538,8 @@ extension ChallengeService {
     }
 
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        guard !challengeId.isEmpty else { return [] }
+
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -663,6 +707,143 @@ extension ChallengeService {
         try await ref.updateData([
             "jokerState": try Firestore.Encoder().encode(state)
         ])
+    }
+}
+
+// MARK: - Enrollments / Payments
+extension ChallengeService {
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment? {
+        guard !challengeId.isEmpty, !userId.isEmpty else {
+            print("⚠️ Ignorer l’écoute enrollment: challengeId ou userId vide")
+            return nil
+        }
+
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .document(userId)
+
+        do {
+            let snapshot = try await ref.getDocument()
+            return try snapshot.data(as: ChallengeEnrollment.self)
+        } catch {
+            print("❌ Erreur Firestore lors de l’obtention de l’inscription: \(error)")
+            return nil
+        }
+    }
+
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration? {
+        guard !challengeId.isEmpty, !userId.isEmpty else {
+            print("⚠️ Ignorer l’écoute enrollment: challengeId ou userId vide")
+            return nil
+        }
+
+        return firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .document(userId)
+            .addSnapshotListener { snapshot, error in
+                if let error {
+                    print("❌ Erreur d’écoute enrollment: \(error)")
+                    onUpdate(nil)
+                    return
+                }
+
+                guard let snapshot else {
+                    onUpdate(nil)
+                    return
+                }
+
+                let enrollment = try? snapshot.data(as: ChallengeEnrollment.self)
+                onUpdate(enrollment)
+            }
+    }
+    }
+
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
+        guard !enrollment.challengeId.isEmpty, !enrollment.userId.isEmpty else {
+            print("⚠️ Ignorer l’upsert enrollment: challengeId ou userId vide")
+            return
+        }
+
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(enrollment.challengeId)
+            .collection(collecEnrollments)
+            .document(enrollment.userId)
+
+        do {
+            try ref.setData(from: enrollment)
+        } catch {
+            print("❌ Erreur d’upsert enrollment: \(error)")
+            throw error
+        }
+    }
+}
+
+// MARK: - Creator updates / Coach programs
+extension ChallengeService {
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration? {
+        guard !challengeId.isEmpty else {
+            print("⚠️ Ignorer l’écoute creator updates: challengeId vide")
+            return nil
+        }
+
+        return firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection("creatorUpdates")
+            .order(by: "createdAt", descending: true)
+            .addSnapshotListener { snapshot, error in
+                if let error {
+                    print("❌ Erreur d’écoute creator updates: \(error)")
+                    onUpdate([])
+                    return
+                }
+
+                guard let snapshot else {
+                    onUpdate([])
+                    return
+                }
+
+                let updates = snapshot.documents.compactMap { try? $0.data(as: CreatorUpdate.self) }
+                onUpdate(updates)
+            }
+    }
+
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws {
+        guard !challengeId.isEmpty else {
+            print("⚠️ Ignorer la création d’update: challengeId vide")
+            return
+        }
+
+        let documentId = update.id ?? UUID().uuidString
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection("creatorUpdates")
+            .document(documentId)
+
+        do {
+            try ref.setData(from: update)
+        } catch {
+            print("❌ Erreur de création d’update: \(error)")
+            throw error
+        }
+    }
+
+    func enrollmentCount(for challengeId: String) async throws -> Int {
+        guard !challengeId.isEmpty else { return 0 }
+
+        let snapshot = try await firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecEnrollments)
+            .getDocuments()
+
+        return snapshot.count
     }
 }
 

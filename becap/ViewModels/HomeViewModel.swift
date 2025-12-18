@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
 
 class HomeViewModel: ObservableObject {
     @Published var showDeleteAlert = false
@@ -16,17 +17,63 @@ class HomeViewModel: ObservableObject {
     @Published var isSubmittingReport = false
     @Published var reportErrorMessage: String?
     @Published var showReportSuccessToast = false
+    @Published var paywallChallenge: Challenge?
+    @Published var isProcessingPayment = false
+    @Published var paymentErrorMessage: String?
+    @Published var enrollments: [String: ChallengeEnrollment] = [:]
+    @Published var paymentStatusMessage: String?
+    @Published var isAwaitingBackendConfirmation = false
 
     private var cancellables = Set<AnyCancellable>()
+    private var enrollmentListeners: [String: ListenerRegistration] = [:]
 
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
+    private let paymentCoordinator: PaymentCoordinator
     private var challengeToDelete: Challenge?
 
+    private let lockedShowcaseChallenge = Challenge(
+        _id: "locked-showcase",
+        title: "Challenge Premium",
+        duration: 7,
+        startDate: Date(),
+        creatorUID: "premium@becap",
+        participantUids: [],
+        category: .sport,
+        notificationsConfig: nil,
+        code: nil,
+        jokerConfiguration: nil,
+        isPremium: true,
+        price: 4.99,
+        infoText: "Programme premium guidé avec vidéos, rappel quotidien et récompenses exclusives pour garder la motivation.",
+        infoVideoURL: nil,
+        isLocalPremiumPreview: true
+    )
+
+    private let unlockedPreviewChallenge = Challenge(
+        _id: "premium-unlocked-preview",
+        title: "Programme Premium (débloqué)",
+        duration: 10,
+        startDate: Date(),
+        creatorUID: "premium@becap",
+        participantUids: ["preview-user"],
+        category: .sport,
+        notificationsConfig: nil,
+        code: nil,
+        jokerConfiguration: nil,
+        isPremium: true,
+        price: 4.99,
+        infoText: "Aperçu d’un défi premium déjà débloqué pour tester l’UI sans paiement.",
+        infoVideoURL: nil,
+        isLocalPremiumPreview: true
+    )
+
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         reportManager: ReportManagerProtocol = ReportManager.shared) {
+         reportManager: ReportManagerProtocol = ReportManager.shared,
+         paymentCoordinator: PaymentCoordinator = PaymentCoordinator.shared) {
         self.challengeManager = challengeManager
         self.reportManager = reportManager
+        self.paymentCoordinator = paymentCoordinator
 
         observeChallengesChanges()
     }
@@ -119,6 +166,85 @@ class HomeViewModel: ObservableObject {
             }
         }
     }
+
+    var premiumChallenges: [Challenge] {
+        challenges.filter { $0.isPremium ?? false }
+    }
+
+    var standardChallenges: [Challenge] {
+        challenges.filter { !($0.isPremium ?? false) }
+    }
+
+    var coachPrograms: [Challenge] {
+        challenges.filter { $0.isCoachProgram }
+    }
+
+    var creatorPrograms: [Challenge] {
+        guard let userId = challengeManager.currentUser?.id else { return [] }
+        return challenges.filter { $0.isCoachProgram && (($0.creatorId ?? $0.creatorUID) == userId) }
+    }
+
+    var hasCreatorPrograms: Bool { !creatorPrograms.isEmpty }
+
+    // MARK: - Paywall
+    func isLocked(_ challenge: Challenge) -> Bool {
+        if challenge.isLocalPremiumPreview {
+            return challenge.id == lockedShowcaseChallenge.id
+        }
+
+        let enrollment = enrollments[challenge.id]
+        return challenge.isLocked(for: challengeManager.currentUser?.id, enrollment: enrollment)
+    }
+
+    func presentPaywall(for challenge: Challenge) {
+        paymentErrorMessage = nil
+        paywallChallenge = challenge
+        paymentStatusMessage = nil
+        isAwaitingBackendConfirmation = false
+    }
+
+    func cancelPaywall() {
+        isProcessingPayment = false
+        paywallChallenge = nil
+        isAwaitingBackendConfirmation = false
+        paymentStatusMessage = nil
+    }
+
+    func simulatePremiumUnlockPreview() {
+        guard let premium = premiumChallenges.first ?? challenges.first(where: { $0.isPremium ?? false }) else { return }
+        let userId = challengeManager.currentUser?.id ?? "preview-user"
+
+        let previewEnrollment = ChallengeEnrollment.paidPreview(userId: userId, challengeId: premium.id)
+        enrollments[premium.id] = previewEnrollment
+    }
+
+    func payForSelectedChallenge(using method: PaymentMethod) {
+        guard let challenge = paywallChallenge else { return }
+        guard let userId = challengeManager.currentUser?.id else {
+            paymentErrorMessage = "Connectez-vous pour payer ce défi."
+            return
+        }
+        paymentErrorMessage = nil
+        isProcessingPayment = true
+        paymentStatusMessage = "Initialisation du paiement…"
+
+        paymentCoordinator.startPayment(for: challenge, userId: userId, method: method) { [weak self] result in
+            guard let self else { return }
+
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    self.isProcessingPayment = false
+                    self.isAwaitingBackendConfirmation = true
+                    self.paymentStatusMessage = "Paiement envoyé. Vérification…"
+                case .failure(let error):
+                    self.isProcessingPayment = false
+                    self.paymentErrorMessage = error.errorDescription
+                }
+            }
+        }
+    }
+
 }
 
 // MARK: - Observers
@@ -127,13 +253,86 @@ extension HomeViewModel {
         challengeManager.$challenges
             .receive(on: DispatchQueue.main)
             .sink { [weak self] challenges in
-                self?.challenges = challenges.sorted(by: {
+                var sorted = challenges.sorted(by: {
                     // Ordre du tri : les actifs en premiers et date de création de la plus récente avant
                     guard $0.status == $1.status else { return $0.status == .active && $1.status == .finished }
 
                     return $0.startDate > $1.startDate
                 })
+
+                if let self, !hasLockedShowcase(in: sorted) {
+                    sorted.insert(lockedShowcaseChallenge, at: 0)
+                }
+
+                if let self, !sorted.contains(where: { $0.id == unlockedPreviewChallenge.id }) {
+                    sorted.insert(unlockedPreviewChallenge, at: 1)
+                }
+
+                self?.challenges = sorted
+                self?.attachEnrollmentListeners(for: sorted)
             }
             .store(in: &cancellables)
+    }
+
+    private func hasLockedShowcase(in challenges: [Challenge]) -> Bool {
+        challenges.contains(where: { $0.id == lockedShowcaseChallenge.id || ($0.isPremium ?? false) })
+    }
+
+    private func attachEnrollmentListeners(for challenges: [Challenge]) {
+        guard let userId = challengeManager.currentUser?.id else { return }
+
+        let premiumIds = Set(challenges.compactMap {
+            guard ($0.isPremium ?? false) else { return nil }
+            guard !$0.isLocalPremiumPreview else { return nil }
+            return $0.id.isEmpty ? nil : $0.id
+        })
+
+        // Clean old listeners
+        for (challengeId, listener) in enrollmentListeners where !premiumIds.contains(challengeId) {
+            listener.remove()
+            enrollmentListeners.removeValue(forKey: challengeId)
+            enrollments.removeValue(forKey: challengeId)
+        }
+
+        for challengeId in premiumIds {
+            guard enrollmentListeners[challengeId] == nil else { continue }
+
+            let registration = challengeManager.listenEnrollment(for: challengeId, userId: userId) { [weak self] enrollment in
+                guard let self else { return }
+                DispatchQueue.main.async {
+                    self.enrollments[challengeId] = enrollment
+                    self.handleEnrollmentChange(enrollment, for: challengeId)
+                }
+            }
+
+            if let registration {
+                enrollmentListeners[challengeId] = registration
+            }
+        }
+    }
+
+    private func handleEnrollmentChange(_ enrollment: ChallengeEnrollment?, for challengeId: String) {
+        guard let enrollment else { return }
+        guard let challenge = challenges.first(where: { $0.id == challengeId }) else { return }
+        guard let userId = challengeManager.currentUser?.id else { return }
+
+        if enrollment.paymentStatus == .paid {
+            Task {
+                await MainActor.run {
+                    self.isAwaitingBackendConfirmation = false
+                    self.paymentStatusMessage = "Paiement confirmé"
+                    self.paywallChallenge = nil
+                }
+
+                if !challenge.participantUids.contains(userId) {
+                    try? await challengeManager.joinChallenge(challenge, userId: userId)
+                }
+            }
+        } else if enrollment.paymentStatus == .failed {
+            DispatchQueue.main.async {
+                self.paymentErrorMessage = "Le paiement a échoué."
+                self.isAwaitingBackendConfirmation = false
+            }
+        }
     }
 }

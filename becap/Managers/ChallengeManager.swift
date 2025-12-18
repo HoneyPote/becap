@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import FirebaseFirestore
 import OneSignalFramework
 
 protocol ChallengeManagerProtocol {
@@ -48,6 +49,16 @@ protocol ChallengeManagerProtocol {
     func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool
     func addChatReaction(_ reaction: String, to message: ChallengeChatMessage, challengeId: String, userId: String) async throws
     func removeChatReaction(_ reaction: String, from message: ChallengeChatMessage, challengeId: String, userId: String) async throws
+
+    // Enrollments / payments
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment?
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration?
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws
+
+    // Creator updates / coach programs
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration?
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws
+    func enrollmentCount(for challengeId: String) async throws -> Int
 }
 
 enum ChallengeManagerError: LocalizedError {
@@ -117,21 +128,25 @@ extension ChallengeManager {
         return try await challengeService.fetchAllChallenges()
     }
 
-    /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
+    /// Récupère tous les défis présents dans Firestore
     func fetchAndFilterChallenges() async throws {
-        guard let currentUser, let currentUserId = currentUser.id else { return }
+        do {
+            let all = try await fetchAllChallenges()
 
-        let filtered = try await fetchAllChallenges().filter { challenge in
-            challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
-        }
-
-        await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+            await MainActor.run {
+                self.challenges = all
+                print("✅ Défis chargés:", all.map(\.title))
+            }
+        } catch {
+            await MainActor.run {
+                print("❌ Impossible de charger les défis: \(error)")
+            }
         }
     }
 
     func ensureMembership(in challengeId: String) async throws {
+        guard !challengeId.isEmpty else { return }
+
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
             return
@@ -263,6 +278,34 @@ extension ChallengeManager {
                                                   from: messageId,
                                                   in: challengeId,
                                                   userId: userId)
+    }
+}
+
+// MARK: - Enrollments / payments
+extension ChallengeManager {
+    func enrollment(for challengeId: String, userId: String) async throws -> ChallengeEnrollment? {
+        try await challengeService.enrollment(for: challengeId, userId: userId)
+    }
+
+    func listenEnrollment(for challengeId: String, userId: String, onUpdate: @escaping (ChallengeEnrollment?) -> Void) -> ListenerRegistration? {
+        let registration = challengeService.listenEnrollment(for: challengeId, userId: userId, onUpdate: onUpdate)
+        return registration
+    }
+
+    func upsertEnrollment(_ enrollment: ChallengeEnrollment) async throws {
+        try await challengeService.upsertEnrollment(enrollment)
+    }
+
+    func listenCreatorUpdates(for challengeId: String, onUpdate: @escaping ([CreatorUpdate]) -> Void) -> ListenerRegistration? {
+        challengeService.listenCreatorUpdates(for: challengeId, onUpdate: onUpdate)
+    }
+
+    func createCreatorUpdate(for challengeId: String, update: CreatorUpdate) async throws {
+        try await challengeService.createCreatorUpdate(for: challengeId, update: update)
+    }
+
+    func enrollmentCount(for challengeId: String) async throws -> Int {
+        try await challengeService.enrollmentCount(for: challengeId)
     }
 }
 
@@ -403,6 +446,7 @@ extension ChallengeManager {
         try setUserProgress(userId: userId, challengeId: challenge.id, progress: userProgress)
     }
     func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+        guard !challengeId.isEmpty else { return [] }
         var progresses = try await challengeService.fetchParticipantsProgress(for: challengeId)
 
 

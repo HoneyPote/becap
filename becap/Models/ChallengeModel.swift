@@ -66,6 +66,24 @@ struct Challenge: Identifiable, Codable, Hashable {
     var notificationsConfig: [ChallengeNotification]?
     var code: String?
     var jokerConfiguration: ChallengeJokerConfiguration?
+    var isPremium: Bool?
+    var price: Double?
+    var infoText: String?
+    var infoVideoURL: String?
+    var isCreatorProgram: Bool = false
+    var creatorId: String?
+    // TODO: Renseigner ces métadonnées coach manuellement dans Firestore pour les premiers programmes.
+    var coachName: String?
+    var coachAvatarUrl: String?
+    var heroImageUrl: String?
+    var shortTagline: String?
+    var longDescription: String?
+    var durationDays: Int?
+    var difficultyLabel: String?
+    var introVideoUrl: String?
+    var dayPlan: [CoachDayPlanItem]?
+    /// Local-only preview toggle to avoid touching Firestore for showcase items.
+    var isLocalPremiumPreview: Bool = false
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -84,6 +102,34 @@ struct Challenge: Identifiable, Codable, Hashable {
 
     static func ==(lhs: Challenge, rhs: Challenge) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case _id
+        case title
+        case duration
+        case startDate
+        case creatorUID
+        case participantUids
+        case category
+        case notificationsConfig
+        case code
+        case jokerConfiguration
+        case isPremium
+        case price
+        case infoText
+        case infoVideoURL
+        case isCreatorProgram
+        case creatorId
+        case coachName
+        case coachAvatarUrl
+        case heroImageUrl
+        case shortTagline
+        case longDescription
+        case durationDays
+        case difficultyLabel
+        case introVideoUrl
+        case dayPlan
     }
 }
 
@@ -109,6 +155,46 @@ extension Challenge {
 
         return category?.calendarBackgroundImageName ?? "photoBg"
     }
+
+    var formattedPrice: String {
+        let formatter = NumberFormatter()
+        formatter.locale = Locale(identifier: "fr_FR")
+        formatter.numberStyle = .currency
+        return formatter.string(from: NSNumber(value: price ?? 4.99)) ?? "4,99 €"
+    }
+
+    var paymentAmount: NSDecimalNumber {
+        NSDecimalNumber(value: price ?? 4.99)
+    }
+
+    var isCoachProgram: Bool {
+        isCreatorProgram && creatorId != nil
+    }
+
+    func isLocked(for userId: String?, enrollment: ChallengeEnrollment?) -> Bool {
+        guard let userId else { return isPremium ?? false }
+
+        if creatorUID == userId || participantUids.contains(userId) {
+            return false
+        }
+
+        if !(isPremium ?? false) {
+            return false
+        }
+
+        if let enrollment, enrollment.isPaid {
+            return false
+        }
+
+        return true
+    }
+}
+
+struct CoachDayPlanItem: Codable, Identifiable, Hashable {
+    var id: String
+    var dayIndex: Int
+    var title: String
+    var description: String
 }
 
 struct ChallengePost: Identifiable, Codable, Hashable {

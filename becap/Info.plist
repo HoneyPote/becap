@@ -17,6 +17,8 @@
 		<dict/>
 	</array>
 	<key>UIBackgroundModes</key>
-	<array/>
+        <array/>
+        <key>AppleMerchantIdentifier</key>
+        <string>merchant.com.becap.app</string>
 </dict>
 </plist>

@@ -21,6 +21,7 @@ struct HomeView: View {
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPostId: String?
     @State private var deepLinkJoinError: String?
+    @State private var showCreatorConsole = false
 
     var body: some View {
         NavigationStack {
@@ -33,9 +34,27 @@ struct HomeView: View {
                     .padding(.bottom, 12)
                     .padding(.horizontal, 24)
 
+                if viewModel.hasCreatorPrograms {
+                    Button {
+                        showCreatorConsole = true
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.crop.square.fill.and.at.rectangle")
+                            Text("Console coach")
+                                .font(.headline)
+                        }
+                        .foregroundColor(.white)
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
+                }
+
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
                         shareCreateChallengeSection
+                        premiumChallengesSection
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -63,6 +82,11 @@ struct HomeView: View {
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // lien de deep link caché
         }
+        .task {
+            if viewModel.challenges.isEmpty {
+                viewModel.refreshChallenges()
+            }
+        }
         .refreshable { viewModel.refreshChallenges() }
         .sheet(isPresented: $showShareChallengeView) {
             ShareChallengeView()
@@ -80,10 +104,27 @@ struct HomeView: View {
                 onCancel: { viewModel.cancelReport() }
             )
         }
+        .sheet(item: $viewModel.paywallChallenge) { challenge in
+            ChallengePaywallView(
+                challenge: challenge,
+                isProcessing: $viewModel.isProcessingPayment,
+                statusMessage: viewModel.paymentStatusMessage,
+                awaitingConfirmation: viewModel.isAwaitingBackendConfirmation,
+                errorMessage: viewModel.paymentErrorMessage,
+                onApplePay: { viewModel.payForSelectedChallenge(using: .applePay) },
+                onCard: { viewModel.payForSelectedChallenge(using: .card) },
+                onClose: { viewModel.cancelPaywall() }
+            )
+        }
         .overlay(alignment: .top) {
             if showCreationToast {
                 challengeCreatedToast
                     .padding(.bottom, 40)
+            }
+        }
+        .sheet(isPresented: $showCreatorConsole) {
+            NavigationStack {
+                CreatorConsoleView()
             }
         }
         .onAppear {
@@ -164,11 +205,26 @@ struct HomeView: View {
             .multilineTextAlignment(.center)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
-                ForEach(viewModel.challenges) { challenge in
-                    NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
-                        DefiCell(challenge: challenge,
-                                 onDelete: { viewModel.confirmDelete(challenge) },
-                                 onReport: { viewModel.presentReport(for: challenge) })
+                ForEach(viewModel.standardChallenges) { challenge in
+                    if challenge.isCoachProgram {
+                        NavigationLink(destination: CoachProgramDetailView(challenge: challenge) {
+                            viewModel.presentPaywall(for: challenge)
+                        }) {
+                            CoachProgramCardView(challenge: challenge,
+                                                 isLocked: viewModel.isLocked(challenge),
+                                                 enrollment: viewModel.enrollments[challenge.id])
+                        }
+                        .buttonStyle(.plain)
+                    } else if viewModel.isLocked(challenge) {
+                        LockedChallengeCell(challenge: challenge) {
+                            viewModel.presentPaywall(for: challenge)
+                        }
+                    } else {
+                        NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
+                            DefiCell(challenge: challenge,
+                                     onDelete: { viewModel.confirmDelete(challenge) },
+                                     onReport: { viewModel.presentReport(for: challenge) })
+                        }
                     }
                 }
             }
@@ -188,6 +244,92 @@ struct HomeView: View {
         Group {
             Button("Delete", role: .destructive) { viewModel.performDelete() }
             Button("Cancel", role: .cancel) { viewModel.cancelDelete() }
+        }
+    }
+
+    private var premiumChallengesSection: some View {
+        Group {
+            if !viewModel.premiumChallenges.isEmpty {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        Image(systemName: "star.fill")
+                            .foregroundColor(.yellow)
+                            .imageScale(.large)
+                        Text("CHALLENGE PRENIUM")
+                            .font(.system(.title2, design: .rounded).weight(.heavy))
+                            .textCase(.uppercase)
+                            .foregroundColor(.white)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 26)
+                    .padding(.horizontal, 6)
+
+                    if let sample = viewModel.premiumChallenges.first {
+                        Button {
+                            viewModel.presentPaywall(for: sample)
+                        } label: {
+                            HStack {
+                                Image(systemName: "lock.fill")
+                                    .font(.body.weight(.semibold))
+                                Text("Tester le paywall premium")
+                                    .font(.headline)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(14)
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
+
+                        Button {
+                            viewModel.simulatePremiumUnlockPreview()
+                        } label: {
+                            HStack {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.body.weight(.semibold))
+                                Text("Voir un défi premium débloqué")
+                                    .font(.headline)
+                            }
+                            .padding(.vertical, 10)
+                            .padding(.horizontal, 14)
+                            .frame(maxWidth: .infinity)
+                            .background(Color.white.opacity(0.12))
+                            .cornerRadius(14)
+                            .foregroundColor(.white)
+                        }
+                        .buttonStyle(.plain)
+
+                    }
+
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
+                        ForEach(viewModel.premiumChallenges) { challenge in
+                            if challenge.isCoachProgram {
+                                NavigationLink(destination: CoachProgramDetailView(challenge: challenge) {
+                                    viewModel.presentPaywall(for: challenge)
+                                }) {
+                                    CoachProgramCardView(challenge: challenge,
+                                                         isLocked: viewModel.isLocked(challenge),
+                                                         enrollment: viewModel.enrollments[challenge.id])
+                                }
+                                .buttonStyle(.plain)
+                            } else if viewModel.isLocked(challenge) {
+                                LockedChallengeCell(challenge: challenge) {
+                                    viewModel.presentPaywall(for: challenge)
+                                }
+                            } else {
+                                NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
+                                    DefiCell(challenge: challenge,
+                                             onDelete: { viewModel.confirmDelete(challenge) },
+                                             onReport: { viewModel.presentReport(for: challenge) })
+                                }
+                            }
+                        }
+                    }
+                }
+                .padding(.bottom, 12)
+            }
         }
     }
 
