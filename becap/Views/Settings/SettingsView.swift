@@ -349,7 +349,13 @@ private struct AvatarCircle: View {
                 AsyncImage(url: url) { phase in
                     switch phase {
                     case .empty:
-                        Color.white.opacity(0.08).overlay(PlaceholderIcon())
+                        ZStack {
+                            Color.white.opacity(0.08)
+                            PlaceholderIcon().opacity(0.35)
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        }
                     case .success(let image):
                         image.resizable().scaledToFill()
                     case .failure:
@@ -375,5 +381,4 @@ private struct AvatarCircle: View {
         }
     }
 }
-
 
