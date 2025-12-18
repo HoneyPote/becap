@@ -39,6 +39,8 @@ struct CalendarDetailView: View {
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
     @State private var showPremiumEditor = false
+    @State private var isEditingPremiumAttachments = false
+    @State private var premiumEditorDay = 1
 
     init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -226,27 +228,50 @@ struct CalendarDetailView: View {
             return Set(usages.map { startOfDay($0.date) })
         }()
 
-        return CalendarMonthGrid(
-            startDate: viewModel.challenge.startDate,
-            days: viewModel.challenge.duration,
-            selectedDate: selectedGridCell?.date,
-            postCountByDay: postCountByDay,
-            attachmentCountByDay: attachmentCountByDay,
-            jokerCountByDay: jokerCountByDay,
-            currentUserJokerDays: currentUserJokerDays,
-            onSelectDate: { date in
-                let day = startOfDay(date)
+        let canEditPremium = viewModel.canEditPremiumContent
+        let isEditingPremium = canEditPremium && isEditingPremiumAttachments
 
-                if let cell = cells.first(where: { sameDay($0.date, day) }),
-                   (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                        selectedGridCell = cell
-                        showJokerBubble = false
-                    }
+        return VStack(spacing: 10) {
+            if isEditingPremium {
+                HStack(spacing: 8) {
+                    Image(systemName: "plus.circle.fill")
+                        .foregroundColor(.white)
+                    Text("Mode édition premium : appuie sur + d’un jour pour ajouter un média ou PDF.")
+                        .font(.system(.footnote, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white.opacity(0.9))
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .transition(.opacity)
             }
-        )
-        .padding(.horizontal, 14)
+
+            CalendarMonthGrid(
+                startDate: viewModel.challenge.startDate,
+                days: viewModel.challenge.duration,
+                selectedDate: selectedGridCell?.date,
+                postCountByDay: postCountByDay,
+                attachmentCountByDay: attachmentCountByDay,
+                jokerCountByDay: jokerCountByDay,
+                currentUserJokerDays: currentUserJokerDays,
+                isEditingPremiumContent: isEditingPremium,
+                onSelectDate: { date in
+                    let day = startOfDay(date)
+
+                    if let cell = cells.first(where: { sameDay($0.date, day) }),
+                       (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
+                        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+                            selectedGridCell = cell
+                            showJokerBubble = false
+                        }
+                    }
+                },
+                onAddAttachmentForDay: { day in
+                    premiumEditorDay = day
+                    showPremiumEditor = true
+                }
+            )
+            .padding(.horizontal, 14)
+        }
     }
 
     // MARK: - Header
@@ -280,9 +305,17 @@ struct CalendarDetailView: View {
                             presentShareSheet()
                         }
                     if viewModel.canEditPremiumContent {
+                        GlassCircleIcon(systemName: isEditingPremiumAttachments ? "checkmark.circle.fill" : "pencil.circle.fill")
+                            .onTapGesture {
+                                showJokerBubble = false
+                                withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
+                                    isEditingPremiumAttachments.toggle()
+                                }
+                            }
                         GlassCircleIcon(systemName: "plus.circle.fill")
                             .onTapGesture {
                                 showJokerBubble = false
+                                premiumEditorDay = dayIndex(from: selectedGridCell?.date ?? Date())
                                 showPremiumEditor = true
                             }
                     }
@@ -335,6 +368,7 @@ struct CalendarDetailView: View {
                 }
                 .sheet(isPresented: $showPremiumEditor) {
                     PremiumAttachmentEditorView(viewModel: viewModel,
+                                                selectedDay: $premiumEditorDay,
                                                 isPresented: $showPremiumEditor)
                 }
             }
@@ -498,6 +532,15 @@ extension CalendarDetailView {
                     .onChange(of: frame) { updateJokerButtonFrame($0) }
             }
         )
+    }
+
+    private func dayIndex(from date: Date) -> Int {
+        let calendar = Calendar.current
+        let start = calendar.startOfDay(for: viewModel.challenge.startDate)
+        let target = calendar.startOfDay(for: date)
+        let diff = calendar.dateComponents([.day], from: start, to: target).day ?? 0
+        let maxDay = max(1, viewModel.challenge.duration)
+        return min(max(diff + 1, 1), maxDay)
     }
 
     private func openInitialPostIfNeeded() {
