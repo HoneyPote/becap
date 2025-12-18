@@ -105,11 +105,13 @@ struct PremiumAttachmentEditorView: View {
         do {
             guard let data = try await item.loadTransferable(type: Data.self) else { return }
             let filename = item.itemIdentifier ?? "media-premium"
+            let ext = item.supportedContentTypes.first?.preferredFilenameExtension
 
             await viewModel.addAttachment(data: data,
                                           title: filename,
                                           kind: .media,
-                                          dayIndex: selectedDay)
+                                          dayIndex: selectedDay,
+                                          fileExtension: ext)
             await MainActor.run { isPresented = false }
         } catch {
             await MainActor.run { errorMessage = "Import impossible : \(error.localizedDescription)" }
@@ -123,13 +125,17 @@ struct PremiumAttachmentEditorView: View {
         switch result {
         case .success(let url):
             do {
+                let scoped = url.startAccessingSecurityScopedResource()
                 let data = try Data(contentsOf: url)
                 await viewModel.addAttachment(data: data,
                                               title: url.lastPathComponent,
                                               kind: .pdf,
-                                              dayIndex: selectedDay)
+                                              dayIndex: selectedDay,
+                                              fileExtension: url.pathExtension)
+                if scoped { url.stopAccessingSecurityScopedResource() }
                 await MainActor.run { isPresented = false }
             } catch {
+                url.stopAccessingSecurityScopedResource()
                 await MainActor.run { errorMessage = "Lecture du PDF impossible." }
             }
         case .failure(let error):
