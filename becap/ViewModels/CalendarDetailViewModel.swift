@@ -54,6 +54,7 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var participantProgresses: [ParticipantProgress] = []
     @Published var chatMessages: [ChallengeChatMessage] = []
     @Published var chatHasUnreadMessages: Bool = false
+    @Published var postScores: [String: Double] = [:]
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -72,18 +73,23 @@ class CalendarDetailViewModel: ObservableObject {
         self.doneLoadingPosts = false
 
         Task {
-            async let postsTask = try fetchPosts()
+            let posts = try await fetchPosts()
             async let allParticipants = try buildParticipants()
             async let progressesTask = try fetchParticipantProgresses()
             async let chatTask = try fetchChatMessages()
+            async let scoresTask = try fetchScores(for: posts)
 
-            let (posts, participants, progresses, chatMessages) = try await (postsTask, allParticipants, progressesTask, chatTask)
+            let (participants, progresses, chatMessages, scores) = try await (allParticipants,
+                                                                              progressesTask,
+                                                                              chatTask,
+                                                                              scoresTask)
 
             await MainActor.run {
                 self.updatePosts(posts)
                 self.participants = participants
                 self.participantProgresses = progresses
                 self.updateChat(messages: chatMessages)
+                self.postScores = scores
                 self.doneLoadingPosts = true
             }
         }
@@ -340,6 +346,13 @@ class CalendarDetailViewModel: ObservableObject {
 
     private func fetchPosts() async throws -> [ChallengePost] {
         return try await challengeManager.loadPosts(from: challenge.id)
+    }
+
+    private func fetchScores(for posts: [ChallengePost]) async throws -> [String: Double] {
+        let postIds = posts.map(\.id).filter { !$0.isEmpty }
+        guard !postIds.isEmpty else { return [:] }
+
+        return try await challengeManager.fetchPostScores(for: challenge.id, postIds: postIds)
     }
 
     private func updatePosts(_ posts: [ChallengePost]) {

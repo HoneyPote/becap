@@ -14,6 +14,7 @@ protocol ScoringServiceProtocol {
     func processPendingEntries(limit: Int) async
     func computeAggregations(for participantId: String, challengeId: String) async throws
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws
+    func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double]
     func fetchAggregations(for challengeId: String,
                           granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
 }
@@ -62,6 +63,7 @@ final class ScoringService: ScoringServiceProtocol {
         let scoreEntry = ScoreEntry(
             participantId: post.authorUid,
             challengeId: challenge.id,
+            postId: post.id.isEmpty ? nil : post.id,
             prompt: prompt,
             createdAt: Date(),
             status: .pending,
@@ -72,6 +74,24 @@ final class ScoringService: ScoringServiceProtocol {
         )
 
         _ = try firestore.collection(entriesCollection).addDocument(from: scoreEntry)
+    }
+
+    func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double] {
+        guard !postIds.isEmpty else { return [:] }
+
+        let snapshot = try await firestore.collection(entriesCollection)
+            .whereField("challengeId", isEqualTo: challengeId)
+            .whereField("status", isEqualTo: ScoreEntry.Status.completed.rawValue)
+            .getDocuments()
+
+        let entries = snapshot.documents.compactMap { try? $0.data(as: ScoreEntry.self) }
+
+        return entries.reduce(into: [:]) { result, entry in
+            guard let postId = entry.postId,
+                  postIds.contains(postId),
+                  let score = entry.score else { return }
+            result[postId] = score
+        }
     }
 
     func fetchAggregations(for challengeId: String,

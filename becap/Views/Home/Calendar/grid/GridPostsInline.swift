@@ -10,6 +10,7 @@ import SwiftUI
 // TODO: Découper vue
 struct GridPostsInline: View {
     let cell: CalendarDetailCell
+    let postScores: [String: Double]
     let getParticipant: (String) -> Participant?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
@@ -104,6 +105,12 @@ struct GridPostsInline: View {
                             .frame(maxWidth: .infinity)
                             .clipped()
                             .cornerRadius(8)
+                            .overlay(alignment: .topTrailing) {
+                                if let score = postScores[post.id] {
+                                    ScoreBadge(score: score)
+                                        .padding(6)
+                                }
+                            }
                     }
 
                     HStack(spacing: 4) {
@@ -123,6 +130,39 @@ struct GridPostsInline: View {
                 }
             }
         }
+    }
+}
+
+private struct ScoreBadge: View {
+    let score: Double
+
+    private var scoreText: String {
+        if score >= 10 {
+            return "10"
+        }
+
+        return String(format: "%.1f", score)
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 10, weight: .bold))
+            Text(scoreText)
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .foregroundColor(.white)
+        .background(
+            LinearGradient(colors: [Color(red: 0.96, green: 0.78, blue: 0.33),
+                                    Color(red: 0.94, green: 0.52, blue: 0.32)],
+                           startPoint: .topLeading,
+                           endPoint: .bottomTrailing)
+        )
+        .clipShape(Capsule())
+        .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
+        .accessibilityLabel("Score \(scoreText) sur 10")
     }
 }
 
@@ -168,4 +208,3 @@ private struct JokerUsageRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
-

@@ -13,6 +13,7 @@ struct ScoreEntry: Identifiable, Codable {
     @DocumentID var id: String?
     var participantId: String
     var challengeId: String
+    var postId: String?
     var prompt: String
     var createdAt: Date
     var status: Status
@@ -31,6 +32,7 @@ struct ScoreEntry: Identifiable, Codable {
     init(id: String? = nil,
          participantId: String,
          challengeId: String,
+         postId: String? = nil,
          prompt: String,
          createdAt: Date = Date(),
          status: Status = .pending,
@@ -41,6 +43,7 @@ struct ScoreEntry: Identifiable, Codable {
         self.id = id
         self.participantId = participantId
         self.challengeId = challengeId
+        self.postId = postId
         self.prompt = prompt
         self.createdAt = createdAt
         self.status = status
