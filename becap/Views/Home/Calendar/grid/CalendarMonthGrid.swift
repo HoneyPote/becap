@@ -13,9 +13,12 @@ struct CalendarMonthGrid: View {
     let days: Int
     let selectedDate: Date?
     let postCountByDay: [Date: Int]
+    let attachmentCountByDay: [Date: Int]
     let jokerCountByDay: [Date: Int]
     let currentUserJokerDays: Set<Date>
+    let isEditingPremiumContent: Bool
     let onSelectDate: (Date) -> Void
+    let onAddAttachmentForDay: (Int) -> Void
 
     private let calendar = Calendar.current
     private let dayItems: [DayItem]
@@ -26,16 +29,22 @@ struct CalendarMonthGrid: View {
          days: Int,
          selectedDate: Date?,
          postCountByDay: [Date: Int],
+         attachmentCountByDay: [Date: Int],
          jokerCountByDay: [Date: Int],
          currentUserJokerDays: Set<Date>,
-         onSelectDate: @escaping (Date) -> Void) {
+         isEditingPremiumContent: Bool,
+         onSelectDate: @escaping (Date) -> Void,
+         onAddAttachmentForDay: @escaping (Int) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
         self.selectedDate = selectedDate
         self.postCountByDay = postCountByDay
+        self.attachmentCountByDay = attachmentCountByDay
         self.jokerCountByDay = jokerCountByDay
         self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
+        self.onAddAttachmentForDay = onAddAttachmentForDay
+        self.isEditingPremiumContent = isEditingPremiumContent
 
         let calendar = Calendar.current
         let startOfChallenge = calendar.startOfDay(for: startDate)
@@ -98,6 +107,7 @@ struct CalendarMonthGrid: View {
         ForEach(dayItems) { item in
             let day = calendar.startOfDay(for: item.date)
             var hasPosts: Bool { postCountByDay[day] ?? 0 > 0 }
+            var hasAttachments: Bool { attachmentCountByDay[day] ?? 0 > 0 }
             var hasJokerUsage: Bool { jokerCountByDay[day] ?? 0 > 0 }
 
             let currentUserUsedJoker = currentUserJokerDays.contains(day)
@@ -128,6 +138,15 @@ struct CalendarMonthGrid: View {
                             .clipShape(Capsule())
                         }
 
+                        if hasAttachments {
+                            Image(systemName: "paperclip")
+                                .font(.system(size: 10, weight: .bold))
+                                .foregroundColor(.white)
+                                .padding(5)
+                                .background(Color.blue.opacity(0.25))
+                                .clipShape(Circle())
+                        }
+
                         if hasJokerUsage {
                             Circle()
                                 .fill(jokerBadgeGradient)
@@ -143,6 +162,29 @@ struct CalendarMonthGrid: View {
                     }
                     .padding(.top, -5)
                     .padding(.horizontal, -4)
+                }
+                .overlay(alignment: .bottomTrailing) {
+                    if isEditingPremiumContent {
+                        Button {
+                            Haptics.lightTap()
+                            onAddAttachmentForDay(item.dayNumber)
+                        } label: {
+                            Image(systemName: "plus")
+                                .font(.system(size: 13, weight: .bold))
+                                .foregroundColor(.black)
+                                .frame(width: 28, height: 28)
+                                .background(
+                                    LinearGradient(colors: [
+                                        Color.white,
+                                        Color.white.opacity(0.92)
+                                    ], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                )
+                                .clipShape(Circle())
+                                .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 2)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(6)
+                    }
                 }
 
         }
@@ -197,4 +239,3 @@ struct CalendarMonthGrid: View {
         var id: Int { dayNumber }
     }
 }
-

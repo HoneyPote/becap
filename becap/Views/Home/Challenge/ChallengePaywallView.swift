@@ -25,7 +25,7 @@ struct ChallengePaywallView: View {
 
                 VStack(spacing: 12) {
                     if PKPaymentAuthorizationController.canMakePayments() {
-                        ApplePayButton(action: onApplePay)
+                        PaymentButton(action: onApplePay)
                             .frame(height: 50)
                             .opacity(isProcessing ? 0.6 : 1)
                             .overlay(alignment: .center) {
@@ -94,30 +94,3 @@ struct ChallengePaywallView: View {
     }
 }
 
-private struct ApplePayButton: UIViewRepresentable {
-    var action: () -> Void
-
-    func makeUIView(context: Context) -> PKPaymentButton {
-        let button = PKPaymentButton(paymentButtonType: .buy, paymentButtonStyle: .black)
-        button.addTarget(context.coordinator, action: #selector(Coordinator.didTapButton), for: .touchUpInside)
-        return button
-    }
-
-    func updateUIView(_ uiView: PKPaymentButton, context: Context) {}
-
-    func makeCoordinator() -> Coordinator {
-        Coordinator(action: action)
-    }
-
-    final class Coordinator {
-        let action: () -> Void
-
-        init(action: @escaping () -> Void) {
-            self.action = action
-        }
-
-        @objc func didTapButton() {
-            action()
-        }
-    }
-}

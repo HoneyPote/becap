@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AVKit
+import QuickLook
 
 // TODO: Découper vue
 struct GridPostsInline: View {
@@ -13,6 +15,9 @@ struct GridPostsInline: View {
     let getParticipant: (String) -> Participant?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
+
+    @State private var quickLookURL: URL?
+    @State private var videoURL: URL?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
     private let jokerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 2)
@@ -31,6 +36,7 @@ struct GridPostsInline: View {
         return url
     }
     private var hasPosts: Bool { !cell.posts.isEmpty }
+    private var hasAttachments: Bool { !cell.premiumAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
     var body: some View {
@@ -52,6 +58,21 @@ struct GridPostsInline: View {
 
             ScrollView {
                 VStack {
+                    if let videoURL {
+                        VideoPlayer(player: AVPlayer(url: videoURL))
+                            .frame(height: 220)
+                            .cornerRadius(12)
+                            .padding(.bottom, 4)
+                    }
+
+                    if let quickLookURL {
+                        QuickLookPreview(url: quickLookURL)
+                            .frame(height: 320)
+                            .cornerRadius(12)
+                            .padding(.bottom, 4)
+                            .background(Color.white.opacity(0.08))
+                    }
+
                     if postsSorted.isEmpty {
                         Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
@@ -66,6 +87,24 @@ struct GridPostsInline: View {
 
                             LazyVGrid(columns: columns, spacing: 8) {
                                 postsView
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
+                    if hasAttachments {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Contenus premium ➕")
+                                .font(.system(.headline, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
+
+                            ForEach(cell.premiumAttachments) { attachment in
+                                Button {
+                                    open(attachment: attachment)
+                                } label: {
+                                    PremiumAttachmentRow(attachment: attachment)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -124,6 +163,17 @@ struct GridPostsInline: View {
             }
         }
     }
+
+    private func open(attachment: PremiumCalendarAttachment) {
+        guard let url = attachment.localFileURL else { return }
+
+        switch attachment.kind {
+        case .pdf:
+            quickLookURL = url
+        case .media:
+            videoURL = url
+        }
+    }
 }
 
 private struct JokerUsageRow: View {
@@ -169,3 +219,80 @@ private struct JokerUsageRow: View {
     }
 }
 
+struct PremiumAttachmentRow: View {
+    let attachment: PremiumCalendarAttachment
+
+    private var iconName: String {
+        switch attachment.kind {
+        case .media: return "play.rectangle.fill"
+        case .pdf: return "doc.richtext.fill"
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: iconName)
+                .font(.system(size: 18, weight: .bold))
+                .foregroundStyle(Color.white, Color.white.opacity(0.7))
+                .frame(width: 28, height: 28)
+                .background(Color.white.opacity(0.12))
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(attachment.title)
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+
+                Text(attachment.kind == .pdf ? "Document PDF" : "Média premium")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            Spacer()
+
+            if let url = attachment.localFileURL {
+                ShareLink(item: url) {
+                    Image(systemName: "square.and.arrow.up")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Circle())
+                }
+            }
+        }
+        .padding(10)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+    }
+}
+
+private struct QuickLookPreview: UIViewControllerRepresentable {
+    let url: URL
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(url: url)
+    }
+
+    func makeUIViewController(context: Context) -> QLPreviewController {
+        let controller = QLPreviewController()
+        controller.dataSource = context.coordinator
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: QLPreviewController, context: Context) {}
+
+    final class Coordinator: NSObject, QLPreviewControllerDataSource {
+        let url: URL
+
+        init(url: URL) {
+            self.url = url
+        }
+
+        func numberOfPreviewItems(in controller: QLPreviewController) -> Int { 1 }
+
+        func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
+            url as QLPreviewItem
+        }
+    }
+}

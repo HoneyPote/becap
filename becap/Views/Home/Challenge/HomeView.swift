@@ -12,6 +12,7 @@ enum HomeSheet: Identifiable {
     case newChallenge
     case report(Challenge)
     case paywall
+    case challengePaywall(Challenge)
 
     var id: String {
         switch self {
@@ -21,6 +22,8 @@ enum HomeSheet: Identifiable {
             return "new"
         case .paywall:
             return "paywall"
+        case .challengePaywall(let challenge):
+            return "challenge-paywall-\(challenge.id)"
         case .report(let challenge):
             return "report-\(challenge.id)"
         }
@@ -35,6 +38,8 @@ struct HomeView: View {
 
     @State private var showCreationToast = false
     @State private var sheet: HomeSheet?
+    @State private var isProcessingPayment = false
+    @State private var paymentErrorMessage: String?
     @State private var deepLinkedChallenge: Challenge?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
@@ -93,6 +98,15 @@ struct HomeView: View {
                 NewChallengeView(challengeCreated: $showCreationToast)
             case .paywall:
                 PaywallView()
+            case .challengePaywall(let challenge):
+                ChallengePaywallView(
+                    challenge: challenge,
+                    isProcessing: $isProcessingPayment,
+                    errorMessage: paymentErrorMessage,
+                    onApplePay: { startPayment(for: challenge, method: .applePay) },
+                    onCard: { startPayment(for: challenge, method: .card) },
+                    onClose: closePaymentSheet
+                )
             case .report(let challenge):
                 ReportContentView(
                     challenge: challenge,
@@ -188,11 +202,11 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 34)
-            .padding(.bottom, 14)
+            .padding(.bottom, 20)
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.standardChallenges) { challenge in
                     let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
                     if locked {
@@ -231,7 +245,7 @@ struct HomeView: View {
         Group {
             if !viewModel.premiumChallenges.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         Image(systemName: "star.fill")
                             .foregroundColor(.yellow)
                             .imageScale(.large)
@@ -242,6 +256,7 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 26)
+                    .padding(.bottom, 20)
                     .padding(.horizontal, 6)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
@@ -249,7 +264,8 @@ struct HomeView: View {
                         let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
                         if locked {
                             LockedChallengeCell(challenge: challenge) {
-                                sheet = .paywall
+                                paymentErrorMessage = nil
+                                sheet = .challengePaywall(challenge)
                             }
                         } else {
                                 NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
@@ -264,6 +280,51 @@ struct HomeView: View {
                 .padding(.bottom, 12)
             }
         }
+    }
+
+    private func startPayment(for challenge: Challenge, method: PaymentMethod) {
+        guard viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess) else {
+            paymentErrorMessage = "Ce challenge est déjà débloqué."
+            return
+        }
+
+        paymentErrorMessage = nil
+        isProcessingPayment = true
+
+        PaymentCoordinator.shared.startPayment(for: challenge, method: method) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success:
+                    Task { await handleSuccessfulPayment(for: challenge) }
+                case .failure(let error):
+                    paymentErrorMessage = error.localizedDescription
+                    isProcessingPayment = false
+                }
+            }
+        }
+    }
+
+    private func handleSuccessfulPayment(for challenge: Challenge) async {
+        do {
+            try await viewModel.unlockChallenge(challenge)
+
+            await MainActor.run {
+                isProcessingPayment = false
+                paymentErrorMessage = nil
+                closePaymentSheet()
+            }
+        } catch {
+            await MainActor.run {
+                paymentErrorMessage = error.localizedDescription
+                isProcessingPayment = false
+            }
+        }
+    }
+
+    private func closePaymentSheet() {
+        sheet = nil
+        paymentErrorMessage = nil
+        isProcessingPayment = false
     }
 
     private func deleteChallengeErrorView(error: String) -> some View {

@@ -40,6 +40,7 @@ struct CalendarDetailCell: Hashable,Identifiable {
     var date: Date
     var posts: [ChallengePost]
     var jokers: [CalendarDayJokerUsage]
+    var premiumAttachments: [PremiumCalendarAttachment]
     var isToday: Bool
 
     var id: Date { date }
@@ -54,11 +55,13 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var participantProgresses: [ParticipantProgress] = []
     @Published var chatMessages: [ChallengeChatMessage] = []
     @Published var chatHasUnreadMessages: Bool = false
+    @Published var premiumAttachments: [PremiumCalendarAttachment] = []
+    @Published var isSavingPremiumContent: Bool = false
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
-    let challenge: Challenge
+    @Published private(set) var challenge: Challenge
 
     init(accountManager: AccountManager = AccountManager(),
          challengeManager: ChallengeManager = ChallengeManager.shared,
@@ -66,6 +69,7 @@ class CalendarDetailViewModel: ObservableObject {
         self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.challenge = challenge
+        self.premiumAttachments = challenge.premiumAttachments ?? []
     }
 
     func fetchInfos() {
@@ -84,8 +88,89 @@ class CalendarDetailViewModel: ObservableObject {
                 self.participants = participants
                 self.participantProgresses = progresses
                 self.updateChat(messages: chatMessages)
+                self.premiumAttachments = self.challenge.premiumAttachments ?? []
                 self.doneLoadingPosts = true
             }
+        }
+    }
+
+    // MARK: - Premium attachments
+    var canEditPremiumContent: Bool {
+        (challenge.isPremium ?? false)
+        && challenge.creatorUID == challengeManager.currentUser?.id
+        && (challengeManager.currentUser?.isInfluencer ?? false)
+    }
+
+    func attachments(for dayIndex: Int) -> [PremiumCalendarAttachment] {
+        premiumAttachments.filter { $0.dayIndex == dayIndex }
+    }
+
+    func attachmentCountByDay() -> [Date: Int] {
+        var counts: [Date: Int] = [:]
+        let calendar = Calendar.current
+
+        for attachment in premiumAttachments {
+            let offset = attachment.dayIndex - 1
+            guard offset >= 0,
+                  let date = calendar.date(byAdding: .day, value: offset, to: challenge.startDate) else { continue }
+
+            let key = calendar.startOfDay(for: date)
+            counts[key, default: 0] += 1
+        }
+
+        return counts
+    }
+
+    func addAttachment(data: Data, title: String, kind: PremiumAttachmentKind, dayIndex: Int, fileExtension: String? = nil) async {
+        do {
+            let savedName = try persist(data: data, kind: kind, fileExtension: fileExtension)
+            let attachment = PremiumCalendarAttachment(dayIndex: dayIndex,
+                                                       title: title,
+                                                       fileName: savedName,
+                                                       kind: kind)
+
+            await MainActor.run {
+                premiumAttachments.append(attachment)
+            }
+
+            try await savePremiumAttachments()
+        } catch {
+            debugPrint("❌ Failed to store premium attachment: \(error.localizedDescription)")
+        }
+    }
+
+    func removeAttachment(_ attachment: PremiumCalendarAttachment) async {
+        await MainActor.run {
+            premiumAttachments.removeAll { $0.id == attachment.id }
+        }
+
+        if let url = attachment.localFileURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        try? await savePremiumAttachments()
+    }
+
+    @discardableResult
+    func savePremiumAttachments() async throws -> Challenge {
+        guard canEditPremiumContent else { return challenge }
+
+        await MainActor.run { isSavingPremiumContent = true }
+
+        var updated = challenge
+        updated.premiumAttachments = premiumAttachments
+
+        do {
+            let persisted = try await challengeManager.savePremiumAttachments(updated)
+            await MainActor.run {
+                self.challenge = persisted
+                self.premiumAttachments = persisted.premiumAttachments ?? []
+                self.isSavingPremiumContent = false
+            }
+
+            return persisted
+        } catch {
+            await MainActor.run { isSavingPremiumContent = false }
+            throw error
         }
     }
 
@@ -142,10 +227,12 @@ class CalendarDetailViewModel: ObservableObject {
             }
 
             let isToday = calendar.isDateInToday(date)
+            let attachments = attachments(for: day + 1)
 
             return CalendarDetailCell(date: date,
                                       posts: posts,
                                       jokers: jokerUsages.sorted(by: { $0.participantName.localizedCaseInsensitiveCompare($1.participantName) == .orderedAscending }),
+                                      premiumAttachments: attachments,
                                       isToday: isToday)
         }
     }
@@ -178,6 +265,25 @@ class CalendarDetailViewModel: ObservableObject {
         }
 
         return counts
+    }
+
+    private func persist(data: Data, kind: PremiumAttachmentKind, fileExtension: String? = nil) throws -> String {
+        let ext: String = {
+            if let fileExtension, !fileExtension.isEmpty {
+                return fileExtension
+            }
+            return kind == .pdf ? "pdf" : "dat"
+        }()
+
+        let fileName = "premium_\(UUID().uuidString).\(ext)"
+        guard let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            throw URLError(.fileDoesNotExist)
+        }
+
+        let destination = documentsURL.appendingPathComponent(fileName)
+        try data.write(to: destination, options: .atomic)
+
+        return fileName
     }
 
     func deletePost(_ postId: String) {

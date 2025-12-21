@@ -202,6 +202,11 @@ extension ChallengeManager {
         try await createNewParticipantProgress(userId: userId, challenge: challenge)
     }
 
+    func savePremiumAttachments(_ updatedChallenge: Challenge) async throws -> Challenge {
+        try await updateChallenge(updatedChallenge)
+        return updatedChallenge
+    }
+
     // Challenges - Privates
 
     private func updateChallenge(_ challenge: Challenge) async throws {
