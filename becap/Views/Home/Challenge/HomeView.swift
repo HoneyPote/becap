@@ -202,11 +202,11 @@ struct HomeView: View {
             }
             .frame(maxWidth: .infinity)
             .padding(.top, 34)
-            .padding(.bottom, 14)
+            .padding(.bottom, 20)
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.standardChallenges) { challenge in
                     let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
                     if locked {
@@ -245,7 +245,7 @@ struct HomeView: View {
         Group {
             if !viewModel.premiumChallenges.isEmpty {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .center, spacing: 10) {
                         Image(systemName: "star.fill")
                             .foregroundColor(.yellow)
                             .imageScale(.large)
@@ -256,6 +256,7 @@ struct HomeView: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 26)
+                    .padding(.bottom, 20)
                     .padding(.horizontal, 6)
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
