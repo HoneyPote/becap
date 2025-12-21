@@ -7,7 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
+
 
 protocol ScoringServiceProtocol {
     func fetchUnscoredEntries(limit: Int) async throws -> [ScoreEntry]
@@ -393,7 +393,7 @@ private extension ScoringService {
 
     func upsertAggregation(_ aggregation: ScoreAggregation) async throws {
         let docId = buildAggregationId(for: aggregation)
-        try firestore.collection(aggregatesCollection)
+        try await firestore.collection(aggregatesCollection)
             .document(docId)
             .setData(try Firestore.Encoder().encode(aggregation), merge: true)
     }
@@ -453,15 +453,7 @@ private struct OpenAIChatResponse: Decodable {
     }
 }
 
-private extension OpenAIChatResponse {
-    func dictionaryRepresentation() -> [String: Any] {
-        guard let data = try? JSONEncoder().encode(self),
-              let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            return [:]
-        }
-        return object
-    }
-}
+
 
 private struct ScoreContent: Decodable {
     let score: Double?

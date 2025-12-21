@@ -7,7 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
-import FirebaseFirestoreSwift
+
 
 struct ScoreEntry: Identifiable, Codable {
     @DocumentID var id: String?
