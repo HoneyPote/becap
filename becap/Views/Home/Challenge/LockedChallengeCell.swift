@@ -47,7 +47,7 @@ struct LockedChallengeCell: View {
                             .foregroundStyle(LinearGradient(colors: [Color.white, Color.white.opacity(0.7)], startPoint: .top, endPoint: .bottom))
                             .rotationEffect(.degrees(shakeAngle))
                     }
-                    .frame(width: 64, height: 64)
+                    .frame(width: 45, height: 45)
 
                     VStack(spacing: 4) {
                         Text(challenge.title)
