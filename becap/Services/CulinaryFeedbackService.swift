@@ -28,18 +28,18 @@ final class CulinaryFeedbackService {
     private init() {}
 
     /// Construit un prompt complet en ajoutant le contexte du plat décrit par l'utilisateur.
-    func buildPrompt(for dishDescription: String) -> String {
-        """
-        \(guardrailPrompt)
-
-        Détails du plat fourni par l'utilisateur :
-        """
-        \(dishDescription)
-        """
-
-        Donne un court commentaire global et des notes sur 10 pour le goût, la présentation et l'originalité.
-        """
-    }
+//    func buildPrompt(for dishDescription: String) -> String {
+//        """
+//        \(guardrailPrompt)
+//
+//        Détails du plat fourni par l'utilisateur :
+//        """
+//        \(dishDescription)
+//        """
+//
+//        Donne un court commentaire global et des notes sur 10 pour le goût, la présentation et l'originalité.
+//        """
+//    }
 
     /// Enregistre localement l'évaluation et les éventuelles incohérences détectées.
     func recordAudit(evaluation: CulinaryEvaluation, rawModelResponse: String) {

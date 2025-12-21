@@ -352,6 +352,7 @@ struct CalendarDetailView: View {
 
     private func buildGridPosts(cell: CalendarDetailCell) -> some View {
         GridPostsInline(cell: cell,
+                        postScores: viewModel.postScores,
                         getParticipant: { viewModel.getParticipant(for: $0) },
                         onClose: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
