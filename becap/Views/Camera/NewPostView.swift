@@ -43,27 +43,7 @@ struct NewPostView: View {
                 .padding(.horizontal, 20)
                 .padding(.top, 22)
             }
-            .background(
-                ZStack {
-                    // Filler: covers edges at any ratio
-                    Image("iphone_wallpaper_cliff")
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 12)
-                        .ignoresSafeArea()
-
-                    // Sharp layer, slightly zoomed out
-                    Image("iphone_wallpaper_cliff")
-                        .resizable()
-                        .scaledToFill()
-                        .offset(x: -25) // 0.85–0.95 depending on taste
-                        .ignoresSafeArea()
-
-                    // Global dark veil
-                    Color.black.opacity(0.15).ignoresSafeArea()
-                }
-                .allowsHitTesting(false)
-            )
+            .background(backgroundView)
             .withTabBarInset()
             .navigationBarHidden(true)
         }
@@ -433,6 +413,38 @@ struct NewPostView: View {
                 Spacer()
             }
         }
+    }
+
+    private var backgroundView: some View {
+        ZStack {
+            #if DEBUG
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            Color.black.opacity(0.12)
+                .ignoresSafeArea()
+            #else
+            // Filler: covers edges at any ratio
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .blur(radius: 12)
+                .ignoresSafeArea()
+
+            // Sharp layer, slightly zoomed out
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .offset(x: -25) // 0.85–0.95 depending on taste
+                .ignoresSafeArea()
+
+            // Global dark veil
+            Color.black.opacity(0.15)
+                .ignoresSafeArea()
+            #endif
+        }
+        .allowsHitTesting(false)
     }
 }
 

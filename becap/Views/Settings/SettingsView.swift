@@ -26,6 +26,10 @@ struct SettingsView: View {
     @State private var avatarItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
     @State private var showingMedalsPopover = false
+    @State private var scoringDescription: String = ""
+    @State private var scoringResult: String?
+    @State private var scoringError: String?
+    @State private var isScoring: Bool = false
 
     private let reportManager: ReportManagerProtocol = ReportManager.shared
 
@@ -52,6 +56,9 @@ struct SettingsView: View {
                             .padding(.horizontal)
 
                         GlassCard { navigationList }
+                            .padding(.horizontal)
+
+                        GlassCard { scoringTestSection }
                             .padding(.horizontal)
                     }
                     .padding(.vertical)
@@ -221,6 +228,72 @@ struct SettingsView: View {
         }
     }
 
+    private var scoringTestSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Test scoring OpenAI")
+                .font(.system(.headline, design: .rounded).weight(.heavy))
+                .foregroundColor(.white)
+
+            Text("Saisis une description pour tester l'appel au scoring.")
+                .font(.system(.footnote, design: .rounded))
+                .foregroundColor(.white.opacity(0.72))
+
+            TextField("Description du plat", text: $scoringDescription)
+                .padding(.vertical, 12)
+                .padding(.horizontal, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.08))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                        )
+                )
+                .foregroundColor(.white)
+                .font(.system(.body, design: .rounded))
+
+            Button {
+                runScoringTest()
+            } label: {
+                HStack(spacing: 10) {
+                    if isScoring {
+                        ProgressView()
+                            .progressViewStyle(.circular)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+
+                    Text(isScoring ? "Test en cours..." : "Tester le scoring")
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(Color.white.opacity(0.18))
+                )
+                .foregroundColor(.white)
+            }
+            .buttonStyle(PressableButtonStyle())
+            .disabled(isScoring || scoringDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .opacity((isScoring || scoringDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) ? 0.7 : 1.0)
+
+            if let scoringResult {
+                Text("Résultat : \(scoringResult)")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.85))
+            }
+
+            if let scoringError {
+                Text("Erreur : \(scoringError)")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.red.opacity(0.85))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
     // MARK: - Avatar flow
 
     @MainActor
@@ -269,6 +342,34 @@ struct SettingsView: View {
     private func scheduleReportSuccessDismissal() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
             withAnimation { showReportSuccessToast = false }
+        }
+    }
+
+    private func runScoringTest() {
+        let trimmed = scoringDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+
+        isScoring = true
+        scoringResult = nil
+        scoringError = nil
+
+        Task {
+            do {
+                let result = try await ScoringService.shared.testCulinaryScore(description: trimmed)
+                await MainActor.run {
+                    if let score = result.score {
+                        self.scoringResult = "score = \(score)"
+                    } else {
+                        self.scoringResult = "score indisponible"
+                    }
+                    self.isScoring = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.scoringError = error.localizedDescription
+                    self.isScoring = false
+                }
+            }
         }
     }
 }
@@ -376,4 +477,12 @@ private struct AvatarCircle: View {
     }
 }
 
+private struct PressableButtonStyle: ButtonStyle {
+    var scale: CGFloat = 0.97
 
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? scale : 1)
+            .opacity(configuration.isPressed ? 0.9 : 1)
+    }
+}
