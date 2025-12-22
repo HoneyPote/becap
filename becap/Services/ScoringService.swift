@@ -236,13 +236,13 @@ private extension ScoringService {
 }
 
 // MARK: - GPT Communication
-private extension ScoringService {
-    func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
+extension ScoringService {
+    private func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
         let messages = buildCulinaryMessages(dishDescription: entry.prompt)
         return try await sendMessages(messages)
     }
 
-    func sendMessages(_ messages: [ChatMessage]) async throws -> ScoreResult {
+    private func sendMessages(_ messages: [ChatMessage]) async throws -> ScoreResult {
         guard let apiKey = openAIAPIKey() else {
             throw ScoringServiceError.missingAPIKey
         }
@@ -264,7 +264,7 @@ private extension ScoringService {
         return try parseGPTResponse(data: data)
     }
 
-    func performRequestWithRetry(request: URLRequest) async throws -> Data {
+    private func performRequestWithRetry(request: URLRequest) async throws -> Data {
         var attempt = 0
         var currentDelay: UInt64 = 500_000_000 // 0.5s
 
@@ -293,7 +293,7 @@ private extension ScoringService {
         throw ScoringServiceError.invalidResponse
     }
 
-    func parseGPTResponse(data: Data) throws -> ScoreResult {
+    private func parseGPTResponse(data: Data) throws -> ScoreResult {
         let rawResponse = String(data: data, encoding: .utf8) ?? ""
         print("[ScoringService] GPT data.count = \(data.count)")
         print("[ScoringService] GPT raw preview = \(truncatedPreview(rawResponse))")
@@ -318,7 +318,7 @@ private extension ScoringService {
                            finishReason: apiResponse.choices.first?.finishReason)
     }
 
-    func extractScore(from content: String) throws -> Double {
+    private func extractScore(from content: String) throws -> Double {
         guard let data = content.data(using: .utf8) else {
             throw ScoringServiceError.invalidScorePayload
         }
