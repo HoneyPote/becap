@@ -11,20 +11,11 @@ struct PremiumAttachmentEditorView: View {
     @State private var isImportingPDF = false
     @State private var isProcessing = false
     @State private var errorMessage: String?
-
-    private var dayRange: [Int] { Array(1...max(viewModel.challenge.duration, 1)) }
+    @State private var pendingAttachment: PendingAttachment?
 
     var body: some View {
         NavigationView {
             Form {
-                Section("Jour ciblé") {
-                    Picker("Jour", selection: $selectedDay) {
-                        ForEach(dayRange, id: \.self) { day in
-                            Text("Jour \(day)").tag(day)
-                        }
-                    }
-                }
-
                 Section("Contenus existants") {
                     if viewModel.attachments(for: selectedDay).isEmpty {
                         Text("Aucun contenu premium pour ce jour.")
@@ -57,6 +48,29 @@ struct PremiumAttachmentEditorView: View {
                     }
                 }
 
+                if let pendingAttachment {
+                    Section("Contenu prêt à être ajouté") {
+                        HStack {
+                            Image(systemName: pendingAttachment.kind == .pdf ? "doc.richtext.fill" : "photo.fill")
+                                .foregroundColor(.secondary)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(pendingAttachment.title)
+                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                Text("Jour \(selectedDay)")
+                                    .font(.system(.footnote, design: .rounded))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+
+                        Button {
+                            pendingAttachment = nil
+                        } label: {
+                            Label("Retirer la sélection", systemImage: "xmark.circle")
+                        }
+                        .foregroundColor(.red)
+                    }
+                }
+
                 if viewModel.isSavingPremiumContent || isProcessing {
                     Section {
                         HStack {
@@ -80,16 +94,15 @@ struct PremiumAttachmentEditorView: View {
                     Button("Fermer") { isPresented = false }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Terminer") { isPresented = false }
-                        .disabled(viewModel.isSavingPremiumContent || isProcessing)
+                    Button("Ajouter") {
+                        Task { await confirmAdd() }
+                    }
+                    .disabled(pendingAttachment == nil || viewModel.isSavingPremiumContent || isProcessing)
                 }
             }
             .onChange(of: mediaPickerItem) { newItem in
                 guard let newItem else { return }
                 Task { await handleMediaPick(newItem) }
-            }
-            .onAppear {
-                selectedDay = min(max(selectedDay, 1), viewModel.challenge.duration)
             }
             .fileImporter(isPresented: $isImportingPDF,
                           allowedContentTypes: [.pdf]) { result in
@@ -107,12 +120,12 @@ struct PremiumAttachmentEditorView: View {
             let filename = item.itemIdentifier ?? "media-premium"
             let ext = item.supportedContentTypes.first?.preferredFilenameExtension
 
-            await viewModel.addAttachment(data: data,
-                                          title: filename,
-                                          kind: .media,
-                                          dayIndex: selectedDay,
-                                          fileExtension: ext)
-            await MainActor.run { isPresented = false }
+            await MainActor.run {
+                pendingAttachment = PendingAttachment(data: data,
+                                                      title: filename,
+                                                      kind: .media,
+                                                      fileExtension: ext)
+            }
         } catch {
             await MainActor.run { errorMessage = "Import impossible : \(error.localizedDescription)" }
         }
@@ -127,13 +140,13 @@ struct PremiumAttachmentEditorView: View {
             do {
                 let scoped = url.startAccessingSecurityScopedResource()
                 let data = try Data(contentsOf: url)
-                await viewModel.addAttachment(data: data,
-                                              title: url.lastPathComponent,
-                                              kind: .pdf,
-                                              dayIndex: selectedDay,
-                                              fileExtension: url.pathExtension)
                 if scoped { url.stopAccessingSecurityScopedResource() }
-                await MainActor.run { isPresented = false }
+                await MainActor.run {
+                    pendingAttachment = PendingAttachment(data: data,
+                                                          title: url.lastPathComponent,
+                                                          kind: .pdf,
+                                                          fileExtension: url.pathExtension)
+                }
             } catch {
                 url.stopAccessingSecurityScopedResource()
                 await MainActor.run { errorMessage = "Lecture du PDF impossible." }
@@ -142,4 +155,25 @@ struct PremiumAttachmentEditorView: View {
             await MainActor.run { errorMessage = error.localizedDescription }
         }
     }
+
+    private func confirmAdd() async {
+        guard let pendingAttachment else { return }
+
+        await viewModel.addAttachment(data: pendingAttachment.data,
+                                      title: pendingAttachment.title,
+                                      kind: pendingAttachment.kind,
+                                      dayIndex: selectedDay,
+                                      fileExtension: pendingAttachment.fileExtension)
+        await MainActor.run {
+            self.pendingAttachment = nil
+            isPresented = false
+        }
+    }
+}
+
+private struct PendingAttachment {
+    let data: Data
+    let title: String
+    let kind: PremiumAttachmentKind
+    let fileExtension: String?
 }
