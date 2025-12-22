@@ -118,7 +118,7 @@ struct CalendarMonthGrid: View {
                     currentUserUsedJoker: currentUserUsedJoker,
                     isToday: calendar.isDateInToday(day),
                     isSelected: isSelected) {
-                if hasPosts || hasJokerUsage {
+                if hasPosts || hasJokerUsage || hasAttachments {
                     Haptics.lightTap()
                 }
                 onSelectDate(day)

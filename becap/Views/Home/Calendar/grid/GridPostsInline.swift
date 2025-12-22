@@ -6,8 +6,10 @@
 //
 
 import SwiftUI
+import AVFoundation
 import AVKit
 import QuickLook
+import UniformTypeIdentifiers
 
 // TODO: Découper vue
 struct GridPostsInline: View {
@@ -21,6 +23,7 @@ struct GridPostsInline: View {
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 3)
     private let jokerColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 2)
+    private let mediaColumns = Array(repeating: GridItem(.flexible(), spacing: 8), count: 2)
 
     private var postsSorted: [ChallengePost] {
         cell.posts.sorted {
@@ -35,8 +38,17 @@ struct GridPostsInline: View {
 
         return url
     }
+    private var influencerMediaAttachments: [PremiumCalendarAttachment] {
+        cell.premiumAttachments.filter { $0.kind == .media }
+    }
+
+    private var documentAttachments: [PremiumCalendarAttachment] {
+        cell.premiumAttachments.filter { $0.kind == .pdf }
+    }
+
     private var hasPosts: Bool { !cell.posts.isEmpty }
-    private var hasAttachments: Bool { !cell.premiumAttachments.isEmpty }
+    private var hasInfluencerMedia: Bool { !influencerMediaAttachments.isEmpty }
+    private var hasDocuments: Bool { !documentAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
     var body: some View {
@@ -73,6 +85,27 @@ struct GridPostsInline: View {
                             .background(Color.white.opacity(0.08))
                     }
 
+                    if hasInfluencerMedia {
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Sélection de l'influenceur ✨")
+                                .font(.system(.headline, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
+
+                            Text("Touchez un média pour l'afficher en grand.")
+                                .font(.system(.footnote, design: .rounded))
+                                .foregroundColor(.white.opacity(0.7))
+
+                            LazyVGrid(columns: mediaColumns, spacing: 8) {
+                                ForEach(influencerMediaAttachments) { attachment in
+                                    InfluencerMediaTile(attachment: attachment,
+                                                        previewKind: previewKind(for: attachment),
+                                                        onOpen: { open(attachment: attachment) })
+                                }
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     if postsSorted.isEmpty {
                         Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
@@ -92,13 +125,13 @@ struct GridPostsInline: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    if hasAttachments {
+                    if hasDocuments {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("Contenus premium ➕")
+                            Text("Documents premium 📎")
                                 .font(.system(.headline, design: .rounded).weight(.semibold))
                                 .foregroundColor(.white)
 
-                            ForEach(cell.premiumAttachments) { attachment in
+                            ForEach(documentAttachments) { attachment in
                                 Button {
                                     open(attachment: attachment)
                                 } label: {
@@ -169,10 +202,141 @@ struct GridPostsInline: View {
 
         switch attachment.kind {
         case .pdf:
+            videoURL = nil
             quickLookURL = url
         case .media:
-            videoURL = url
+            let kind = previewKind(for: attachment)
+            quickLookURL = nil
+            if kind == .video {
+                videoURL = url
+            } else {
+                quickLookURL = url
+            }
         }
+    }
+
+    private func previewKind(for attachment: PremiumCalendarAttachment) -> AttachmentPreviewKind {
+        guard attachment.kind == .media, let url = attachment.localFileURL else { return .unknown }
+
+        return previewKind(for: url)
+    }
+
+    private func previewKind(for url: URL) -> AttachmentPreviewKind {
+        let ext = url.pathExtension
+        guard let type = UTType(filenameExtension: ext) else { return .unknown }
+
+        if type.conforms(to: .movie) {
+            return .video
+        }
+
+        if type.conforms(to: .image) {
+            return .image
+        }
+
+        return .unknown
+    }
+}
+
+private enum AttachmentPreviewKind {
+    case image
+    case video
+    case unknown
+}
+
+private struct InfluencerMediaTile: View {
+    let attachment: PremiumCalendarAttachment
+    let previewKind: AttachmentPreviewKind
+    let onOpen: () -> Void
+
+    @State private var thumbnail: UIImage?
+
+    var body: some View {
+        Button(action: onOpen) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(Color.white.opacity(0.08))
+
+                if let thumbnail {
+                    Image(uiImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                        .clipped()
+                } else {
+                    VStack(spacing: 8) {
+                        Image(systemName: previewKind == .video ? "play.circle.fill" : "photo.fill")
+                            .font(.system(size: 28, weight: .bold))
+                            .foregroundColor(.white.opacity(0.7))
+
+                        Text(attachment.title)
+                            .font(.system(.footnote, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white.opacity(0.8))
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                            .padding(.horizontal, 8)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
+
+                Text(attachment.title)
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.black.opacity(0.45))
+                    .clipShape(Capsule())
+                    .padding(8)
+
+                if previewKind == .video {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(8)
+                        .background(Color.black.opacity(0.55))
+                        .clipShape(Circle())
+                        .padding(10)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                }
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.15), lineWidth: 0.8)
+            )
+        }
+        .buttonStyle(.plain)
+        .onAppear { loadThumbnailIfNeeded() }
+    }
+
+    private func loadThumbnailIfNeeded() {
+        guard thumbnail == nil, let url = attachment.localFileURL else { return }
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let image: UIImage?
+            switch previewKind {
+            case .image:
+                image = UIImage(contentsOfFile: url.path)
+            case .video:
+                image = generateVideoThumbnail(url: url)
+            case .unknown:
+                image = nil
+            }
+
+            guard let image else { return }
+            DispatchQueue.main.async {
+                thumbnail = image
+            }
+        }
+    }
+
+    private func generateVideoThumbnail(url: URL) -> UIImage? {
+        let asset = AVAsset(url: url)
+        let generator = AVAssetImageGenerator(asset: asset)
+        generator.appliesPreferredTrackTransform = true
+        let time = CMTime(seconds: 0.2, preferredTimescale: 600)
+        guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { return nil }
+        return UIImage(cgImage: cgImage)
     }
 }
 
