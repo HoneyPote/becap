@@ -131,7 +131,8 @@ class NewChallengeViewModel: ObservableObject {
                          price: isPremium && isInfluencer ? premiumPrice : nil,
                          infoText: nil,
                          infoVideoURL: nil,
-                         premiumAttachments: [])
+                         premiumAttachments: [],
+                         premiumContent: [])
     }
 
     private func updateSuggestedJokersIfNeeded() {

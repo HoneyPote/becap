@@ -72,6 +72,25 @@ struct Challenge: Identifiable, Codable, Hashable {
     var infoText: String?
     var infoVideoURL: String?
     var premiumAttachments: [PremiumCalendarAttachment]? = []
+    var premiumContent: [PremiumCalendarAttachment]? = []
+
+    enum CodingKeys: String, CodingKey {
+        case title
+        case duration
+        case startDate
+        case creatorUID
+        case participantUids
+        case category
+        case notificationsConfig
+        case code
+        case jokerConfiguration
+        case isPremium
+        case price
+        case infoText
+        case infoVideoURL
+        case premiumAttachments
+        case premiumContent = "prenium content"
+    }
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
