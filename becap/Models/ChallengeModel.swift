@@ -53,9 +53,9 @@ enum ChallengeStatus: String {
 }
 
 struct Challenge: Identifiable, Codable, Hashable {
-    @DocumentID private var _id: String?
+    @DocumentID private var documentId: String?
     var id: String {
-        _id ?? ""
+        documentId ?? ""
     }
     var title: String
     var duration: Int
@@ -75,6 +75,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var premiumContent: [PremiumCalendarAttachment]? = []
 
     enum CodingKeys: String, CodingKey {
+        case documentId
         case title
         case duration
         case startDate
