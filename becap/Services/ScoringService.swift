@@ -284,28 +284,41 @@ private extension ScoringService {
     }
 
     func parseGPTResponse(data: Data) throws -> ScoreResult {
-        let rawResponse = String(data: data, encoding: .utf8) ?? ""
-        print("[ScoringService] GPT data.count = \(data.count)")
-        print("[ScoringService] GPT raw preview = \(truncatedPreview(rawResponse))")
-
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let apiResponse = try decoder.decode(OpenAIChatResponse.self, from: data)
+
         guard let message = apiResponse.choices.first?.message else {
             throw ScoringServiceError.invalidResponse
         }
 
-        print("[ScoringService] GPT model = \(apiResponse.model), choices = \(apiResponse.choices.count), finishReason = \(apiResponse.choices.first?.finishReason ?? "nil")")
-        print("[ScoringService] GPT message preview = \(truncatedPreview(message.content))")
-        let score = try extractScore(from: message.content)
-        print("[ScoringService] GPT score extrait = \(score)")
+        let content = message.content
+        let cleaned = cleanJSONString(content)   // <- ajout ci-dessous
+        let score = try extractScore(from: cleaned)
 
-        let jsonString = rawResponse.isEmpty ? message.content : rawResponse
+        return ScoreResult(
+            rawJSON: cleaned,                // ✅ on stocke le JSON du score, pas la réponse OpenAI entière
+            score: score,
+            model: apiResponse.model,
+            finishReason: apiResponse.choices.first?.finishReason
+        )
+    }
+    private func cleanJSONString(_ text: String) -> String {
+        var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        return ScoreResult(rawJSON: jsonString,
-                           score: score,
-                           model: apiResponse.model,
-                           finishReason: apiResponse.choices.first?.finishReason)
+        // retire les fences ```json ... ```
+        if s.hasPrefix("```") {
+            s = s.replacingOccurrences(of: "```json", with: "")
+            s = s.replacingOccurrences(of: "```", with: "")
+            s = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        // récupère du premier { au dernier }
+        if let start = s.firstIndex(of: "{"), let end = s.lastIndex(of: "}") , start < end {
+            s = String(s[start...end])
+        }
+
+        return s
     }
 
     func extractScore(from content: String) throws -> Double {
