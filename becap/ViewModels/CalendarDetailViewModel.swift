@@ -69,7 +69,7 @@ class CalendarDetailViewModel: ObservableObject {
         self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.challenge = challenge
-        self.premiumAttachments = challenge.premiumAttachments ?? []
+        self.premiumAttachments = challenge.premiumContent ?? challenge.premiumAttachments ?? []
     }
 
     func fetchInfos() {
@@ -88,7 +88,7 @@ class CalendarDetailViewModel: ObservableObject {
                 self.participants = participants
                 self.participantProgresses = progresses
                 self.updateChat(messages: chatMessages)
-                self.premiumAttachments = self.challenge.premiumAttachments ?? []
+                self.premiumAttachments = self.challenge.premiumContent ?? self.challenge.premiumAttachments ?? []
                 self.doneLoadingPosts = true
             }
         }
@@ -159,12 +159,13 @@ class CalendarDetailViewModel: ObservableObject {
 
         var updated = challenge
         updated.premiumAttachments = premiumAttachments
+        updated.premiumContent = premiumAttachments
 
         do {
             let persisted = try await challengeManager.savePremiumAttachments(updated)
             await MainActor.run {
                 self.challenge = persisted
-                self.premiumAttachments = persisted.premiumAttachments ?? []
+                self.premiumAttachments = persisted.premiumContent ?? persisted.premiumAttachments ?? []
                 self.isSavingPremiumContent = false
             }
 
