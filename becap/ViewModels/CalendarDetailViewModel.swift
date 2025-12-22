@@ -115,6 +115,7 @@ class CalendarDetailViewModel: ObservableObject {
                   let date = calendar.date(byAdding: .day, value: offset, to: challenge.startDate) else { continue }
 
             let key = calendar.startOfDay(for: date)
+            guard canRevealPremiumContent(on: key) else { continue }
             counts[key, default: 0] += 1
         }
 
@@ -227,7 +228,7 @@ class CalendarDetailViewModel: ObservableObject {
             }
 
             let isToday = calendar.isDateInToday(date)
-            let attachments = attachments(for: day + 1)
+            let attachments = canRevealPremiumContent(on: date) ? attachments(for: day + 1) : []
 
             return CalendarDetailCell(date: date,
                                       posts: posts,
@@ -458,5 +459,15 @@ class CalendarDetailViewModel: ObservableObject {
 
         self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(for: challenge.id,
                                                                         latestMessageDate: messages.last?.createdAt)
+    }
+
+    private func canRevealPremiumContent(on date: Date) -> Bool {
+        if canEditPremiumContent {
+            return true
+        }
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let day = Calendar.current.startOfDay(for: date)
+        return day <= today
     }
 }
