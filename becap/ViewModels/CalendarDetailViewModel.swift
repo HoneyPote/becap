@@ -144,6 +144,7 @@ class CalendarDetailViewModel: ObservableObject {
                   let date = calendar.date(byAdding: .day, value: offset, to: challenge.startDate) else { continue }
 
             let key = calendar.startOfDay(for: date)
+            guard canRevealPremiumContent(on: key) else { continue }
             counts[key, default: 0] += 1
         }
 
@@ -404,10 +405,12 @@ class CalendarDetailViewModel: ObservableObject {
 
             let posts = postsByDay[day] ?? []
             let jokers = (jokersByDay[day] ?? []).sorted { $0.participantName < $1.participantName }
+            let attachments = canRevealPremiumContent(on: date) ? attachments(for: day + 1) : []
 
             return CalendarDetailCell(date: date,
                                       posts: posts,
                                       jokers: jokers,
+									premiumAttachments: attachments,
                                       isToday: calendar.isDateInToday(date))
         }
     }
