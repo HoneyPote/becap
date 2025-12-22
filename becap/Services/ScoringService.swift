@@ -22,6 +22,7 @@ protocol ScoringServiceProtocol {
 enum ScoringServiceError: LocalizedError {
     case missingAPIKey
     case invalidResponse
+    case invalidScorePayload
     case dailyQuotaExceeded
 
     var errorDescription: String? {
@@ -30,6 +31,8 @@ enum ScoringServiceError: LocalizedError {
             return "La clé API OpenAI est manquante."
         case .invalidResponse:
             return "Réponse du modèle GPT invalide."
+        case .invalidScorePayload:
+            return "Le payload de scoring GPT ne respecte pas le format attendu."
         case .dailyQuotaExceeded:
             return "Le plafond quotidien de requêtes a été atteint."
         }
@@ -155,19 +158,12 @@ private extension ScoringService {
         let userDescription = description?.isEmpty == false ? description! : "Aucune description fournie"
 
         return """
-        \(CulinaryFeedbackService.shared.guardrailPrompt)
-
-        Tu fais partie du jury du défi communautaire «\(challenge.title)» (catégorie : \(challenge.category?.displayName ?? "Non renseignée")).
-        Analyse la contribution suivante et attribue une note globale sur 10 en tenant compte du nom du plat, des ingrédients cités et de l'impression générale.
-
+        Défi «\(challenge.title)» (catégorie : \(challenge.category?.displayName ?? "Non renseignée")).
         Détails du post :
         - Participant : \(post.authorName)
         - Période : \(promptDateFormatter.string(from: post.date))
         - Type de média : \(mediaDescription(from: post.media))
         - Description du plat : \(userDescription)
-
-        Réponds uniquement avec un JSON valide et minimal de la forme :
-        {"score": <nombre entre 0 et 10>, "commentaire": "<phrase courte et encourageante en français>"}
         """
     }
 
@@ -236,7 +232,7 @@ private extension ScoringService {
 // MARK: - GPT Communication
 private extension ScoringService {
     func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
-        guard let apiKey = BecapSecrets.openAIAPIKey else {
+        guard let apiKey = openAIAPIKey() else {
             throw ScoringServiceError.missingAPIKey
         }
 
@@ -244,9 +240,9 @@ private extension ScoringService {
             throw URLError(.badURL)
         }
 
-        let requestBody = ChatRequest(messages: [
-            .init(role: "user", content: entry.prompt)
-        ])
+        // Note: le modèle doit répondre strictement avec le JSON attendu (score_global, details, commentaire).
+        let messages = buildCulinaryMessages(dishDescription: entry.prompt)
+        let requestBody = ChatRequest(messages: messages)
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -291,40 +287,50 @@ private extension ScoringService {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let apiResponse = try decoder.decode(OpenAIChatResponse.self, from: data)
+
         guard let message = apiResponse.choices.first?.message else {
             throw ScoringServiceError.invalidResponse
         }
 
-        let rawString = message.content
-        let score = extractScore(from: message.content)
+        let content = message.content
+        let cleaned = cleanJSONString(content)   // <- ajout ci-dessous
+        let score = try extractScore(from: cleaned)
 
-        let jsonString: String
-        if let jsonData = try? JSONSerialization.data(withJSONObject: apiResponse.dictionaryRepresentation(), options: .prettyPrinted),
-           let string = String(data: jsonData, encoding: .utf8) {
-            jsonString = string
-        } else {
-            jsonString = rawString
+        return ScoreResult(
+            rawJSON: cleaned,                // ✅ on stocke le JSON du score, pas la réponse OpenAI entière
+            score: score,
+            model: apiResponse.model,
+            finishReason: apiResponse.choices.first?.finishReason
+        )
+    }
+    private func cleanJSONString(_ text: String) -> String {
+        var s = text.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // retire les fences ```json ... ```
+        if s.hasPrefix("```") {
+            s = s.replacingOccurrences(of: "```json", with: "")
+            s = s.replacingOccurrences(of: "```", with: "")
+            s = s.trimmingCharacters(in: .whitespacesAndNewlines)
         }
 
-        return ScoreResult(rawJSON: jsonString,
-                           score: score,
-                           model: apiResponse.model,
-                           finishReason: apiResponse.choices.first?.finishReason)
+        // récupère du premier { au dernier }
+        if let start = s.firstIndex(of: "{"), let end = s.lastIndex(of: "}") , start < end {
+            s = String(s[start...end])
+        }
+
+        return s
     }
 
-    func extractScore(from content: String) -> Double? {
-        if let data = content.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode(ScoreContent.self, from: data) {
-            return decoded.score
+    func extractScore(from content: String) throws -> Double {
+        guard let data = content.data(using: .utf8) else {
+            throw ScoringServiceError.invalidScorePayload
         }
 
-        if let data = content.data(using: .utf8),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let score = json["score"] as? Double {
-            return score
-        }
-
-        return nil
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let payload = try decoder.decode(CulinaryScorePayload.self, from: data)
+        try validateScores(payload)
+        return Double(payload.scoreGlobal)
     }
 }
 
@@ -414,18 +420,45 @@ private extension ScoringService {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }
+
+    func openAIAPIKey() -> String? {
+        if let environmentKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !environmentKey.isEmpty {
+            return environmentKey
+        }
+
+        if let bundleKey = Bundle.main.infoDictionary?["OPENAI_API_KEY"] as? String, !bundleKey.isEmpty {
+            return bundleKey
+        }
+
+        return nil
+    }
+
+    func truncatedPreview(_ value: String, limit: Int = 800) -> String {
+        guard value.count > limit else { return value }
+        let index = value.index(value.startIndex, offsetBy: limit)
+        return "\(value[..<index])…"
+    }
+
+    func validateScores(_ payload: CulinaryScorePayload) throws {
+        let scores = [
+            payload.scoreGlobal,
+            payload.details.equilibre,
+            payload.details.diversite,
+            payload.details.technique,
+            payload.details.originalite
+        ]
+
+        guard scores.allSatisfy({ (0...10).contains($0) }) else {
+            throw ScoringServiceError.invalidScorePayload
+        }
+    }
 }
 
 // MARK: - OpenAI DTOs
 private struct ChatRequest: Encodable {
     var model: String = "gpt-4o-mini"
-    var messages: [Message]
+    var messages: [ChatMessage]
     var temperature: Double = 0.2
-
-    struct Message: Encodable {
-        var role: String
-        var content: String
-    }
 }
 
 private struct OpenAIChatResponse: Decodable {
@@ -451,10 +484,4 @@ private struct OpenAIChatResponse: Decodable {
         var role: String
         var content: String
     }
-}
-
-
-
-private struct ScoreContent: Decodable {
-    let score: Double?
 }
