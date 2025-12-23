@@ -208,7 +208,8 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.standardChallenges) { challenge in
-                    let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
+                    let locked = viewModel.isLocked(challenge, store: store)
+
                     if locked {
                         LockedChallengeCell(challenge: challenge) {
                             sheet = .paywall
@@ -261,7 +262,7 @@ struct HomeView: View {
 
                     LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
                         ForEach(viewModel.premiumChallenges) { challenge in
-                        let locked = viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess)
+                        let locked = viewModel.isLocked(challenge, store: store)
                         if locked {
                             LockedChallengeCell(challenge: challenge) {
                                 paymentErrorMessage = nil
@@ -283,7 +284,7 @@ struct HomeView: View {
     }
 
     private func startPayment(for challenge: Challenge, method: PaymentMethod) {
-        guard viewModel.isLocked(challenge, hasPremium: store.hasPremiumAccess) else {
+        guard viewModel.isLocked(challenge, store: store) else {
             paymentErrorMessage = "Ce challenge est déjà débloqué."
             return
         }

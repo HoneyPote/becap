@@ -57,6 +57,9 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var chatHasUnreadMessages: Bool = false
     @Published var premiumAttachments: [PremiumCalendarAttachment] = []
     @Published var isSavingPremiumContent: Bool = false
+    @Published var premiumSaveProgress: Double = 0.0
+    @Published var premiumSaveStage: String? = nil
+  
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -122,20 +125,65 @@ class CalendarDetailViewModel: ObservableObject {
         return counts
     }
 
-    func addAttachment(data: Data, title: String, kind: PremiumAttachmentKind, dayIndex: Int, fileExtension: String? = nil) async {
+    func addAttachment(data: Data,
+                       title: String,
+                       kind: PremiumAttachmentKind,
+                       dayIndex: Int,
+                       fileExtension: String? = nil) async {
+
+        await MainActor.run {
+            premiumSaveStage = "Préparation…"
+            premiumSaveProgress = 0.05
+            isSavingPremiumContent = true
+        }
+
         do {
+            await MainActor.run {
+                premiumSaveStage = "Écriture du fichier…"
+                premiumSaveProgress = 0.20
+            }
+
             let savedName = try persist(data: data, kind: kind, fileExtension: fileExtension)
-            let attachment = PremiumCalendarAttachment(dayIndex: dayIndex,
-                                                       title: title,
-                                                       fileName: savedName,
-                                                       kind: kind)
+
+            await MainActor.run {
+                premiumSaveStage = "Ajout au challenge…"
+                premiumSaveProgress = 0.45
+            }
+
+            let attachment = PremiumCalendarAttachment(
+                dayIndex: dayIndex,
+                title: title,
+                fileName: savedName,
+                kind: kind
+            )
 
             await MainActor.run {
                 premiumAttachments.append(attachment)
+                premiumSaveStage = "Sauvegarde sur Firebase…"
+                premiumSaveProgress = 0.70
             }
 
-            try await savePremiumAttachments()
+            _ = try await savePremiumAttachments()
+
+            await MainActor.run {
+                premiumSaveStage = "Finalisation…"
+                premiumSaveProgress = 1.0
+                isSavingPremiumContent = false
+            }
+
+            // Optionnel : reset après un court délai
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 500_000_000)
+                self.premiumSaveStage = nil
+                self.premiumSaveProgress = 0.0
+            }
+
         } catch {
+            await MainActor.run {
+                premiumSaveStage = "Erreur"
+                premiumSaveProgress = 0.0
+                isSavingPremiumContent = false
+            }
             debugPrint("❌ Failed to store premium attachment: \(error.localizedDescription)")
         }
     }
@@ -145,10 +193,15 @@ class CalendarDetailViewModel: ObservableObject {
             premiumAttachments.removeAll { $0.id == attachment.id }
         }
 
-        if let url = attachment.localFileURL {
-            try? FileManager.default.removeItem(at: url)
+        if let remote = attachment.remoteURL {
+            try? await challengeManager.deletePremiumAttachment(remoteURL: remote)
         }
-        try? await savePremiumAttachments()
+
+        do {
+            _ = try await savePremiumAttachments()
+        } catch {
+            debugPrint("❌ savePremiumAttachments failed: \(error)")
+        }
     }
 
     @discardableResult
@@ -156,24 +209,20 @@ class CalendarDetailViewModel: ObservableObject {
         guard canEditPremiumContent else { return challenge }
 
         await MainActor.run { isSavingPremiumContent = true }
+        defer { Task { @MainActor in isSavingPremiumContent = false } }
 
         var updated = challenge
         updated.premiumAttachments = premiumAttachments
         updated.premiumContent = premiumAttachments
 
-        do {
-            let persisted = try await challengeManager.savePremiumAttachments(updated)
-            await MainActor.run {
-                self.challenge = persisted
-                self.premiumAttachments = persisted.premiumContent ?? persisted.premiumAttachments ?? []
-                self.isSavingPremiumContent = false
-            }
+        let persisted = try await challengeManager.savePremiumAttachments(updated)
 
-            return persisted
-        } catch {
-            await MainActor.run { isSavingPremiumContent = false }
-            throw error
+        await MainActor.run {
+            self.challenge = persisted
+            self.premiumAttachments = persisted.premiumContent ?? persisted.premiumAttachments ?? []
         }
+
+        return persisted
     }
 
     func canDeletePost(posts: [ChallengePost]) -> Bool {
@@ -405,7 +454,7 @@ class CalendarDetailViewModel: ObservableObject {
 
     // MARK: - Private functions
 
-    private func buildParticipants() async throws -> [Participant] {
+     func buildParticipants() async throws -> [Participant] {
         var allParticipants: [Participant] = []
 
         for participantUid in challenge.participantUids {
@@ -425,7 +474,7 @@ class CalendarDetailViewModel: ObservableObject {
         return allParticipants
     }
 
-    private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
+     func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
         var progresses = try await challengeManager.fetchParticipantsProgress(for: challenge.id)
 
         if let currentUserId = challengeManager.currentUser?.id,
@@ -438,31 +487,31 @@ class CalendarDetailViewModel: ObservableObject {
         return progresses
     }
 
-    private func fetchChatMessages() async throws -> [ChallengeChatMessage] {
+     func fetchChatMessages() async throws -> [ChallengeChatMessage] {
         return try await challengeManager.fetchChatMessages(for: challenge.id)
     }
 
-    private func buildPagerInfo(cell: CalendarDetailCell) {
+     func buildPagerInfo(cell: CalendarDetailCell) {
         selectedPagerInfo = PagerInfo(posts: cell.posts, index: 0, date: cell.date)
     }
 
-    private func fetchPosts() async throws -> [ChallengePost] {
+     func fetchPosts() async throws -> [ChallengePost] {
         return try await challengeManager.loadPosts(from: challenge.id)
     }
 
-    private func updatePosts(_ posts: [ChallengePost]) {
+     func updatePosts(_ posts: [ChallengePost]) {
         self.allPosts = posts
     }
 
     @MainActor
-    private func updateChat(messages: [ChallengeChatMessage]) {
+     func updateChat(messages: [ChallengeChatMessage]) {
         self.chatMessages = messages
 
         self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(for: challenge.id,
                                                                         latestMessageDate: messages.last?.createdAt)
     }
 
-    private func canRevealPremiumContent(on date: Date) -> Bool {
+     func canRevealPremiumContent(on date: Date) -> Bool {
         if canEditPremiumContent {
             return true
         }

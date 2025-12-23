@@ -883,3 +883,18 @@ extension ChallengeManager {
             .store(in: &cancellables)
     }
 }
+extension ChallengeManager {
+    func uploadPremiumAttachment(data: Data,
+                                challengeId: String,
+                                dayIndex: Int,
+                                fileExtension: String) async throws -> URL {
+        try await challengeService.uploadPremiumAttachment(data: data,
+                                                          challengeId: challengeId,
+                                                          dayIndex: dayIndex,
+                                                          fileExtension: fileExtension)
+    }
+
+    func deletePremiumAttachment(remoteURL: String) async throws {
+        try await challengeService.deletePremiumAttachment(remoteURL: remoteURL)
+    }
+}
