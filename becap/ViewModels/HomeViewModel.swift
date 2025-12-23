@@ -137,12 +137,19 @@ class HomeViewModel: ObservableObject {
     }
 
     // MARK: - Paywall
-    func isLocked(_ challenge: Challenge, hasPremium: Bool) -> Bool {
-        if challenge.id == lockedShowcaseChallenge.id {
-            return true
-        }
 
-        return challenge.isLocked(for: challengeManager.currentUser?.id, hasPremium: hasPremium)
+    @MainActor
+    func isLocked(_ challenge: Challenge, store: StoreManager) -> Bool {
+        if challenge.id == lockedShowcaseChallenge.id { return true }
+
+        let userId = challengeManager.currentUser?.id
+        let perChallengeUnlocked = store.isProductUnlocked(challenge.iapProductId)
+
+        return challenge.isLocked(
+            for: userId,
+            hasGlobalPremium: store.hasGlobalPremiumAccess,
+            isChallengeUnlocked: perChallengeUnlocked
+        )
     }
 
     func unlockChallenge(_ challenge: Challenge) async throws {

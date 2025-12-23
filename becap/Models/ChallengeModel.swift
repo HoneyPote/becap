@@ -73,6 +73,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var infoVideoURL: String?
     var premiumAttachments: [PremiumCalendarAttachment]? = []
     var premiumContent: [PremiumCalendarAttachment]? = []
+    var iapProductId: String?
 
     enum CodingKeys: String, CodingKey {
         case documentId
@@ -90,7 +91,8 @@ struct Challenge: Identifiable, Codable, Hashable {
         case infoText
         case infoVideoURL
         case premiumAttachments
-        case premiumContent = "prenium content"
+        case premiumContent
+        case iapProductId // <-- add
     }
 
     var endDate: Date {
@@ -147,19 +149,27 @@ extension Challenge {
         NSDecimalNumber(value: price ?? 4.99)
     }
 
-    func isLocked(for userId: String?, hasPremium: Bool = false) -> Bool {
-        guard let userId else { return (isPremium ?? false) && !hasPremium }
+    func isLocked(for userId: String?,
+                    hasGlobalPremium: Bool,
+                    isChallengeUnlocked: Bool) -> Bool {
 
-        if hasPremium {
-            return false
-        }
+          // Standard challenge => jamais lock
+          guard (isPremium ?? false) else { return false }
 
-        if creatorUID == userId || participantUids.contains(userId) {
-            return false
-        }
+          // Premium global => tout unlock
+          if hasGlobalPremium { return false }
 
-        return isPremium ?? false
-    }
+          // Créateur ou déjà participant => unlock
+          if let userId, (creatorUID == userId || participantUids.contains(userId)) {
+              return false
+          }
+
+          // Achat à l’unité => unlock
+          if isChallengeUnlocked { return false }
+
+          // Sinon lock
+          return true
+      }
 }
 
 struct ChallengePost: Identifiable, Codable, Hashable {
@@ -215,17 +225,20 @@ struct PremiumCalendarAttachment: Identifiable, Codable, Hashable {
     var title: String
     var fileName: String
     var kind: PremiumAttachmentKind
+    var remoteURL: String?
 
     init(id: String = UUID().uuidString,
          dayIndex: Int,
          title: String,
          fileName: String,
-         kind: PremiumAttachmentKind) {
+         kind: PremiumAttachmentKind,
+         remoteURL: String? = nil) {
         self.id = id
         self.dayIndex = dayIndex
         self.title = title
         self.fileName = fileName
         self.kind = kind
+        self.remoteURL = remoteURL
     }
 
     var localFileURL: URL? {

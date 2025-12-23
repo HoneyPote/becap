@@ -126,25 +126,18 @@ extension ChallengeService {
     func updateChallenge(_ challenge: Challenge) async throws {
         let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
 
-        do {
-            try await withCheckedThrowingContinuation { continuation in
-                do {
-                    try ref.setData(from: challenge) { error in
-                        if let error = error {
-                            print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
-                            continuation.resume(throwing: error)
-                        } else {
-                            print("✅ Firestore challenge mis à jour")
-                            continuation.resume()
-                        }
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+            do {
+                try ref.setData(from: challenge, merge: true) { error in
+                    if let error = error {
+                        continuation.resume(throwing: error)
+                    } else {
+                        continuation.resume(returning: ())
                     }
-                } catch {
-                    print("❌ Erreur d'encodage updateChallenge: \(error)")
-                    continuation.resume(throwing: error)
                 }
+            } catch {
+                continuation.resume(throwing: error)
             }
-        } catch {
-            print("❌ Erreur d'encodage updateChallenge: \(error)")
         }
     }
 
@@ -795,5 +788,45 @@ extension ChallengeService {
         try await ref.updateData([
             "participatingChallenges": FieldValue.arrayRemove([challengeId])
         ])
+    }
+}
+
+
+extension ChallengeService {
+    func uploadPremiumAttachment(data: Data,
+                                 challengeId: String,
+                                 dayIndex: Int,
+                                 fileExtension: String) async throws -> URL {
+        let fileName = UUID().uuidString + "." + fileExtension
+        let path = "premiumAttachments/\(challengeId)/day_\(dayIndex)/\(fileName)"
+        
+        let ref = firebaseStorage.reference().child(path)
+        
+        let metadata = StorageMetadata()
+        metadata.contentType = contentType(for: fileExtension)
+        
+        _ = try await ref.putDataAsync(data, metadata: metadata)
+        return try await ref.downloadURL()
+    }
+    
+    private func contentType(for ext: String) -> String {
+        switch ext.lowercased() {
+        case "pdf": return "application/pdf"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png": return "image/png"
+        case "mov": return "video/quicktime"
+        case "mp4": return "video/mp4"
+        default: return "application/octet-stream"
+        }
+    }
+    
+    
+    func deletePremiumAttachment(remoteURL: String) async throws {
+        let ref = firebaseStorage.reference(forURL: remoteURL)
+        try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
+            ref.delete { err in
+                if let err { c.resume(throwing: err) } else { c.resume() }
+            }
+        }
     }
 }

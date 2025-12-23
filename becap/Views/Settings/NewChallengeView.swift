@@ -155,7 +155,7 @@ struct NewChallengeView: View {
                                     .labelsHidden()
                                 }
 
-                                if viewModel.isPremium {
+                               // if viewModel.isPremium {
                                     VStack(alignment: .leading, spacing: 8) {
                                         Text("Prix (USD)")
                                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
@@ -171,7 +171,7 @@ struct NewChallengeView: View {
                                     Text("Permet d'ajouter du contenu média et des PDF sur le calendrier pour vos abonnés.")
                                         .font(.system(.footnote, design: .rounded))
                                         .foregroundColor(.white.opacity(0.75))
-                                }
+                                //}
                             }
                         }
                     }

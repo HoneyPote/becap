@@ -198,19 +198,42 @@ struct GridPostsInline: View {
     }
 
     private func open(attachment: PremiumCalendarAttachment) {
-        guard let url = attachment.localFileURL else { return }
+        Task { await openAsync(attachment: attachment) }
+    }
 
-        switch attachment.kind {
+    @MainActor
+    private func openAsync(attachment: PremiumCalendarAttachment) async {
+        // 1) si le fichier existe localement -> ok
+        if let local = attachment.localFileURL, FileManager.default.fileExists(atPath: local.path) {
+            present(localURL: local, kind: attachment.kind, previewKind: previewKind(for: attachment))
+            return
+        }
+
+        // 2) sinon, si remoteURL existe -> download + cache -> open
+        guard let remote = attachment.remoteURL else { return }
+
+        do {
+            let cachedURL = try await PremiumAttachmentCache.shared.downloadIfNeeded(remoteURL: remote,
+                                                                                   suggestedFileName: attachment.fileName)
+            present(localURL: cachedURL, kind: attachment.kind, previewKind: previewKind(for: cachedURL))
+        } catch {
+            print("❌ download attachment failed: \(error)")
+        }
+    }
+
+    @MainActor
+    private func present(localURL: URL, kind: PremiumAttachmentKind, previewKind: AttachmentPreviewKind) {
+        switch kind {
         case .pdf:
             videoURL = nil
-            quickLookURL = url
+            quickLookURL = localURL
         case .media:
-            let kind = previewKind(for: attachment)
             quickLookURL = nil
-            if kind == .video {
-                videoURL = url
+            if previewKind == .video {
+                videoURL = localURL
             } else {
-                quickLookURL = url
+                videoURL = nil
+                quickLookURL = localURL
             }
         }
     }
@@ -458,5 +481,32 @@ private struct QuickLookPreview: UIViewControllerRepresentable {
         func previewController(_ controller: QLPreviewController, previewItemAt index: Int) -> QLPreviewItem {
             url as QLPreviewItem
         }
+    }
+}
+
+import Foundation
+
+final class PremiumAttachmentCache {
+    static let shared = PremiumAttachmentCache()
+    private init() {}
+
+    func downloadIfNeeded(remoteURL: String, suggestedFileName: String) async throws -> URL {
+        guard let url = URL(string: remoteURL) else { throw URLError(.badURL) }
+
+        let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let destination = docs.appendingPathComponent(suggestedFileName)
+
+        // déjà en cache ?
+        if FileManager.default.fileExists(atPath: destination.path) {
+            return destination
+        }
+
+        let (data, response) = try await URLSession.shared.data(from: url)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        try data.write(to: destination, options: .atomic)
+        return destination
     }
 }
