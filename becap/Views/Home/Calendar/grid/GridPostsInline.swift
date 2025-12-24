@@ -10,7 +10,7 @@ import SwiftUI
 // TODO: Découper vue
 struct GridPostsInline: View {
     let cell: CalendarDetailCell
-    let postScores: [String: Double]
+    let postScores: [String: ScoreCard]
     let getParticipant: (String) -> Participant?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
@@ -106,7 +106,7 @@ struct GridPostsInline: View {
                             .clipped()
                             .cornerRadius(8)
                             .overlay(alignment: .topTrailing) {
-                                if let score = postScores[post.id] {
+                                if let score = postScores[post.id]?.score {
                                     ScoreBadge(score: score)
                                         .padding(6)
                                 }

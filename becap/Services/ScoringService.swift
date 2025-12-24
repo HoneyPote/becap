@@ -18,7 +18,7 @@ protocol ScoringServiceProtocol {
     /// Crée une entry de scoring et retourne son documentId
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws
 
-    func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double]
+    func fetchScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard]
     func fetchAggregations(for challengeId: String,
                            granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
 
@@ -69,11 +69,16 @@ final class ScoringService: ScoringServiceProtocol {
 
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws {
         let prompt = buildPrompt(for: post, challenge: challenge)
+        let dishDescription = post.description?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: "\n", with: " ")
+        let rawDishDescription = (dishDescription?.isEmpty == false) ? dishDescription! : "Aucune description fournie"
 
         var entry = ScoreEntry(
             participantId: post.authorUid,
             challengeId: challenge.id,
             postId: post.id,
+            dishDescription: rawDishDescription,
             prompt: prompt
         )
 
@@ -81,6 +86,8 @@ final class ScoringService: ScoringServiceProtocol {
         entry.id = ref.documentID   // ✅ CRITIQUE
 
         try ref.setData(from: entry)
+        print("[ScoringService] Nouvelle ScoreEntry docId=\(ref.documentID) envoyé pour scoring")
+        print("[ScoringService] Description plat envoyée: \(rawDishDescription)")
     }
     func processEntry(entryId: String) async {
         do {
@@ -101,7 +108,7 @@ final class ScoringService: ScoringServiceProtocol {
         return try await sendMessages(messages)
     }
 
-    func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double] {
+    func fetchScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard] {
         guard !postIds.isEmpty else { return [:] }
 
         let snapshot = try await firestore.collection(entriesCollection)
@@ -115,7 +122,9 @@ final class ScoringService: ScoringServiceProtocol {
             guard let postId = entry.postId,
                   postIds.contains(postId),
                   let score = entry.score else { return }
-            result[postId] = score
+
+            let card = ScoreCard(score: score, comment: entry.comment)
+            result[postId] = card
         }
     }
 
@@ -250,7 +259,10 @@ private extension ScoringService {
 // MARK: - GPT Communication
 extension ScoringService {
     private func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
-        let messages = buildCulinaryMessages(dishDescription: entry.prompt)
+        let dishDescription = entry.dishDescription?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let safeDescription = (dishDescription?.isEmpty == false) ? dishDescription! : entry.prompt
+        print("[ScoringService] Envoi description plat à GPT: \(safeDescription)")
+        let messages = buildCulinaryMessages(dishDescription: safeDescription)
         return try await sendMessages(messages)
     }
 
@@ -319,18 +331,21 @@ extension ScoringService {
 
         print("[ScoringService] GPT model = \(apiResponse.model), choices = \(apiResponse.choices.count), finishReason = \(apiResponse.choices.first?.finishReason ?? "nil")")
         print("[ScoringService] GPT message preview = \(truncatedPreview(message.content))")
-        let score = try extractScore(from: message.content)
+        let payload = try extractScorePayload(from: message.content)
+        let score = Double(payload.scoreGlobal)
         print("[ScoringService] GPT score extrait = \(score)")
+        print("[ScoringService] GPT commentaire extrait = \(payload.commentaire)")
 
         let jsonString = rawResponse.isEmpty ? message.content : rawResponse
 
         return ScoreResult(rawJSON: jsonString,
                            score: score,
+                           comment: payload.commentaire,
                            model: apiResponse.model,
                            finishReason: apiResponse.choices.first?.finishReason)
     }
 
-    private func extractScore(from content: String) throws -> Double {
+    private func extractScorePayload(from content: String) throws -> CulinaryScorePayload {
         guard let data = content.data(using: .utf8) else {
             throw ScoringServiceError.invalidScorePayload
         }
@@ -339,7 +354,7 @@ extension ScoringService {
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let payload = try decoder.decode(CulinaryScorePayload.self, from: data)
         try validateScores(payload)
-        return Double(payload.scoreGlobal)
+        return payload
     }
 }
 
@@ -356,6 +371,10 @@ private extension ScoringService {
 
         if let score = result.score {
             updates["score"] = score
+        }
+
+        if let comment = result.comment {
+            updates["comment"] = comment
         }
 
         try await firestore.collection(entriesCollection).document(entryId).updateData(updates)

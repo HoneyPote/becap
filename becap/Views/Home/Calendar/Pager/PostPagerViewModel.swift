@@ -188,7 +188,7 @@ final class PostViewModel: ObservableObject, Identifiable {
 
 class PostPagerViewModel: ObservableObject {
     private var scoresUpdateCancellable: AnyCancellable?
-    @Published var scores: [String: Double] = [:]
+    @Published var scoreCards: [String: ScoreCard] = [:]
     @Published var postViewModels: [PostViewModel]
     @Published var selectedPostVM: PostViewModel
     @Published var selectedJokerState: PostJokerState
@@ -240,10 +240,12 @@ class PostPagerViewModel: ObservableObject {
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared,
          posts: [ChallengePost],
          selectedPostIndex: Int = 0,
-         challenge: Challenge) {
+         challenge: Challenge,
+         initialScoreCards: [String: ScoreCard] = [:]) {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
         self.challenge = challenge
+        self.scoreCards = initialScoreCards
 
         // Créé un cache de l'ensemble des VM pour chaque photo et évite de les récréer à chaque ouverture de la pagerView
         let postViewModels = posts.map { PostStore.shared.getViewModel(for: $0) }
@@ -299,14 +301,14 @@ class PostPagerViewModel: ObservableObject {
             print("🧪 loadScores postIds=", ids)
 
             guard !ids.isEmpty else {
-                await MainActor.run { self.scores = [:] }
+                await MainActor.run { self.scoreCards = [:] }
                 return
             }
 
             do {
-                let res = try await challengeManager.fetchPostScores(for: challenge.id, postIds: ids)
+                let res = try await challengeManager.fetchPostScoreCards(for: challenge.id, postIds: ids)
                 print("✅ loadScores res keys=", Array(res.keys))
-                await MainActor.run { self.scores = res }
+                await MainActor.run { self.scoreCards = res }
             } catch {
                 print("❌ loadScores error:", error)
             }

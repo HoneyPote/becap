@@ -54,7 +54,7 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var participantProgresses: [ParticipantProgress] = []
     @Published var chatMessages: [ChallengeChatMessage] = []
     @Published var chatHasUnreadMessages: Bool = false
-    @Published var postScores: [String: Double] = [:]
+    @Published var postScores: [String: ScoreCard] = [:]
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -86,7 +86,7 @@ class CalendarDetailViewModel: ObservableObject {
                 async let chatTask = try fetchChatMessages()
 
                 // ⚠️ scores = optionnel : try? pour ne pas casser le reste
-                async let scoresTask: [String: Double] = (try? fetchScores(for: posts)) ?? [:]
+                async let scoresTask: [String: ScoreCard] = (try? fetchScores(for: posts)) ?? [:]
 
                 let (participants, progresses, chatMessages, scores) = try await (
                     participantsTask,
@@ -366,11 +366,11 @@ class CalendarDetailViewModel: ObservableObject {
         return try await challengeManager.loadPosts(from: challenge.id)
     }
 
-    private func fetchScores(for posts: [ChallengePost]) async throws -> [String: Double] {
+    private func fetchScores(for posts: [ChallengePost]) async throws -> [String: ScoreCard] {
         let postIds = posts.map(\.id).filter { !$0.isEmpty }
         guard !postIds.isEmpty else { return [:] }
 
-        return try await challengeManager.fetchPostScores(for: challenge.id, postIds: postIds)
+        return try await challengeManager.fetchPostScoreCards(for: challenge.id, postIds: postIds)
     }
 
     private func updatePosts(_ posts: [ChallengePost]) {

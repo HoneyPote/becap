@@ -16,10 +16,11 @@ struct PostPagerView: View {
     @State private var playerConfig: PlayerConfiguration? = .postPager
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
-	@State private var isVideoReady = false
+        @State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
-    let postScores: [String: Double]   
+    @State private var activeCommentPostId: String?
+    let postScores: [String: ScoreCard]
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
@@ -35,7 +36,7 @@ struct PostPagerView: View {
         init(posts: [ChallengePost],
              startIndex: Int = 0,
              challenge: Challenge,
-             postScores: [String: Double],
+             postScores: [String: ScoreCard],
              getParticipant: @escaping (String) -> Participant?,
              onDelete: @escaping (String) -> Void,
              onClose: @escaping () -> Void) {
@@ -48,7 +49,8 @@ struct PostPagerView: View {
             _viewModel = StateObject(wrappedValue: PostPagerViewModel(
                 posts: posts,
                 selectedPostIndex: startIndex,
-                challenge: challenge
+                challenge: challenge,
+                initialScoreCards: postScores
             ))
         }
 
@@ -117,8 +119,20 @@ struct PostPagerView: View {
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
-            if let score = viewModel.scores[postVM.post.id] {
-                ScorePill(score: score)
+            if let scoreCard = viewModel.scoreCards[postVM.post.id] {
+                let hasComment = !(scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+                ScorePill(score: scoreCard.score,
+                          hasComment: hasComment,
+                          onTap: { toggleCommentBubble(for: postVM.post.id, hasComment: hasComment) })
+                .overlay(alignment: .topTrailing) {
+                    if activeCommentPostId == postVM.post.id,
+                       let comment = scoreCard.comment,
+                       !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        ScoreCommentBubble(comment: comment)
+                            .offset(y: -10)
+                            .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+                }
             }
 
             imageView(for: postVM)
@@ -308,6 +322,17 @@ extension PostPagerView {
             pendingJokerAction = .vote
         }
     }
+
+    private func toggleCommentBubble(for postId: String, hasComment: Bool) {
+        guard hasComment else {
+            activeCommentPostId = nil
+            return
+        }
+
+        withAnimation {
+            activeCommentPostId = activeCommentPostId == postId ? nil : postId
+        }
+    }
 }
 
 // MARK: Comments section
@@ -401,17 +426,57 @@ struct CommentsInputBar: View {
 }
 private struct ScorePill: View {
     let score: Double
+    let hasComment: Bool
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 8) {
+        let label = HStack(spacing: 8) {
             Image(systemName: "sparkles")
             Text(String(format: "Score %.1f/10", score))
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
+
+            if hasComment {
+                Image(systemName: "text.bubble.fill")
+                    .font(.system(size: 12, weight: .semibold))
+                    .opacity(0.8)
+            }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.white.opacity(0.14))
         .clipShape(Capsule())
+
+        if let onTap {
+            Button(action: onTap) {
+                label
+            }
+            .buttonStyle(.plain)
+        } else {
+            label
+        }
+    }
+}
+
+private struct ScoreCommentBubble: View {
+    let comment: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Label("Avis GPT", systemImage: "quote.bubble.fill")
+                .font(.caption.bold())
+                .foregroundColor(.white.opacity(0.9))
+
+            Text(comment)
+                .font(.footnote)
+                .foregroundColor(.white)
+                .lineLimit(4)
+                .multilineTextAlignment(.leading)
+        }
+        .padding(12)
+        .background(.ultraThinMaterial)
+        .background(Color.black.opacity(0.35))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 6)
     }
 }
