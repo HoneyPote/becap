@@ -8,15 +8,20 @@
 import Foundation
 import FirebaseFirestore
 
-
 protocol ScoringServiceProtocol {
     func fetchUnscoredEntries(limit: Int) async throws -> [ScoreEntry]
     func processPendingEntries(limit: Int) async
+    func processEntry(entryId: String) async
+
     func computeAggregations(for participantId: String, challengeId: String) async throws
+
+    /// Crée une entry de scoring et retourne son documentId
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws
+
     func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double]
     func fetchAggregations(for challengeId: String,
-                          granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
+                           granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
+
     func testCulinaryScore(description: String) async throws -> ScoreResult
 }
 
@@ -64,22 +69,33 @@ final class ScoringService: ScoringServiceProtocol {
 
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws {
         let prompt = buildPrompt(for: post, challenge: challenge)
-        let scoreEntry = ScoreEntry(
+
+        var entry = ScoreEntry(
             participantId: post.authorUid,
             challengeId: challenge.id,
-            postId: post.id.isEmpty ? nil : post.id,
-            prompt: prompt,
-            createdAt: Date(),
-            status: .pending,
-            responseJSON: nil,
-            score: nil,
-            scoredAt: nil,
-            lastError: nil
+            postId: post.id,
+            prompt: prompt
         )
 
-        _ = try firestore.collection(entriesCollection).addDocument(from: scoreEntry)
-    }
+        let ref = firestore.collection(entriesCollection).document()
+        entry.id = ref.documentID   // ✅ CRITIQUE
 
+        try ref.setData(from: entry)
+    }
+    func processEntry(entryId: String) async {
+        do {
+            let snap = try await firestore
+                .collection(entriesCollection)
+                .document(entryId)
+                .getDocument()
+
+            let entry = try snap.data(as: ScoreEntry.self)
+
+            await process(entry: entry)
+        } catch {
+            print("[ScoringService] processEntry error:", error)
+        }
+    }
     func testCulinaryScore(description: String) async throws -> ScoreResult {
         let messages = buildCulinaryMessages(dishDescription: description)
         return try await sendMessages(messages)
@@ -115,12 +131,11 @@ final class ScoringService: ScoringServiceProtocol {
     }
 
     func fetchUnscoredEntries(limit: Int = 10) async throws -> [ScoreEntry] {
-        let query = firestore.collection(entriesCollection)
+        let snapshot = try await firestore.collection(entriesCollection)
             .whereField("status", isEqualTo: ScoreEntry.Status.pending.rawValue)
-            .order(by: "createdAt")
             .limit(to: limit)
+            .getDocuments()
 
-        let snapshot = try await query.getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: ScoreEntry.self) }
     }
 
@@ -189,14 +204,11 @@ private extension ScoringService {
         guard let entryId = entry.id else { return }
 
         do {
-            try await enforceDailyQuota(for: entry.participantId)
             try await markProcessing(entryId: entryId)
 
             let result = try await sendPrompt(for: entry)
-            try await persist(result: result, for: entry)
-            try await computeAggregations(for: entry.participantId, challengeId: entry.challengeId)
+            try await persist(result: result, for: entry) // ✅ écrit score + status=completed
         } catch {
-            print("[ScoringService] Erreur pour l’entrée \(entryId): \(error.localizedDescription)")
             try? await markFailed(entryId: entryId, error: error)
         }
     }

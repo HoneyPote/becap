@@ -70,27 +70,45 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func fetchInfos() {
-        self.doneLoadingPosts = false
+        doneLoadingPosts = false
 
         Task {
-            let posts = try await fetchPosts()
-            async let allParticipants = try buildParticipants()
-            async let progressesTask = try fetchParticipantProgresses()
-            async let chatTask = try fetchChatMessages()
-            async let scoresTask = try fetchScores(for: posts)
+            do {
+                let posts = try await fetchPosts()
 
-            let (participants, progresses, chatMessages, scores) = try await (allParticipants,
-                                                                              progressesTask,
-                                                                              chatTask,
-                                                                              scoresTask)
+                // ✅ Affiche les posts tout de suite (même si le reste plante)
+                await MainActor.run {
+                    self.updatePosts(posts)
+                }
 
-            await MainActor.run {
-                self.updatePosts(posts)
-                self.participants = participants
-                self.participantProgresses = progresses
-                self.updateChat(messages: chatMessages)
-                self.postScores = scores
-                self.doneLoadingPosts = true
+                async let participantsTask = try buildParticipants()
+                async let progressesTask = try fetchParticipantProgresses()
+                async let chatTask = try fetchChatMessages()
+
+                // ⚠️ scores = optionnel : try? pour ne pas casser le reste
+                async let scoresTask: [String: Double] = (try? fetchScores(for: posts)) ?? [:]
+
+                let (participants, progresses, chatMessages, scores) = try await (
+                    participantsTask,
+                    progressesTask,
+                    chatTask,
+                    scoresTask
+                )
+
+                await MainActor.run {
+                    self.participants = participants
+                    self.participantProgresses = progresses
+                    self.updateChat(messages: chatMessages)
+                    self.postScores = scores
+                    self.doneLoadingPosts = true
+                }
+            } catch {
+                print("❌ fetchInfos failed:", error)
+
+                await MainActor.run {
+                    // au moins on arrête le loader
+                    self.doneLoadingPosts = true
+                }
             }
         }
     }
