@@ -125,11 +125,20 @@ extension ChallengeService {
         let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
 
         do {
-            try ref.setData(from: challenge) { error in
-                if let error = error {
-                    print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
-                } else {
-                    print("✅ Firestore challenge mis à jour")
+            try await withCheckedThrowingContinuation { continuation in
+                do {
+                    try ref.setData(from: challenge) { error in
+                        if let error = error {
+                            print("❌ Firestore updateChallenge erreur: \(error.localizedDescription)")
+                            continuation.resume(throwing: error)
+                        } else {
+                            print("✅ Firestore challenge mis à jour")
+                            continuation.resume()
+                        }
+                    }
+                } catch {
+                    print("❌ Erreur d'encodage updateChallenge: \(error)")
+                    continuation.resume(throwing: error)
                 }
             }
         } catch {

@@ -258,7 +258,7 @@ struct CalendarDetailView: View {
                     let day = startOfDay(date)
 
                     if let cell = cells.first(where: { sameDay($0.date, day) }),
-                       (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
+                       (!cell.posts.isEmpty || !cell.jokers.isEmpty || !cell.premiumAttachments.isEmpty) {
                         withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
                             selectedGridCell = cell
                             showJokerBubble = false
