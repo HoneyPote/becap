@@ -8,20 +8,27 @@
 import Foundation
 import FirebaseFirestore
 
-
 protocol ScoringServiceProtocol {
     func fetchUnscoredEntries(limit: Int) async throws -> [ScoreEntry]
     func processPendingEntries(limit: Int) async
+    func processEntry(entryId: String) async
+
     func computeAggregations(for participantId: String, challengeId: String) async throws
+
+    /// Crée une entry de scoring et retourne son documentId
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws
+
     func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double]
     func fetchAggregations(for challengeId: String,
-                          granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
+                           granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
+
+    func testCulinaryScore(description: String) async throws -> ScoreResult
 }
 
 enum ScoringServiceError: LocalizedError {
     case missingAPIKey
     case invalidResponse
+    case invalidScorePayload
     case dailyQuotaExceeded
 
     var errorDescription: String? {
@@ -30,6 +37,8 @@ enum ScoringServiceError: LocalizedError {
             return "La clé API OpenAI est manquante."
         case .invalidResponse:
             return "Réponse du modèle GPT invalide."
+        case .invalidScorePayload:
+            return "Le payload de scoring GPT ne respecte pas le format attendu."
         case .dailyQuotaExceeded:
             return "Le plafond quotidien de requêtes a été atteint."
         }
@@ -60,20 +69,36 @@ final class ScoringService: ScoringServiceProtocol {
 
     func enqueueScoreEntry(for post: ChallengePost, in challenge: Challenge) async throws {
         let prompt = buildPrompt(for: post, challenge: challenge)
-        let scoreEntry = ScoreEntry(
+
+        var entry = ScoreEntry(
             participantId: post.authorUid,
             challengeId: challenge.id,
-            postId: post.id.isEmpty ? nil : post.id,
-            prompt: prompt,
-            createdAt: Date(),
-            status: .pending,
-            responseJSON: nil,
-            score: nil,
-            scoredAt: nil,
-            lastError: nil
+            postId: post.id,
+            prompt: prompt
         )
 
-        _ = try firestore.collection(entriesCollection).addDocument(from: scoreEntry)
+        let ref = firestore.collection(entriesCollection).document()
+        entry.id = ref.documentID   // ✅ CRITIQUE
+
+        try ref.setData(from: entry)
+    }
+    func processEntry(entryId: String) async {
+        do {
+            let snap = try await firestore
+                .collection(entriesCollection)
+                .document(entryId)
+                .getDocument()
+
+            let entry = try snap.data(as: ScoreEntry.self)
+
+            await process(entry: entry)
+        } catch {
+            print("[ScoringService] processEntry error:", error)
+        }
+    }
+    func testCulinaryScore(description: String) async throws -> ScoreResult {
+        let messages = buildCulinaryMessages(dishDescription: description)
+        return try await sendMessages(messages)
     }
 
     func fetchScores(for challengeId: String, postIds: [String]) async throws -> [String: Double] {
@@ -106,12 +131,11 @@ final class ScoringService: ScoringServiceProtocol {
     }
 
     func fetchUnscoredEntries(limit: Int = 10) async throws -> [ScoreEntry] {
-        let query = firestore.collection(entriesCollection)
+        let snapshot = try await firestore.collection(entriesCollection)
             .whereField("status", isEqualTo: ScoreEntry.Status.pending.rawValue)
-            .order(by: "createdAt")
             .limit(to: limit)
+            .getDocuments()
 
-        let snapshot = try await query.getDocuments()
         return snapshot.documents.compactMap { try? $0.data(as: ScoreEntry.self) }
     }
 
@@ -155,19 +179,12 @@ private extension ScoringService {
         let userDescription = description?.isEmpty == false ? description! : "Aucune description fournie"
 
         return """
-        \(CulinaryFeedbackService.shared.guardrailPrompt)
-
-        Tu fais partie du jury du défi communautaire «\(challenge.title)» (catégorie : \(challenge.category?.displayName ?? "Non renseignée")).
-        Analyse la contribution suivante et attribue une note globale sur 10 en tenant compte du nom du plat, des ingrédients cités et de l'impression générale.
-
+        Défi «\(challenge.title)» (catégorie : \(challenge.category?.displayName ?? "Non renseignée")).
         Détails du post :
         - Participant : \(post.authorName)
         - Période : \(promptDateFormatter.string(from: post.date))
         - Type de média : \(mediaDescription(from: post.media))
         - Description du plat : \(userDescription)
-
-        Réponds uniquement avec un JSON valide et minimal de la forme :
-        {"score": <nombre entre 0 et 10>, "commentaire": "<phrase courte et encourageante en français>"}
         """
     }
 
@@ -187,14 +204,11 @@ private extension ScoringService {
         guard let entryId = entry.id else { return }
 
         do {
-            try await enforceDailyQuota(for: entry.participantId)
             try await markProcessing(entryId: entryId)
 
             let result = try await sendPrompt(for: entry)
-            try await persist(result: result, for: entry)
-            try await computeAggregations(for: entry.participantId, challengeId: entry.challengeId)
+            try await persist(result: result, for: entry) // ✅ écrit score + status=completed
         } catch {
-            print("[ScoringService] Erreur pour l’entrée \(entryId): \(error.localizedDescription)")
             try? await markFailed(entryId: entryId, error: error)
         }
     }
@@ -234,9 +248,14 @@ private extension ScoringService {
 }
 
 // MARK: - GPT Communication
-private extension ScoringService {
-    func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
-        guard let apiKey = BecapSecrets.openAIAPIKey else {
+extension ScoringService {
+    private func sendPrompt(for entry: ScoreEntry) async throws -> ScoreResult {
+        let messages = buildCulinaryMessages(dishDescription: entry.prompt)
+        return try await sendMessages(messages)
+    }
+
+    private func sendMessages(_ messages: [ChatMessage]) async throws -> ScoreResult {
+        guard let apiKey = openAIAPIKey() else {
             throw ScoringServiceError.missingAPIKey
         }
 
@@ -244,9 +263,8 @@ private extension ScoringService {
             throw URLError(.badURL)
         }
 
-        let requestBody = ChatRequest(messages: [
-            .init(role: "user", content: entry.prompt)
-        ])
+        // Note: le modèle doit répondre strictement avec le JSON attendu (score_global, details, commentaire).
+        let requestBody = ChatRequest(messages: messages)
 
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = "POST"
@@ -258,7 +276,7 @@ private extension ScoringService {
         return try parseGPTResponse(data: data)
     }
 
-    func performRequestWithRetry(request: URLRequest) async throws -> Data {
+    private func performRequestWithRetry(request: URLRequest) async throws -> Data {
         var attempt = 0
         var currentDelay: UInt64 = 500_000_000 // 0.5s
 
@@ -287,7 +305,11 @@ private extension ScoringService {
         throw ScoringServiceError.invalidResponse
     }
 
-    func parseGPTResponse(data: Data) throws -> ScoreResult {
+    private func parseGPTResponse(data: Data) throws -> ScoreResult {
+        let rawResponse = String(data: data, encoding: .utf8) ?? ""
+        print("[ScoringService] GPT data.count = \(data.count)")
+        print("[ScoringService] GPT raw preview = \(truncatedPreview(rawResponse))")
+
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let apiResponse = try decoder.decode(OpenAIChatResponse.self, from: data)
@@ -295,16 +317,12 @@ private extension ScoringService {
             throw ScoringServiceError.invalidResponse
         }
 
-        let rawString = message.content
-        let score = extractScore(from: message.content)
+        print("[ScoringService] GPT model = \(apiResponse.model), choices = \(apiResponse.choices.count), finishReason = \(apiResponse.choices.first?.finishReason ?? "nil")")
+        print("[ScoringService] GPT message preview = \(truncatedPreview(message.content))")
+        let score = try extractScore(from: message.content)
+        print("[ScoringService] GPT score extrait = \(score)")
 
-        let jsonString: String
-        if let jsonData = try? JSONSerialization.data(withJSONObject: apiResponse.dictionaryRepresentation(), options: .prettyPrinted),
-           let string = String(data: jsonData, encoding: .utf8) {
-            jsonString = string
-        } else {
-            jsonString = rawString
-        }
+        let jsonString = rawResponse.isEmpty ? message.content : rawResponse
 
         return ScoreResult(rawJSON: jsonString,
                            score: score,
@@ -312,19 +330,16 @@ private extension ScoringService {
                            finishReason: apiResponse.choices.first?.finishReason)
     }
 
-    func extractScore(from content: String) -> Double? {
-        if let data = content.data(using: .utf8),
-           let decoded = try? JSONDecoder().decode(ScoreContent.self, from: data) {
-            return decoded.score
+    private func extractScore(from content: String) throws -> Double {
+        guard let data = content.data(using: .utf8) else {
+            throw ScoringServiceError.invalidScorePayload
         }
 
-        if let data = content.data(using: .utf8),
-           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-           let score = json["score"] as? Double {
-            return score
-        }
-
-        return nil
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let payload = try decoder.decode(CulinaryScorePayload.self, from: data)
+        try validateScores(payload)
+        return Double(payload.scoreGlobal)
     }
 }
 
@@ -414,18 +429,45 @@ private extension ScoringService {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter.string(from: date)
     }
+
+    func openAIAPIKey() -> String? {
+        if let environmentKey = ProcessInfo.processInfo.environment["OPENAI_API_KEY"], !environmentKey.isEmpty {
+            return environmentKey
+        }
+
+        if let bundleKey = Bundle.main.infoDictionary?["OPENAI_API_KEY"] as? String, !bundleKey.isEmpty {
+            return bundleKey
+        }
+
+        return nil
+    }
+
+    func truncatedPreview(_ value: String, limit: Int = 800) -> String {
+        guard value.count > limit else { return value }
+        let index = value.index(value.startIndex, offsetBy: limit)
+        return "\(value[..<index])…"
+    }
+
+    func validateScores(_ payload: CulinaryScorePayload) throws {
+        let scores = [
+            payload.scoreGlobal,
+            payload.details.equilibre,
+            payload.details.diversite,
+            payload.details.technique,
+            payload.details.originalite
+        ]
+
+        guard scores.allSatisfy({ (0...10).contains($0) }) else {
+            throw ScoringServiceError.invalidScorePayload
+        }
+    }
 }
 
 // MARK: - OpenAI DTOs
 private struct ChatRequest: Encodable {
     var model: String = "gpt-4o-mini"
-    var messages: [Message]
+    var messages: [ChatMessage]
     var temperature: Double = 0.2
-
-    struct Message: Encodable {
-        var role: String
-        var content: String
-    }
 }
 
 private struct OpenAIChatResponse: Decodable {
@@ -451,10 +493,4 @@ private struct OpenAIChatResponse: Decodable {
         var role: String
         var content: String
     }
-}
-
-
-
-private struct ScoreContent: Decodable {
-    let score: Double?
 }

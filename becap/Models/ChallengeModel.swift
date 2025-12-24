@@ -112,22 +112,29 @@ extension Challenge {
 }
 
 struct ChallengePost: Identifiable, Codable, Hashable {
+
     @DocumentID private var _id: String?
+
+    /// ID canonique du post (stocké dans Firestore)
+    var postId: String?
+
+    /// Identifiable
     var id: String {
-        _id ?? ""
+        postId ?? _id ?? ""
     }
-    var challengeId: String              // ID du défi (parent)
-    var authorUid: String                // UID Firebase de l'auteur
-    var authorName: String               // Nom ou prénom affiché
-    var description: String?             // Description optionnelle (légende)
-    var date: Date                       // Date de prise ou de soumission
 
-    var likes: [String]? // <--- AJOUTE CE CHAMP ! (optional pour backward compatibilité)
+    var challengeId: String
+    var authorUid: String
+    var authorName: String
+    var description: String?
+    var date: Date
+
+    var likes: [String]?
     var jokerState: PostJokerState?
-
     var media: ChallengeMedia
 
-    init(challengeId: String,
+    init(postId: String? = nil,
+         challengeId: String,
          authorUid: String,
          authorName: String,
          description: String?,
@@ -135,6 +142,8 @@ struct ChallengePost: Identifiable, Codable, Hashable {
          likes: [String]? = nil,
          jokerState: PostJokerState? = nil,
          media: ChallengeMedia) {
+
+        self.postId = postId
         self.challengeId = challengeId
         self.authorUid = authorUid
         self.authorName = authorName
@@ -148,6 +157,7 @@ struct ChallengePost: Identifiable, Codable, Hashable {
     static func == (lhs: ChallengePost, rhs: ChallengePost) -> Bool {
         lhs.id == rhs.id
     }
+
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
     }

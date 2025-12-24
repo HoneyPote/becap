@@ -397,14 +397,18 @@ extension ChallengeManager {
     }
 
     private func triggerScoring(for post: ChallengePost, in challenge: Challenge) {
-        Task.detached { [weak self] in
-            guard let scoringService = self?.scoringService else { return }
-
+        Task {
             do {
                 try await scoringService.enqueueScoreEntry(for: post, in: challenge)
+
+                // ✅ on process les pending (celle que tu viens d’ajouter est pending)
                 await scoringService.processPendingEntries(limit: 5)
+
+                // ✅ ping UI
+                NotificationCenter.default.post(name: .scoresDidUpdate, object: challenge.id)
+
             } catch {
-                print("[ChallengeManager] Échec de l'envoi à GPT pour le post \(post.id): \(error.localizedDescription)")
+                print("❌ [Scoring] \(error)")
             }
         }
     }
@@ -901,4 +905,7 @@ extension ChallengeManager {
             }
             .store(in: &cancellables)
     }
+}
+extension Notification.Name {
+    static let scoresDidUpdate = Notification.Name("scoresDidUpdate")
 }

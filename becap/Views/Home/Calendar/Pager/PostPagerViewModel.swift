@@ -22,19 +22,32 @@ final class PostStore: ObservableObject {
     private let lock = NSLock()
 
     func getViewModel(for post: ChallengePost) -> PostViewModel {
-        let key = makeKey(for: post)
+
+        // ⚠️ Tant que Firestore n’a pas renvoyé de documentId,
+        // on NE met PAS en cache (sinon score / joker / likes cassés)
+        guard !post.id.isEmpty else {
+            return PostViewModel(post: post)
+        }
+
+        let key = post.id
 
         lock.lock()
         defer { lock.unlock() }
 
+        // ✅ Cache hit
         if var entry = cache[key] {
             entry.lastAccess = Date()
             cache[key] = entry
             return entry.viewModel
         }
 
+        // ❌ Cache miss → création
         let vm = PostViewModel(post: post)
-        cache[key] = CacheEntry(viewModel: vm, lastAccess: Date())
+        cache[key] = CacheEntry(
+            viewModel: vm,
+            lastAccess: Date()
+        )
+
         trimIfNeeded()
 
         return vm
@@ -50,10 +63,13 @@ final class PostStore: ObservableObject {
     }
 
     private func makeKey(for post: ChallengePost) -> String {
-        let challengeComponent = post.challengeId
-        let timestamp = post.date.timeIntervalSince1970
+        if !post.id.isEmpty {
+            return post.id // ✅ clé stable = documentId Firestore
+        }
 
-        return "\(challengeComponent)_\(post.authorUid)_\(timestamp)"
+        // fallback si pas encore d'id (upload local)
+        let timestamp = post.date.timeIntervalSince1970
+        return "\(post.challengeId)_\(post.authorUid)_\(timestamp)"
     }
 
     private func trimIfNeeded() {
@@ -70,6 +86,7 @@ final class PostStore: ObservableObject {
 }
 
 final class PostViewModel: ObservableObject, Identifiable {
+
     @Published var likes: [String]
     @Published var comments: [PostCommentModel] = []
     @Published var jokerState: PostJokerState
@@ -170,6 +187,8 @@ final class PostViewModel: ObservableObject, Identifiable {
 }
 
 class PostPagerViewModel: ObservableObject {
+    private var scoresUpdateCancellable: AnyCancellable?
+    @Published var scores: [String: Double] = [:]
     @Published var postViewModels: [PostViewModel]
     @Published var selectedPostVM: PostViewModel
     @Published var selectedJokerState: PostJokerState
@@ -232,7 +251,16 @@ class PostPagerViewModel: ObservableObject {
         self.selectedPostVM = postViewModels[selectedPostIndex]
         self.selectedJokerState = postViewModels[selectedPostIndex].jokerState
         self.postViewModels = postViewModels
-
+        
+        scoresUpdateCancellable = NotificationCenter.default.publisher(for: .scoresDidUpdate)
+            .compactMap { $0.object as? String }
+            .filter { [weak self] updatedChallengeId in
+                updatedChallengeId == self?.challenge.id
+            }
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.loadScores()
+            }
         bindToSelectedPostViewModel()
     }
 
@@ -265,7 +293,25 @@ class PostPagerViewModel: ObservableObject {
             }
         }
     }
+    private func loadScores() {
+        Task {
+            let ids = postViewModels.map { $0.post.id }.filter { !$0.isEmpty }
+            print("🧪 loadScores postIds=", ids)
 
+            guard !ids.isEmpty else {
+                await MainActor.run { self.scores = [:] }
+                return
+            }
+
+            do {
+                let res = try await challengeManager.fetchPostScores(for: challenge.id, postIds: ids)
+                print("✅ loadScores res keys=", Array(res.keys))
+                await MainActor.run { self.scores = res }
+            } catch {
+                print("❌ loadScores error:", error)
+            }
+        }
+    }
     func likeAction() {
         selectedPostVM.like()
         // Force reload de la vue -> obligatoire car selectedPostVM.like() n'est pas observé par la vue

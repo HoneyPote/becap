@@ -19,6 +19,7 @@ struct PostPagerView: View {
 	@State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
+    let postScores: [String: Double]   
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
@@ -29,20 +30,28 @@ struct PostPagerView: View {
         case declare
     }
 
-    init(posts: [ChallengePost],
-         startIndex: Int = 0,
-         challenge: Challenge,
-         getParticipant: @escaping (String) -> Participant?,
-         onDelete: @escaping (String) -> Void,
-         onClose: @escaping () -> Void) {
-        self.getParticipant = getParticipant
-        self.onDelete = onDelete
-        self.onClose = onClose
 
-        _viewModel = StateObject(wrappedValue: PostPagerViewModel(posts: posts,
-                                                                  selectedPostIndex: startIndex,
-                                                                  challenge: challenge))
-    }
+
+        init(posts: [ChallengePost],
+             startIndex: Int = 0,
+             challenge: Challenge,
+             postScores: [String: Double],
+             getParticipant: @escaping (String) -> Participant?,
+             onDelete: @escaping (String) -> Void,
+             onClose: @escaping () -> Void) {
+
+            self.postScores = postScores
+            self.getParticipant = getParticipant
+            self.onDelete = onDelete
+            self.onClose = onClose
+
+            _viewModel = StateObject(wrappedValue: PostPagerViewModel(
+                posts: posts,
+                selectedPostIndex: startIndex,
+                challenge: challenge
+            ))
+        }
+
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -108,6 +117,9 @@ struct PostPagerView: View {
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
+            if let score = viewModel.scores[postVM.post.id] {
+                ScorePill(score: score)
+            }
 
             imageView(for: postVM)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -385,5 +397,21 @@ struct CommentsInputBar: View {
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 20))
         .shadow(radius: 2)
+    }
+}
+private struct ScorePill: View {
+    let score: Double
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "sparkles")
+            Text(String(format: "Score %.1f/10", score))
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+        }
+        .foregroundColor(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.white.opacity(0.14))
+        .clipShape(Capsule())
     }
 }
