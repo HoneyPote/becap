@@ -16,10 +16,13 @@ struct PostPagerView: View {
     @State private var playerConfig: PlayerConfiguration? = .postPager
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
-	@State private var isVideoReady = false
+        @State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
-    let postScores: [String: Double]   
+    @State private var activeCommentPostId: String?
+    @State private var showScoreCommentSheet = false
+    @State private var scoreCommentSheetText: String? = nil
+    let postScores: [String: ScoreCard]
 
     let getParticipant: (String) -> Participant?
     let onDelete: (String) -> Void
@@ -35,7 +38,7 @@ struct PostPagerView: View {
         init(posts: [ChallengePost],
              startIndex: Int = 0,
              challenge: Challenge,
-             postScores: [String: Double],
+             postScores: [String: ScoreCard],
              getParticipant: @escaping (String) -> Participant?,
              onDelete: @escaping (String) -> Void,
              onClose: @escaping () -> Void) {
@@ -48,7 +51,8 @@ struct PostPagerView: View {
             _viewModel = StateObject(wrappedValue: PostPagerViewModel(
                 posts: posts,
                 selectedPostIndex: startIndex,
-                challenge: challenge
+                challenge: challenge,
+                initialScoreCards: postScores
             ))
         }
 
@@ -82,6 +86,11 @@ struct PostPagerView: View {
                     .indexViewStyle(.page(backgroundDisplayMode: .interactive))
                 }
             }
+        }
+        .sheet(isPresented: $showScoreCommentSheet) {
+            ScoreCommentSheetView(comment: scoreCommentSheetText ?? "")
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
         }
         .interactiveDismissDisabled()
         .alert(isPresented: Binding<Bool>(
@@ -117,8 +126,28 @@ struct PostPagerView: View {
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
-            if let score = viewModel.scores[postVM.post.id] {
-                ScorePill(score: score)
+            if let scoreCard = viewModel.scoreCards[postVM.post.id] {
+                let comment = scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let hasComment = (comment?.isEmpty == false)
+
+                HStack(spacing: 10) {
+                    ScorePill(score: scoreCard.score)
+
+                    if hasComment {
+                        Button {
+                            scoreCommentSheetText = comment
+                            showScoreCommentSheet = true
+                        } label: {
+                            Image(systemName: "text.bubble.fill")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.white.opacity(0.14))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Voir l’avis GPT")
+                    }
+                }
             }
 
             imageView(for: postVM)
@@ -308,6 +337,17 @@ extension PostPagerView {
             pendingJokerAction = .vote
         }
     }
+
+    private func toggleCommentBubble(for postId: String, hasComment: Bool) {
+        guard hasComment else {
+            activeCommentPostId = nil
+            return
+        }
+
+        withAnimation {
+            activeCommentPostId = activeCommentPostId == postId ? nil : postId
+        }
+    }
 }
 
 // MARK: Comments section
@@ -413,5 +453,33 @@ private struct ScorePill: View {
         .padding(.vertical, 8)
         .background(Color.white.opacity(0.14))
         .clipShape(Capsule())
+    }
+}
+
+private struct ScoreCommentSheetView: View {
+    let comment: String
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Avis sur le plat", systemImage: "quote.bubble.fill")
+                        .font(.headline)
+
+                    Text(comment)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                }
+                .padding()
+            }
+            .navigationTitle("Analyse Becap")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fermer") { dismiss() }
+                }
+            }
+        }
     }
 }

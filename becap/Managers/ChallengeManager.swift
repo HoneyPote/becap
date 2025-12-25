@@ -32,7 +32,7 @@ protocol ChallengeManagerProtocol {
     func commentPost(post: ChallengePost, content: String) async throws
 
     // Scores & leaderboard
-    func fetchPostScores(for challengeId: String, postIds: [String]) async throws -> [String: Double]
+    func fetchPostScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard]
     func fetchScoreLeaderboard(for challengeId: String,
                                granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
 
@@ -416,8 +416,8 @@ extension ChallengeManager {
 
 // MARK: - Scores
 extension ChallengeManager {
-    func fetchPostScores(for challengeId: String, postIds: [String]) async throws -> [String: Double] {
-        try await scoringService.fetchScores(for: challengeId, postIds: postIds)
+    func fetchPostScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard] {
+        try await scoringService.fetchScoreCards(for: challengeId, postIds: postIds)
     }
 
     func fetchScoreLeaderboard(for challengeId: String,
