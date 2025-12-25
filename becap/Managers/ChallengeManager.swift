@@ -399,7 +399,12 @@ extension ChallengeManager {
     }
 
     private func isCulinaryChallenge(_ challenge: Challenge) -> Bool {
-        challenge.category == .nourriture
+        if let category = challenge.category {
+            return category == .nourriture
+        }
+
+        let loweredTitle = challenge.title.lowercased()
+        return loweredTitle.contains("cuisine") || loweredTitle.contains("nourriture") || loweredTitle.contains("food")
     }
 
     @discardableResult
