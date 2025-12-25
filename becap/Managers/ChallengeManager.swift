@@ -288,7 +288,9 @@ extension ChallengeManager {
         print("✅ Upload réussi, mise à jour progression Firestore...")
         try await updateParticipantProgress(for: challenge.id, userId: currentUserId, date: Date())
 
-        triggerScoring(for: uploadedPost, in: challenge)
+        if isCulinaryChallenge(challenge) {
+            await triggerScoring(for: uploadedPost, in: challenge)
+        }
 
         await notificationService.sendPostNotification(challenge: challenge,
                                                         authorName: currentUser.name,
@@ -396,20 +398,20 @@ extension ChallengeManager {
         posts[challengeId, default: []].append(post)
     }
 
-    private func triggerScoring(for post: ChallengePost, in challenge: Challenge) {
-        Task {
-            do {
-                try await scoringService.enqueueScoreEntry(for: post, in: challenge)
+    private func isCulinaryChallenge(_ challenge: Challenge) -> Bool {
+        challenge.category == .nourriture
+    }
 
-                // ✅ on process les pending (celle que tu viens d’ajouter est pending)
-                await scoringService.processPendingEntries(limit: 5)
-
-                // ✅ ping UI
-                NotificationCenter.default.post(name: .scoresDidUpdate, object: challenge.id)
-
-            } catch {
-                print("❌ [Scoring] \(error)")
-            }
+    @discardableResult
+    private func triggerScoring(for post: ChallengePost, in challenge: Challenge) async -> String? {
+        do {
+            let entryId = try await scoringService.enqueueScoreEntry(for: post, in: challenge)
+            await scoringService.processEntry(entryId: entryId)
+            NotificationCenter.default.post(name: .scoresDidUpdate, object: challenge.id)
+            return entryId
+        } catch {
+            print("❌ [Scoring] \(error)")
+            return nil
         }
     }
 }

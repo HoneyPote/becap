@@ -9,26 +9,16 @@ import Foundation
 
 enum CulinaryPromptBuilder {
     static let system = """
-    Tu es un jury culinaire exigeant. Évalue chaque plat selon ces critères :
-    - equilibre_nutritionnel
-    - diversite_ingredients
-    - cuisson_technique
-    - originalite_saisonnalite
-
-    Règles : les scores doivent être des entiers entre 0 et 10. Le commentaire doit faire 2 à 4 phrases.
+    Tu es un jury culinaire exigeant. Évalue chaque plat selon ces critères : présentation (très important), cohérence des ingrédients, goût (inféré à partir de l'image + texte, préciser si incertain).
     """
 
     static let outputSchema = """
     Réponds uniquement avec un JSON strict (sans texte autour) et respectant exactement le schéma :
     {
       "score_global": 0,
-      "details": {
-        "equilibre": 0,
-        "diversite": 0,
-        "technique": 0,
-        "originalite": 0
-      },
-      "commentaire": ""
+      "commentaire": "",
+      "ingredients_visibles": [""],
+      "remarques": [""]
     }
     """
 

@@ -88,9 +88,11 @@ struct PostPagerView: View {
             }
         }
         .sheet(isPresented: $showScoreCommentSheet) {
-            ScoreCommentSheetView(comment: scoreCommentSheetText ?? "")
-                .presentationDetents([.medium, .large])
-                .presentationDragIndicator(.visible)
+            if let comment = scoreCommentSheetText {
+                ScoreCommentSheet(comment: comment)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
         .interactiveDismissDisabled()
         .alert(isPresented: Binding<Bool>(
@@ -118,6 +120,9 @@ struct PostPagerView: View {
                              secondaryButton: .cancel())
             }
         }
+        .task {
+            viewModel.refreshScores()
+        }
     }
 
     private func currentPostContent(postVM: PostViewModel) -> some View {
@@ -128,26 +133,10 @@ struct PostPagerView: View {
                 .padding(.top, 2)
             if let scoreCard = viewModel.scoreCards[postVM.post.id] {
                 let comment = scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines)
-                let hasComment = (comment?.isEmpty == false)
 
-                HStack(spacing: 10) {
-                    ScorePill(score: scoreCard.score)
-
-                    if hasComment {
-                        Button {
-                            scoreCommentSheetText = comment
-                            showScoreCommentSheet = true
-                        } label: {
-                            Image(systemName: "text.bubble.fill")
-                                .foregroundColor(.white)
-                                .padding(10)
-                                .background(Color.white.opacity(0.14))
-                                .clipShape(Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Voir l’avis GPT")
-                    }
-                }
+                ScorePill(score: scoreCard.score,
+                          comment: comment,
+                          onShowComment: { showCommentSheet(with: comment) })
             }
 
             imageView(for: postVM)
@@ -236,6 +225,12 @@ struct PostPagerView: View {
                 }
             }
         }
+    }
+
+    private func showCommentSheet(with comment: String?) {
+        guard let comment, !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        scoreCommentSheetText = comment
+        showScoreCommentSheet = true
     }
 }
 
@@ -441,12 +436,26 @@ struct CommentsInputBar: View {
 }
 private struct ScorePill: View {
     let score: Double
+    let comment: String?
+    var onShowComment: (() -> Void)?
 
     var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "sparkles")
-            Text(String(format: "Score %.1f/10", score))
+        HStack(spacing: 10) {
+            Label(String(format: "Score %.1f/10", score), systemImage: "sparkles")
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
+
+            if let comment, !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let onShowComment {
+                Button(action: onShowComment) {
+                    Label("Avis", systemImage: "text.bubble")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.18))
+                        .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Voir l’avis GPT")
+            }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 12)
@@ -456,27 +465,30 @@ private struct ScorePill: View {
     }
 }
 
-private struct ScoreCommentSheetView: View {
+private struct ScoreCommentSheet: View {
     let comment: String
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationView {
-            ScrollView(showsIndicators: false) {
+        NavigationStack {
+            ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
-                    Label("Avis sur le plat", systemImage: "quote.bubble.fill")
-                        .font(.headline)
+                    Text("Avis GPT")
+                        .font(.title3.bold())
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
                     Text(comment)
-                        .font(.body)
-                        .foregroundColor(.primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(12)
                 }
                 .padding()
             }
-            .navigationTitle("Analyse Becap")
+            .navigationTitle("Avis GPT")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button("Fermer") { dismiss() }
                 }
             }
