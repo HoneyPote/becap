@@ -20,6 +20,8 @@ struct PostPagerView: View {
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
     @State private var activeCommentPostId: String?
+    @State private var showScoreCommentSheet = false
+    @State private var scoreCommentSheetText: String? = nil
     let postScores: [String: ScoreCard]
 
     let getParticipant: (String) -> Participant?
@@ -85,6 +87,11 @@ struct PostPagerView: View {
                 }
             }
         }
+        .sheet(isPresented: $showScoreCommentSheet) {
+            ScoreCommentSheetView(comment: scoreCommentSheetText ?? "")
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
         .interactiveDismissDisabled()
         .alert(isPresented: Binding<Bool>(
             get: { pendingJokerAction != nil },
@@ -120,17 +127,25 @@ struct PostPagerView: View {
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
             if let scoreCard = viewModel.scoreCards[postVM.post.id] {
-                let hasComment = !(scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
-                ScorePill(score: scoreCard.score,
-                          hasComment: hasComment,
-                          onTap: { toggleCommentBubble(for: postVM.post.id, hasComment: hasComment) })
-                .overlay(alignment: .topTrailing) {
-                    if activeCommentPostId == postVM.post.id,
-                       let comment = scoreCard.comment,
-                       !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        ScoreCommentBubble(comment: comment)
-                            .offset(y: -10)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                let comment = scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines)
+                let hasComment = (comment?.isEmpty == false)
+
+                HStack(spacing: 10) {
+                    ScorePill(score: scoreCard.score)
+
+                    if hasComment {
+                        Button {
+                            scoreCommentSheetText = comment
+                            showScoreCommentSheet = true
+                        } label: {
+                            Image(systemName: "text.bubble.fill")
+                                .foregroundColor(.white)
+                                .padding(10)
+                                .background(Color.white.opacity(0.14))
+                                .clipShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Voir l’avis GPT")
                     }
                 }
             }
@@ -426,57 +441,45 @@ struct CommentsInputBar: View {
 }
 private struct ScorePill: View {
     let score: Double
-    let hasComment: Bool
-    var onTap: (() -> Void)? = nil
 
     var body: some View {
-        let label = HStack(spacing: 8) {
+        HStack(spacing: 8) {
             Image(systemName: "sparkles")
             Text(String(format: "Score %.1f/10", score))
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
-
-            if hasComment {
-                Image(systemName: "text.bubble.fill")
-                    .font(.system(size: 12, weight: .semibold))
-                    .opacity(0.8)
-            }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(Color.white.opacity(0.14))
         .clipShape(Capsule())
-
-        if let onTap {
-            Button(action: onTap) {
-                label
-            }
-            .buttonStyle(.plain)
-        } else {
-            label
-        }
     }
 }
 
-private struct ScoreCommentBubble: View {
+private struct ScoreCommentSheetView: View {
     let comment: String
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Label("Avis GPT", systemImage: "quote.bubble.fill")
-                .font(.caption.bold())
-                .foregroundColor(.white.opacity(0.9))
+        NavigationView {
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 12) {
+                    Label("Avis sur le plat", systemImage: "quote.bubble.fill")
+                        .font(.headline)
 
-            Text(comment)
-                .font(.footnote)
-                .foregroundColor(.white)
-                .lineLimit(4)
-                .multilineTextAlignment(.leading)
+                    Text(comment)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                }
+                .padding()
+            }
+            .navigationTitle("Analyse Becap")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Fermer") { dismiss() }
+                }
+            }
         }
-        .padding(12)
-        .background(.ultraThinMaterial)
-        .background(Color.black.opacity(0.35))
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-        .shadow(color: .black.opacity(0.25), radius: 8, x: 0, y: 6)
     }
 }

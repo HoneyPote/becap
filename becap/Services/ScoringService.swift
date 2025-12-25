@@ -99,6 +99,7 @@ final class ScoringService: ScoringServiceProtocol {
             let entry = try snap.data(as: ScoreEntry.self)
 
             await process(entry: entry)
+            print("🧪 loaded entry participantId=\(entry.participantId) status=\(entry.status.rawValue)")
         } catch {
             print("[ScoringService] processEntry error:", error)
         }
