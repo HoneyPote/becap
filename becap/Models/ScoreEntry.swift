@@ -71,7 +71,7 @@ struct ScoreResult: Codable {
     var finishReason: String?
 }
 
-struct ScoreCard: Codable {
+struct ScoreCard: Codable, Equatable {
     let score: Double
     let comment: String?
 }

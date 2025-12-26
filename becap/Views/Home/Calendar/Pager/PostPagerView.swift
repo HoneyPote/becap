@@ -16,12 +16,17 @@ struct PostPagerView: View {
     @State private var playerConfig: PlayerConfiguration? = .postPager
     @State private var commentText: String = ""
     @State private var commentSectionIsShown: Bool = false
-        @State private var isVideoReady = false
+    @State private var isVideoReady = false
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
     @State private var activeCommentPostId: String?
+
+    // ✅ Sheet + loader state
     @State private var showScoreCommentSheet = false
     @State private var scoreCommentSheetText: String? = nil
+    @State private var scoreCommentIsLoading = false
+    @State private var scoreCommentPostId: String? = nil
+
     let postScores: [String: ScoreCard]
 
     let getParticipant: (String) -> Participant?
@@ -33,29 +38,26 @@ struct PostPagerView: View {
         case declare
     }
 
+    init(posts: [ChallengePost],
+         startIndex: Int = 0,
+         challenge: Challenge,
+         postScores: [String: ScoreCard],
+         getParticipant: @escaping (String) -> Participant?,
+         onDelete: @escaping (String) -> Void,
+         onClose: @escaping () -> Void) {
 
+        self.postScores = postScores
+        self.getParticipant = getParticipant
+        self.onDelete = onDelete
+        self.onClose = onClose
 
-        init(posts: [ChallengePost],
-             startIndex: Int = 0,
-             challenge: Challenge,
-             postScores: [String: ScoreCard],
-             getParticipant: @escaping (String) -> Participant?,
-             onDelete: @escaping (String) -> Void,
-             onClose: @escaping () -> Void) {
-
-            self.postScores = postScores
-            self.getParticipant = getParticipant
-            self.onDelete = onDelete
-            self.onClose = onClose
-
-            _viewModel = StateObject(wrappedValue: PostPagerViewModel(
-                posts: posts,
-                selectedPostIndex: startIndex,
-                challenge: challenge,
-                initialScoreCards: postScores
-            ))
-        }
-
+        _viewModel = StateObject(wrappedValue: PostPagerViewModel(
+            posts: posts,
+            selectedPostIndex: startIndex,
+            challenge: challenge,
+            initialScoreCards: postScores
+        ))
+    }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -87,11 +89,25 @@ struct PostPagerView: View {
                 }
             }
         }
+        // ✅ Sheet toujours affichable (loader si besoin)
         .sheet(isPresented: $showScoreCommentSheet) {
-            if let comment = scoreCommentSheetText {
-                ScoreCommentSheet(comment: comment)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
+            ScoreCommentSheet(
+                isLoading: scoreCommentIsLoading,
+                comment: scoreCommentSheetText
+            )
+            .presentationDetents([.medium, .large])
+            .presentationDragIndicator(.visible)
+        }
+        // ✅ Quand les scores se mettent à jour, on stoppe le loader si l'avis arrive
+        .onChange(of: viewModel.scoreCards) { _ in
+            guard scoreCommentIsLoading,
+                  let postId = scoreCommentPostId,
+                  let card = viewModel.scoreCards[postId] else { return }
+
+            let comment = card.comment?.trimmingCharacters(in: .whitespacesAndNewlines)
+            if let comment, !comment.isEmpty {
+                scoreCommentSheetText = comment
+                scoreCommentIsLoading = false
             }
         }
         .interactiveDismissDisabled()
@@ -103,21 +119,25 @@ struct PostPagerView: View {
 
             switch action {
             case .declare:
-                return Alert(title: Text("Utiliser un joker"),
-                             message: Text("Confirmer que cette journée consomme un de vos jokers ?"),
-                             primaryButton: .default(Text("Confirmer")) {
-                                viewModel.declareJokerUsage()
-                                pendingJokerAction = nil
-                             },
-                             secondaryButton: .cancel())
+                return Alert(
+                    title: Text("Utiliser un joker"),
+                    message: Text("Confirmer que cette journée consomme un de vos jokers ?"),
+                    primaryButton: .default(Text("Confirmer")) {
+                        viewModel.declareJokerUsage()
+                        pendingJokerAction = nil
+                    },
+                    secondaryButton: .cancel()
+                )
             case .vote:
-                return Alert(title: Text("Voter pour un joker"),
-                             message: Text("Confirmer que ce post doit utiliser un joker ?"),
-                             primaryButton: .default(Text("Voter")) {
-                                viewModel.toggleJokerVote()
-                                pendingJokerAction = nil
-                             },
-                             secondaryButton: .cancel())
+                return Alert(
+                    title: Text("Voter pour un joker"),
+                    message: Text("Confirmer que ce post doit utiliser un joker ?"),
+                    primaryButton: .default(Text("Voter")) {
+                        viewModel.toggleJokerVote()
+                        pendingJokerAction = nil
+                    },
+                    secondaryButton: .cancel()
+                )
             }
         }
         .task {
@@ -131,13 +151,6 @@ struct PostPagerView: View {
                 .font(.subheadline)
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.top, 2)
-            if let scoreCard = viewModel.scoreCards[postVM.post.id] {
-                let comment = scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines)
-
-                ScorePill(score: scoreCard.score,
-                          comment: comment,
-                          onShowComment: { showCommentSheet(with: comment) })
-            }
 
             imageView(for: postVM)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
@@ -150,7 +163,6 @@ struct PostPagerView: View {
 
                 HStack(spacing: 8) {
                     Image(systemName: "bubble.right.fill")
-
                     Text("Voir les commentaires")
                         .fontWeight(.semibold)
                 }
@@ -165,9 +177,7 @@ struct PostPagerView: View {
                 .clipShape(Capsule())
                 .shadow(color: .black.opacity(0.2), radius: 4, x: 0, y: 2)
                 .onTapGesture {
-                    withAnimation {
-                        commentSectionIsShown = true
-                    }
+                    withAnimation { commentSectionIsShown = true }
                 }
             }
 
@@ -218,7 +228,6 @@ struct PostPagerView: View {
                             onDelete(deletedPostId)
                         }
                     }
-
                     Button("Annuler", role: .cancel) { }
                 } message: {
                     Text("Cette action est irréversible.")
@@ -227,14 +236,22 @@ struct PostPagerView: View {
         }
     }
 
-    private func showCommentSheet(with comment: String?) {
-        guard let comment, !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        scoreCommentSheetText = comment
+    // ✅ Ouvre la sheet même si l’avis n’est pas encore là
+    private func showCommentSheet(for postId: String) {
+        scoreCommentPostId = postId
+        scoreCommentSheetText = nil
+        scoreCommentIsLoading = true
         showScoreCommentSheet = true
+
+        if let comment = viewModel.scoreCards[postId]?.comment?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !comment.isEmpty {
+            scoreCommentSheetText = comment
+            scoreCommentIsLoading = false
+        }
     }
 }
 
-// MARK: Image section
+// MARK: - Image section
 extension PostPagerView {
     private func imageView(for postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottom) {
@@ -242,9 +259,11 @@ extension PostPagerView {
                 if case .image(let url) = postVM.post.media, let imageUrl = URL(string: url) {
                     AsyncCachedImage(url: imageUrl)
                 } else if case .video(let data) = postVM.post.media, let videoUrl = URL(string: data.videoURL) {
-                    CustomVideoPlayer(videoURL: videoUrl,
-                                      thumbnailURL: URL(string: data.thumbnailURL ?? ""),
-                                      configuration: commentSectionIsShown ? .postPagerComments : .postPager)
+                    CustomVideoPlayer(
+                        videoURL: videoUrl,
+                        thumbnailURL: URL(string: data.thumbnailURL ?? ""),
+                        configuration: commentSectionIsShown ? .postPagerComments : .postPager
+                    )
                 }
             }
             .frame(maxWidth: commentSectionIsShown ? 150 : .infinity, maxHeight: 490)
@@ -258,17 +277,21 @@ extension PostPagerView {
                             .shadow(radius: 3)
                     }
 
-                    LikeSection(postLikes: postVM.likes,
-                                likeAction: { _ in viewModel.likeAction() },
-                                unlikeAction: { _ in viewModel.unlikeAction() },
-                                getParticipant: getParticipant)
+                    LikeSection(
+                        postLikes: postVM.likes,
+                        likeAction: { _ in viewModel.likeAction() },
+                        unlikeAction: { _ in viewModel.unlikeAction() },
+                        getParticipant: getParticipant
+                    )
                 }
                 .padding()
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
-                    LinearGradient(gradient: Gradient(colors: [Color.black.opacity(0.7), .clear]),
-                                   startPoint: .bottom,
-                                   endPoint: .top)
+                    LinearGradient(
+                        gradient: Gradient(colors: [Color.black.opacity(0.7), .clear]),
+                        startPoint: .bottom,
+                        endPoint: .top
+                    )
                 )
             }
 
@@ -284,6 +307,19 @@ extension PostPagerView {
                     }
                     .frame(maxWidth: commentSectionIsShown ? 150 : .infinity, maxHeight: 490)
                     .allowsHitTesting(true)
+            }
+        }
+        // ✅ Score + Avis au-dessus de la photo
+        .overlay(alignment: .topLeading) {
+            if let scoreCard = viewModel.scoreCards[postVM.post.id] {
+                let hasComment = !(scoreCard.comment?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+
+                ScorePillOverlay(
+                    score: scoreCard.score,
+                    hasComment: hasComment,
+                    onShowComment: { showCommentSheet(for: postVM.post.id) }
+                )
+                .padding(14)
             }
         }
         .overlay(alignment: .bottomTrailing) {
@@ -332,27 +368,15 @@ extension PostPagerView {
             pendingJokerAction = .vote
         }
     }
-
-    private func toggleCommentBubble(for postId: String, hasComment: Bool) {
-        guard hasComment else {
-            activeCommentPostId = nil
-            return
-        }
-
-        withAnimation {
-            activeCommentPostId = activeCommentPostId == postId ? nil : postId
-        }
-    }
 }
 
-// MARK: Comments section
+// MARK: - Comments section
 extension PostPagerView {
     private func commentSection(postVM: PostViewModel) -> some View {
         ZStack(alignment: .bottom) {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 6) {
                     commentList(comments: postVM.comments)
-
                     Divider().background(Color.white.opacity(0.3))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -360,9 +384,11 @@ extension PostPagerView {
                 .padding(.bottom, 65)
             }
 
-            CommentsInputBar(commentText: $commentText,
-                             isTextFieldFocused: $isTextFieldFocused,
-                             onSubmit: { sendComment(postVM: postVM) })
+            CommentsInputBar(
+                commentText: $commentText,
+                isTextFieldFocused: $isTextFieldFocused,
+                onSubmit: { sendComment(postVM: postVM) }
+            )
             .frame(maxWidth: .infinity)
             .animation(.easeOut(duration: 0.25), value: keyboard.keyboardHeight)
         }
@@ -434,56 +460,89 @@ struct CommentsInputBar: View {
         .shadow(radius: 2)
     }
 }
-private struct ScorePill: View {
+
+// MARK: - New UI
+
+private struct ScorePillOverlay: View {
     let score: Double
-    let comment: String?
-    var onShowComment: (() -> Void)?
+    let hasComment: Bool
+    let onShowComment: () -> Void
 
     var body: some View {
         HStack(spacing: 10) {
             Label(String(format: "Score %.1f/10", score), systemImage: "sparkles")
                 .font(.system(.subheadline, design: .rounded).weight(.bold))
 
-            if let comment, !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, let onShowComment {
-                Button(action: onShowComment) {
-                    Label("Avis", systemImage: "text.bubble")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(Color.white.opacity(0.18))
-                        .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Voir l’avis GPT")
+            Button(action: onShowComment) {
+                Label("Avis", systemImage: "text.bubble")
+                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.18))
+                    .clipShape(Capsule())
             }
+            .buttonStyle(.plain)
+            .opacity(hasComment ? 1 : 0.75)
+            .accessibilityLabel("Voir l’avis GPT")
         }
         .foregroundColor(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
-        .background(Color.white.opacity(0.14))
+        .background(.ultraThinMaterial)
         .clipShape(Capsule())
     }
 }
 
 private struct ScoreCommentSheet: View {
-    let comment: String
+    let isLoading: Bool
+    let comment: String?
+
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Avis GPT")
-                        .font(.title3.bold())
-                        .frame(maxWidth: .infinity, alignment: .leading)
+            Group {
+                if isLoading {
+                    VStack(spacing: 14) {
+                        ProgressView()
+                            .scaleEffect(1.1)
 
-                    Text(comment)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(12)
-                        .background(Color(.secondarySystemBackground))
-                        .cornerRadius(12)
+                        Text("On analyse ton plat…")
+                            .font(.headline)
+
+                        Text("L’avis GPT arrive dans quelques secondes 🙂")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if let comment, !comment.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Avis GPT")
+                                .font(.title3.bold())
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Text(comment)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .padding(12)
+                                .background(Color(.secondarySystemBackground))
+                                .cornerRadius(12)
+                        }
+                        .padding()
+                    }
+                } else {
+                    VStack(spacing: 10) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.title2)
+                        Text("Aucun avis pour l’instant.")
+                            .font(.headline)
+                        Text("Réessaie dans un moment.")
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
-                .padding()
             }
             .navigationTitle("Avis GPT")
             .navigationBarTitleDisplayMode(.inline)

@@ -292,17 +292,14 @@ private extension ScoringService {
             return try await sendMessages(messages)
         }
 
+
         private func buildScoringPrompt(entry: ScoreEntry, dishDescription: String) -> String {
             """
-            \(entry.prompt)
+            Contexte du post :
+            - Défi : \(entry.challengeId)
+            - Description utilisateur : \(dishDescription)
 
-            Instructions de scoring :
-            - Présentation visuelle : très important, décrire si la photo paraît soignée.
-            - Cohérence des ingrédients : important.
-            - Goût : inférer grâce au visuel + description, mentionner si incertain.
-            - Réponds en JSON strict sans texte autour.
-
-            Description du plat par l'utilisateur : \(dishDescription)
+            Analyse ce plat à partir des informations fournies.
             """
         }
 
@@ -320,15 +317,41 @@ private extension ScoringService {
 
         private var systemPrompt: String {
             """
-            Tu es un chef réputé. Analyse attentivement le texte et l'image pour évaluer le plat.
-            Respecte ce format JSON unique :
+            Tu es un évaluateur culinaire objectif et rationnel.
+
+            Ta mission est d’évaluer un plat en t’appuyant sur :
+            - en priorité les ALIMENTS visibles sur la photo,
+            - puis la description fournie par l’utilisateur lorsqu’elle permet
+              de confirmer ou préciser ce qui n’est pas clairement visible
+              (ingrédients internes, assaisonnement, mode de cuisson).
+
+            Règles strictes :
+            - Ne base jamais l’évaluation uniquement sur la présentation visuelle.
+            - Ne considère la description utilisateur que si elle est cohérente
+              avec ce que suggère l’image.
+            - N’invente jamais d’ingrédients ou de techniques absents du visuel
+              ou incompatibles avec la photo.
+            - En cas d’incertitude (photo floue, ingrédients peu identifiables),
+              mentionne-le explicitement dans le commentaire.
+
+            Critères d’évaluation (par ordre d’importance) :
+            1. Qualité et cohérence des ingrédients visibles
+            2. Pertinence nutritionnelle globale
+            3. Technique apparente (cuisson, assemblage)
+            4. Présentation visuelle (critère secondaire)
+
+            Échelle de notation :
+            - 0–3 : ingrédients pauvres, incohérents ou mal exécutés
+            - 4–6 : plat correct mais basique ou déséquilibré
+            - 7–8 : ingrédients pertinents, bonne cohérence, exécution solide
+            - 9–10 : excellente sélection d’ingrédients et maîtrise évidente
+
+            Réponds STRICTEMENT avec un JSON valide, sans aucun texte autour.
+            Format attendu EXACT :
             {
               "score_global": 0-10,
-              "commentaire": "string courte et utile",
-              "ingredients_visibles": ["..."],
-              "remarques": ["..."]
+              "commentaire": "Justification concise basée sur les ingrédients visibles et la description si pertinente"
             }
-            N'ajoute pas d'autre texte.
             """
         }
 
