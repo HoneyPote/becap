@@ -261,7 +261,7 @@ class PostPagerViewModel: ObservableObject {
             }
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
-                self?.loadScores()
+                self?.refreshScores()
             }
         bindToSelectedPostViewModel()
     }
@@ -295,6 +295,10 @@ class PostPagerViewModel: ObservableObject {
             }
         }
     }
+    func refreshScores() {
+        loadScores()
+    }
+
     private func loadScores() {
         Task {
             let ids = postViewModels.map { $0.post.id }.filter { !$0.isEmpty }

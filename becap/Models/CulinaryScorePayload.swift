@@ -8,14 +8,8 @@
 import Foundation
 
 struct CulinaryScorePayload: Decodable {
-    let scoreGlobal: Int
-    let details: Details
+    let scoreGlobal: Double
     let commentaire: String
-
-    struct Details: Decodable {
-        let equilibre: Int
-        let diversite: Int
-        let technique: Int
-        let originalite: Int
-    }
+    let ingredientsVisibles: [String]?
+    let remarques: [String]?
 }

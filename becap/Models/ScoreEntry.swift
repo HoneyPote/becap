@@ -15,6 +15,7 @@ struct ScoreEntry: Identifiable, Codable {
     var challengeId: String
     var postId: String?
     var dishDescription: String?
+    var imageURL: String?
     var prompt: String
     var createdAt: Date
     var status: Status
@@ -36,6 +37,7 @@ struct ScoreEntry: Identifiable, Codable {
          challengeId: String,
          postId: String? = nil,
          dishDescription: String? = nil,
+         imageURL: String? = nil,
          prompt: String,
          createdAt: Date = Date(),
          status: Status = .pending,
@@ -49,6 +51,7 @@ struct ScoreEntry: Identifiable, Codable {
         self.challengeId = challengeId
         self.postId = postId
         self.dishDescription = dishDescription
+        self.imageURL = imageURL
         self.prompt = prompt
         self.createdAt = createdAt
         self.status = status
@@ -68,7 +71,7 @@ struct ScoreResult: Codable {
     var finishReason: String?
 }
 
-struct ScoreCard: Codable {
+struct ScoreCard: Codable, Equatable {
     let score: Double
     let comment: String?
 }
