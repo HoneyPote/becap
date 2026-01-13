@@ -83,6 +83,11 @@ struct CalendarDetailView: View {
                     }
                 }
 
+                if let cell = selectedGridCell {
+                    buildGridPosts(cell: cell)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+
                 Spacer(minLength: 0)
             }
         }
@@ -90,24 +95,6 @@ struct CalendarDetailView: View {
             backgroundImageView
         )
         .coordinateSpace(name: "CalendarDetailRoot")
-        // Bubble with the inline grid
-        .overlay {
-            if let cell = selectedGridCell {
-                ZStack {
-                    // tap-catcher UNDER the bubble
-                    Color.black.opacity(0.001)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation { selectedGridCell = nil }
-                        }
-
-                    BubbleOverlay {
-                        buildGridPosts(cell: cell)
-                    }
-                    .transition(.scale.combined(with: .opacity))
-                }
-            }
-        }
         .overlay {
             jockerOverlay
         }
