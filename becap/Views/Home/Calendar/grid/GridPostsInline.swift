@@ -49,22 +49,21 @@ struct GridPostsInline: View {
     private var hasDocuments: Bool { !documentAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
+    @ViewBuilder
     private var influencerHero: some View {
-        VStack(spacing: InlineStyle.sectionSpacing) {
-            SectionHeader(title: "Sélection de l'influenceur",
-                          subtitle: "Contenu premium du jour",
-                          symbol: "sparkles")
+        if hasInfluencerMedia {
+            VStack(spacing: InlineStyle.sectionSpacing) {
+                SectionHeader(title: "Sélection de l'influenceur",
+                              subtitle: "Contenu premium du jour",
+                              symbol: "sparkles")
 
-            if hasInfluencerMedia {
                 InfluencerCarousel(attachments: influencerMediaAttachments,
                                    previewKind: { previewKind(for: $0) },
                                    onOpen: { open(attachment: $0) })
-            } else {
-                EmptyStateView(text: "Aucun média de l'influenceur aujourd'hui.")
             }
+            .padding(.horizontal, InlineStyle.horizontalPadding)
+            .padding(.bottom, 6)
         }
-        .padding(.horizontal, InlineStyle.horizontalPadding)
-        .padding(.bottom, 6)
     }
 
     var body: some View {
@@ -75,16 +74,14 @@ struct GridPostsInline: View {
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
-                    Section {
-                        if hasPosts {
+                    if hasPosts {
+                        Section {
                             LazyVGrid(columns: columns, spacing: InlineStyle.gridSpacing) {
                                 postsView
                             }
-                        } else {
-                            EmptyStateView(text: "Aucun post partagé ce jour.")
+                        } header: {
+                            SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "photo.on.rectangle.angled")
                         }
-                    } header: {
-                        SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "photo.on.rectangle.angled")
                     }
 
                     if hasDocuments {
@@ -102,12 +99,6 @@ struct GridPostsInline: View {
                         } header: {
                             SectionHeader(title: "Documents premium", subtitle: "PDF & guides", symbol: "doc.richtext")
                         }
-                    } else {
-                        Section {
-                            EmptyStateView(text: "Aucun document premium pour cette journée.")
-                        } header: {
-                            SectionHeader(title: "Documents premium", subtitle: "PDF & guides", symbol: "doc.richtext")
-                        }
                     }
 
                     if hasJokers {
@@ -117,12 +108,6 @@ struct GridPostsInline: View {
                                     JokerRow(usage: usage)
                                 }
                             }
-                        } header: {
-                            SectionHeader(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "circle.hexagonpath")
-                        }
-                    } else {
-                        Section {
-                            EmptyStateView(text: "Aucun joker utilisé aujourd'hui.")
                         } header: {
                             SectionHeader(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "circle.hexagonpath")
                         }
