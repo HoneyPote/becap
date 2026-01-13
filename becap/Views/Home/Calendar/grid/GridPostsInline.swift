@@ -51,6 +51,8 @@ struct GridPostsInline: View {
 
     var body: some View {
         VStack(spacing: InlineStyle.outerSpacing) {
+            InlineHeader(onClose: onClose)
+
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
                     if hasInfluencerMedia || hasDocuments {
@@ -247,7 +249,7 @@ private enum InlineStyle {
     static let gridSpacing: CGFloat = 10
     static let horizontalPadding: CGFloat = 16
     static let bottomPadding: CGFloat = 24
-    static let topPadding: CGFloat = 8
+    static let topPadding: CGFloat = 4
     static let containerInset: CGFloat = 14
     static let containerRadius: CGFloat = 22
     static let cardRadius: CGFloat = 18
@@ -274,6 +276,27 @@ private struct InlineContainerBackground: View {
                     .stroke(Color.white.opacity(0.08), lineWidth: 1)
             )
             .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 12)
+    }
+}
+
+private struct InlineHeader: View {
+    let onClose: () -> Void
+
+    var body: some View {
+        HStack {
+            Spacer()
+
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Color.black.opacity(0.3))
+                    .clipShape(Circle())
+            }
+            .accessibilityLabel("Fermer")
+        }
+        .padding(.horizontal, InlineStyle.horizontalPadding)
     }
 }
 
