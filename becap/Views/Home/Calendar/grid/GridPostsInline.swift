@@ -119,14 +119,7 @@ struct GridPostsInline: View {
             .frame(maxHeight: InlineStyle.maxHeight)
         }
         .padding(.top, InlineStyle.topPadding)
-        .background(
-            RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-                .fill(InlineStyle.containerFill)
-                .overlay(
-                    RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-                        .stroke(Color.white.opacity(InlineStyle.containerStrokeOpacity), lineWidth: 0.8)
-                )
-        )
+        .background(InlineContainerBackground())
         .padding(.horizontal, InlineStyle.containerInset)
         .fullScreenCover(item: $presentedPreview) { preview in
             AttachmentPreviewScreen(preview: preview)
@@ -265,8 +258,6 @@ private enum InlineStyle {
     static let smallRadius: CGFloat = 12
     static let maxHeight: CGFloat = 460
     static let heroHeight: CGFloat = 190
-    static let containerStrokeOpacity: Double = 0.2
-    static let containerFill: some ShapeStyle = .ultraThinMaterial
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
     static let secondaryTextOpacity: Double = 0.72
     static let captionOpacity: Double = 0.58
@@ -307,6 +298,45 @@ private struct InlineHeader: View {
             .accessibilityLabel("Fermer")
         }
         .padding(.horizontal, InlineStyle.horizontalPadding)
+    }
+}
+
+private struct InlineContainerBackground: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+            .fill(Color.black.opacity(0.78))
+            .overlay(
+                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.12),
+                                Color.white.opacity(0.02),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .blendMode(.screen)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.35),
+                                Color.white.opacity(0.08),
+                                Color.clear
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1
+                    )
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 16)
+            .padding(.vertical, 4)
     }
 }
 
