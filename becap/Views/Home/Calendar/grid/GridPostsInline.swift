@@ -49,31 +49,27 @@ struct GridPostsInline: View {
     private var hasDocuments: Bool { !documentAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
-    @ViewBuilder
-    private var influencerHero: some View {
-        if hasInfluencerMedia {
-            VStack(spacing: InlineStyle.sectionSpacing) {
-                SectionHeader(title: "Sélection de l'influenceur",
-                              subtitle: "Contenu premium du jour",
-                              symbol: "sparkles")
-
-                InfluencerCarousel(attachments: influencerMediaAttachments,
-                                   previewKind: { previewKind(for: $0) },
-                                   onOpen: { open(attachment: $0) })
-            }
-            .padding(.horizontal, InlineStyle.horizontalPadding)
-            .padding(.bottom, 6)
-        }
-    }
-
     var body: some View {
         VStack(spacing: InlineStyle.outerSpacing) {
-            InlineHeader(date: cell.date, onClose: onClose)
-
-            influencerHero
-
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
+                    if hasInfluencerMedia || hasDocuments {
+                        HStack(spacing: InlineStyle.gridSpacing) {
+                            if hasInfluencerMedia, let firstInfluencer = influencerMediaAttachments.first {
+                                InfluencerCompactCard(attachment: firstInfluencer,
+                                                      previewKind: previewKind(for: firstInfluencer),
+                                                      count: influencerMediaAttachments.count,
+                                                      onOpen: { open(attachment: firstInfluencer) })
+                            }
+
+                            if hasDocuments, let firstDocument = documentAttachments.first {
+                                DocumentCompactCard(attachment: firstDocument,
+                                                    count: documentAttachments.count,
+                                                    onOpen: { open(attachment: firstDocument) })
+                            }
+                        }
+                    }
+
                     if hasPosts {
                         Section {
                             LazyVGrid(columns: columns, spacing: InlineStyle.gridSpacing) {
@@ -119,6 +115,8 @@ struct GridPostsInline: View {
             .frame(maxHeight: InlineStyle.maxHeight)
         }
         .padding(.top, InlineStyle.topPadding)
+        .padding(.horizontal, InlineStyle.containerInset)
+        .background(InlineContainerBackground())
         .fullScreenCover(item: $presentedPreview) { preview in
             AttachmentPreviewScreen(preview: preview)
         }
@@ -250,10 +248,12 @@ private enum InlineStyle {
     static let horizontalPadding: CGFloat = 16
     static let bottomPadding: CGFloat = 24
     static let topPadding: CGFloat = 8
+    static let containerInset: CGFloat = 14
+    static let containerRadius: CGFloat = 22
     static let cardRadius: CGFloat = 18
     static let smallRadius: CGFloat = 12
     static let maxHeight: CGFloat = 460
-    static let heroHeight: CGFloat = 190
+    static let compactCardHeight: CGFloat = 120
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
     static let secondaryTextOpacity: Double = 0.72
     static let captionOpacity: Double = 0.58
@@ -265,35 +265,15 @@ private enum AttachmentPreviewKind {
     case unknown
 }
 
-private struct InlineHeader: View {
-    let date: Date
-    let onClose: () -> Void
-
+private struct InlineContainerBackground: View {
     var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(date, style: .date)
-                    .font(.system(.title3, design: .rounded).weight(.bold))
-                    .foregroundColor(.white)
-
-                Text(date, style: .time)
-                    .font(.system(.footnote, design: .rounded))
-                    .foregroundColor(.white.opacity(InlineStyle.captionOpacity))
-            }
-
-            Spacer()
-
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Color.black.opacity(0.3))
-                    .clipShape(Circle())
-            }
-            .accessibilityLabel("Fermer")
-        }
-        .padding(.horizontal, InlineStyle.horizontalPadding)
+        RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+            .fill(Color(red: 0.03, green: 0.09, blue: 0.11).opacity(0.9))
+            .overlay(
+                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+            )
+            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 12)
     }
 }
 
@@ -331,51 +311,6 @@ private struct SectionHeader: View {
     }
 }
 
-private struct PreviewCard<Content: View>: View {
-    let title: String
-    let subtitle: String
-    let accent: Color
-    let content: Content
-
-    init(title: String, subtitle: String, accent: Color, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.subtitle = subtitle
-        self.accent = accent
-        self.content = content()
-    }
-
-    var body: some View {
-        PremiumCard {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(title)
-                            .font(.system(.headline, design: .rounded).weight(.semibold))
-                            .foregroundColor(.white)
-                        Text(subtitle)
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundColor(.white.opacity(InlineStyle.captionOpacity))
-                    }
-
-                    Spacer()
-
-                    Circle()
-                        .fill(accent.opacity(0.15))
-                        .frame(width: 32, height: 32)
-                        .overlay(
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(accent)
-                        )
-                }
-
-                content
-                    .clipShape(RoundedRectangle(cornerRadius: InlineStyle.smallRadius, style: .continuous))
-            }
-        }
-    }
-}
-
 private struct PremiumCard<Content: View>: View {
     let content: Content
 
@@ -398,30 +333,10 @@ private struct PremiumCard<Content: View>: View {
     }
 }
 
-private struct InfluencerCarousel: View {
-    let attachments: [PremiumCalendarAttachment]
-    let previewKind: (PremiumCalendarAttachment) -> AttachmentPreviewKind
-    let onOpen: (PremiumCalendarAttachment) -> Void
-
-    var body: some View {
-        PremiumCard {
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(spacing: InlineStyle.gridSpacing) {
-                    ForEach(attachments) { attachment in
-                        MediaTile(attachment: attachment,
-                                  previewKind: previewKind(attachment),
-                                  onOpen: { onOpen(attachment) })
-                    }
-                }
-                .padding(.vertical, 4)
-            }
-        }
-    }
-}
-
-private struct MediaTile: View {
+private struct InfluencerCompactCard: View {
     let attachment: PremiumCalendarAttachment
     let previewKind: AttachmentPreviewKind
+    let count: Int
     let onOpen: () -> Void
 
     @State private var thumbnail: UIImage?
@@ -435,7 +350,7 @@ private struct MediaTile: View {
         Button(action: onOpen) {
             ZStack(alignment: .bottomLeading) {
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.12))
+                    .fill(Color.white.opacity(0.06))
 
                 if let thumbnail {
                     Image(uiImage: thumbnail)
@@ -445,7 +360,7 @@ private struct MediaTile: View {
                         .overlay(
                             LinearGradient(colors: [
                                 Color.black.opacity(0.55),
-                                Color.black.opacity(0.05)
+                                Color.black.opacity(0.1)
                             ], startPoint: .bottom, endPoint: .top)
                         )
                 } else if let remoteURL, previewKind == .image {
@@ -455,53 +370,36 @@ private struct MediaTile: View {
                         .overlay(
                             LinearGradient(colors: [
                                 Color.black.opacity(0.55),
-                                Color.black.opacity(0.05)
+                                Color.black.opacity(0.1)
                             ], startPoint: .bottom, endPoint: .top)
                         )
                 } else {
                     VStack(spacing: 8) {
                         Image(systemName: previewKind == .video ? "play.circle.fill" : "photo.fill")
-                            .font(.system(size: 28, weight: .bold))
-                            .foregroundColor(.white.opacity(0.7))
-
-                        Text(attachment.title)
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.white.opacity(0.75))
+                        Text("Influenceur")
                             .font(.system(.footnote, design: .rounded).weight(.semibold))
                             .foregroundColor(.white.opacity(0.8))
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
-                            .padding(.horizontal, 12)
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(attachment.title)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Influenceur")
                         .font(.system(.subheadline, design: .rounded).weight(.semibold))
                         .foregroundColor(.white)
-                        .lineLimit(2)
-
-                    Text(previewKind == .video ? "Vidéo" : "Photo")
+                    Text("\(count) média\(count > 1 ? "s" : "")")
                         .font(.system(.caption, design: .rounded))
                         .foregroundColor(.white.opacity(InlineStyle.secondaryTextOpacity))
                 }
-                .padding(12)
-
-                if previewKind == .video {
-                    Image(systemName: "play.fill")
-                        .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.black.opacity(0.55))
-                        .clipShape(Circle())
-                        .padding(12)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                }
+                .padding(10)
             }
-            .frame(width: 240, height: InlineStyle.heroHeight)
+            .frame(height: InlineStyle.compactCardHeight)
+            .frame(maxWidth: .infinity)
             .clipShape(RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.18), lineWidth: 0.8)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
             )
         }
         .buttonStyle(.plain)
@@ -536,6 +434,48 @@ private struct MediaTile: View {
         let time = CMTime(seconds: 0.2, preferredTimescale: 600)
         guard let cgImage = try? generator.copyCGImage(at: time, actualTime: nil) else { return nil }
         return UIImage(cgImage: cgImage)
+    }
+}
+
+private struct DocumentCompactCard: View {
+    let attachment: PremiumCalendarAttachment
+    let count: Int
+    let onOpen: () -> Void
+
+    var body: some View {
+        Button(action: onOpen) {
+            ZStack(alignment: .bottomLeading) {
+                RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
+                    .fill(Color.white.opacity(0.06))
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Image(systemName: "doc.richtext.fill")
+                        .font(.system(size: 22, weight: .bold))
+                        .foregroundColor(.white.opacity(0.8))
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                    Text("Documents")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white)
+
+                    Text("\(count) fichier\(count > 1 ? "s" : "")")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundColor(.white.opacity(InlineStyle.secondaryTextOpacity))
+                }
+                .padding(10)
+            }
+            .frame(height: InlineStyle.compactCardHeight)
+            .frame(maxWidth: .infinity)
+            .clipShape(RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Ouvrir document premium")
     }
 }
 
