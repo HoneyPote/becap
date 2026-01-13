@@ -639,6 +639,14 @@ private struct AttachmentRow: View {
     }
 }
 
+struct PremiumAttachmentRow: View {
+    let attachment: PremiumCalendarAttachment
+
+    var body: some View {
+        AttachmentRow(attachment: attachment)
+    }
+}
+
 private struct JokerRow: View {
     let usage: CalendarDayJokerUsage
 
