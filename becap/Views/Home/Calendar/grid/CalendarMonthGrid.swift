@@ -69,33 +69,65 @@ struct CalendarMonthGrid: View {
     }
 
     private let cellHeight: CGFloat = 72
+    private let compactCellHeight: CGFloat = 60
 
     var body: some View {
         ScrollView {
             LazyVStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    header
-
-                    WeekdayHeader()
-
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 10) {
-                        dayCells
-                    }
-                    .padding(.horizontal, 2)
+                if let selectedDate {
+                    compactWeekView(for: selectedDate)
+                } else {
+                    fullMonthView
                 }
-                .padding(.vertical, 6)
-                .padding(.horizontal, 6)
-                .background(
-                    RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .fill(Color.white.opacity(0.06))
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
-                )
             }
             .padding(.vertical, 6)
         }
+    }
+
+    private var fullMonthView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            header
+
+            WeekdayHeader()
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 10) {
+                dayCells
+            }
+            .padding(.horizontal, 2)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.06))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color.white.opacity(0.18), lineWidth: 0.7)
+        )
+    }
+
+    private func compactWeekView(for selectedDate: Date) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            compactHeader(for: selectedDate)
+
+            WeekdayHeader()
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 7), spacing: 10) {
+                compactDayCells(for: selectedDate)
+            }
+            .padding(.horizontal, 2)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(Color.white.opacity(0.2), lineWidth: 0.8)
+        )
     }
 
     @ViewBuilder
@@ -194,6 +226,38 @@ struct CalendarMonthGrid: View {
         }
     }
 
+    @ViewBuilder
+    private func compactDayCells(for selectedDate: Date) -> some View {
+        let weekDates = weekDates(for: selectedDate)
+
+        ForEach(weekDates.indices, id: \.self) { index in
+            if let item = weekDates[index] {
+                let day = calendar.startOfDay(for: item.date)
+                var hasPosts: Bool { postCountByDay[day] ?? 0 > 0 }
+                var hasAttachments: Bool { attachmentCountByDay[day] ?? 0 > 0 }
+                var hasJokerUsage: Bool { jokerCountByDay[day] ?? 0 > 0 }
+
+                let currentUserUsedJoker = currentUserJokerDays.contains(day)
+                let isSelected = calendar.isDate(selectedDate, inSameDayAs: day)
+
+                DayCell(date: day,
+                        dayNumber: item.dayNumber,
+                        currentUserUsedJoker: currentUserUsedJoker,
+                        isToday: calendar.isDateInToday(day),
+                        isSelected: isSelected) {
+                    if hasPosts || hasJokerUsage || hasAttachments {
+                        Haptics.lightTap()
+                    }
+                    onSelectDate(day)
+                }
+                .frame(height: compactCellHeight)
+            } else {
+                CompactDayPlaceholder()
+                    .frame(height: compactCellHeight)
+            }
+        }
+    }
+
     private var jokerBadgeGradient: LinearGradient {
         LinearGradient(colors: [
             Color(red: 0.78, green: 0.47, blue: 0.98),
@@ -225,6 +289,37 @@ struct CalendarMonthGrid: View {
         }
     }
 
+    private func compactHeader(for selectedDate: Date) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(selectedDate, style: .date)
+                .font(.system(.title3, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+                .padding(.leading, 6)
+
+            Text("Semaine sélectionnée")
+                .font(.system(size: 13, weight: .medium, design: .rounded))
+                .foregroundColor(Color.white.opacity(0.65))
+                .padding(.leading, 6)
+        }
+    }
+
+    private func weekDates(for selectedDate: Date) -> [DayItem?] {
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: selectedDate) else {
+            return Array(repeating: nil, count: 7)
+        }
+
+        let startOfChallenge = calendar.startOfDay(for: startDate)
+        let endOfChallenge = calendar.date(byAdding: .day, value: days - 1, to: startOfChallenge)
+
+        return (0..<7).map { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: weekInterval.start) else { return nil }
+            guard let endDate = endOfChallenge else { return nil }
+            guard date >= startOfChallenge && date <= endDate else { return nil }
+            let dayNumber = calendar.dateComponents([.day], from: startOfChallenge, to: date).day ?? 0
+            return DayItem(date: date, dayNumber: dayNumber + 1)
+        }
+    }
+
     private var intervalFormatter: DateIntervalFormatter {
         let formatter = DateIntervalFormatter()
         formatter.locale = Locale(identifier: "fr_FR")
@@ -237,5 +332,16 @@ struct CalendarMonthGrid: View {
         let date: Date
         let dayNumber: Int
         var id: Int { dayNumber }
+    }
+}
+
+private struct CompactDayPlaceholder: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(Color.white.opacity(0.05))
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.8)
+            )
     }
 }
