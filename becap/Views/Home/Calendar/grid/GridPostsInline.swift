@@ -56,6 +56,8 @@ struct GridPostsInline: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
                     if hasInfluencerMedia || hasDocuments {
+                        SectionHeader(title: "Contenus premium", subtitle: "Influenceur & documents", symbol: "sparkles")
+
                         HStack(spacing: InlineStyle.gridSpacing) {
                             if hasInfluencerMedia, let firstInfluencer = influencerMediaAttachments.first {
                                 InfluencerCompactCard(attachment: firstInfluencer,
@@ -79,23 +81,6 @@ struct GridPostsInline: View {
                             }
                         } header: {
                             SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "photo.on.rectangle.angled")
-                        }
-                    }
-
-                    if hasDocuments {
-                        Section {
-                            VStack(spacing: InlineStyle.gridSpacing) {
-                                ForEach(documentAttachments) { attachment in
-                                    Button {
-                                        open(attachment: attachment)
-                                    } label: {
-                                        AttachmentRow(attachment: attachment)
-                                    }
-                                    .buttonStyle(.plain)
-                                }
-                            }
-                        } header: {
-                            SectionHeader(title: "Documents premium", subtitle: "PDF & guides", symbol: "doc.richtext")
                         }
                     }
 
@@ -249,7 +234,7 @@ private enum InlineStyle {
     static let gridSpacing: CGFloat = 10
     static let horizontalPadding: CGFloat = 16
     static let bottomPadding: CGFloat = 24
-    static let topPadding: CGFloat = 4
+    static let topPadding: CGFloat = 2
     static let containerInset: CGFloat = 14
     static let containerRadius: CGFloat = 22
     static let cardRadius: CGFloat = 18

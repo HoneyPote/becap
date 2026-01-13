@@ -79,7 +79,7 @@ struct CalendarDetailView: View {
                 if let cell = selectedGridCell {
                     buildGridPosts(cell: cell)
                         .transition(.move(edge: .bottom).combined(with: .opacity))
-                        .padding(.top, -6)
+                        .padding(.top, -12)
                 }
 
                 Spacer(minLength: 0)
