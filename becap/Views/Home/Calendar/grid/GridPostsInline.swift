@@ -17,8 +17,7 @@ struct GridPostsInline: View {
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
 
-    @State private var quickLookURL: URL?
-    @State private var videoURL: URL?
+    @State private var presentedPreview: AttachmentPreview?
 
     private let columns = Array(repeating: GridItem(.flexible(), spacing: InlineStyle.gridSpacing), count: 3)
     private let jokerColumns = Array(repeating: GridItem(.flexible(), spacing: InlineStyle.gridSpacing), count: 2)
@@ -50,44 +49,32 @@ struct GridPostsInline: View {
     private var hasDocuments: Bool { !documentAttachments.isEmpty }
     private var hasJokers: Bool { !cell.jokers.isEmpty }
 
+    private var influencerHero: some View {
+        VStack(spacing: InlineStyle.sectionSpacing) {
+            SectionHeader(title: "Sélection de l'influenceur",
+                          subtitle: "Contenu premium du jour",
+                          symbol: "sparkles")
+
+            if hasInfluencerMedia {
+                InfluencerCarousel(attachments: influencerMediaAttachments,
+                                   previewKind: { previewKind(for: $0) },
+                                   onOpen: { open(attachment: $0) })
+            } else {
+                EmptyStateView(text: "Aucun média de l'influenceur aujourd'hui.")
+            }
+        }
+        .padding(.horizontal, InlineStyle.horizontalPadding)
+        .padding(.bottom, 6)
+    }
+
     var body: some View {
         VStack(spacing: InlineStyle.outerSpacing) {
             InlineHeader(date: cell.date, onClose: onClose)
 
+            influencerHero
+
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
-                    if let videoURL {
-                        PreviewCard(title: "Aperçu vidéo", subtitle: "Touchez pour agrandir", accent: InlineStyle.accent) {
-                            VideoPlayer(player: AVPlayer(url: videoURL))
-                                .frame(height: InlineStyle.previewHeight)
-                        }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-
-                    if let quickLookURL {
-                        PreviewCard(title: "Aperçu document", subtitle: "Quick Look", accent: InlineStyle.accent) {
-                            QuickLookPreview(url: quickLookURL)
-                                .frame(height: InlineStyle.previewHeight + 80)
-                        }
-                        .transition(.move(edge: .top).combined(with: .opacity))
-                    }
-
-                    if hasInfluencerMedia {
-                        Section {
-                            InfluencerCarousel(attachments: influencerMediaAttachments,
-                                               previewKind: { previewKind(for: $0) },
-                                               onOpen: { open(attachment: $0) })
-                        } header: {
-                            SectionHeader(title: "Sélection de l'influenceur", subtitle: "Highlights du jour", symbol: "sparkles")
-                        }
-                    } else {
-                        Section {
-                            EmptyStateView(text: "Aucun média de l'influenceur aujourd'hui.")
-                        } header: {
-                            SectionHeader(title: "Sélection de l'influenceur", subtitle: "Highlights du jour", symbol: "sparkles")
-                        }
-                    }
-
                     Section {
                         if hasPosts {
                             LazyVGrid(columns: columns, spacing: InlineStyle.gridSpacing) {
@@ -145,8 +132,6 @@ struct GridPostsInline: View {
                 .padding(.bottom, InlineStyle.bottomPadding)
             }
             .frame(maxHeight: InlineStyle.maxHeight)
-            .animation(.spring(response: 0.35, dampingFraction: 0.9), value: videoURL)
-            .animation(.spring(response: 0.35, dampingFraction: 0.9), value: quickLookURL)
         }
         .padding(.top, InlineStyle.topPadding)
         .background(
@@ -158,6 +143,9 @@ struct GridPostsInline: View {
                 )
         )
         .padding(.horizontal, InlineStyle.containerInset)
+        .fullScreenCover(item: $presentedPreview) { preview in
+            AttachmentPreviewScreen(preview: preview)
+        }
     }
 
     private var postsView: some View {
@@ -204,26 +192,21 @@ struct GridPostsInline: View {
     @MainActor
     private func present(localURL: URL, kind: PremiumAttachmentKind, previewKind: AttachmentPreviewKind) {
         withAnimation(.spring(response: 0.35, dampingFraction: 0.9)) {
-            switch kind {
-            case .pdf:
-                videoURL = nil
-                quickLookURL = localURL
-            case .media:
-                quickLookURL = nil
-                if previewKind == .video {
-                    videoURL = localURL
-                } else {
-                    videoURL = nil
-                    quickLookURL = localURL
-                }
-            }
+            presentedPreview = AttachmentPreview(url: localURL, kind: kind, previewKind: previewKind)
         }
     }
 
     private func previewKind(for attachment: PremiumCalendarAttachment) -> AttachmentPreviewKind {
-        guard attachment.kind == .media, let url = attachment.localFileURL else { return .unknown }
+        guard attachment.kind == .media else { return .unknown }
+        if let url = attachment.localFileURL {
+            return previewKind(for: url)
+        }
 
-        return previewKind(for: url)
+        if let remote = attachment.remoteURL, let url = URL(string: remote) {
+            return previewKind(for: url)
+        }
+
+        return .unknown
     }
 
     private func previewKind(for url: URL) -> AttachmentPreviewKind {
@@ -242,6 +225,48 @@ struct GridPostsInline: View {
     }
 }
 
+private struct AttachmentPreview: Identifiable {
+    let id = UUID()
+    let url: URL
+    let kind: PremiumAttachmentKind
+    let previewKind: AttachmentPreviewKind
+}
+
+private struct AttachmentPreviewScreen: View {
+    let preview: AttachmentPreview
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
+
+            Group {
+                switch preview.kind {
+                case .pdf:
+                    QuickLookPreview(url: preview.url)
+                case .media:
+                    if preview.previewKind == .video {
+                        VideoPlayer(player: AVPlayer(url: preview.url))
+                    } else {
+                        QuickLookPreview(url: preview.url)
+                    }
+                }
+            }
+            .ignoresSafeArea()
+
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.black.opacity(0.55))
+                    .clipShape(Circle())
+            }
+            .padding(16)
+        }
+    }
+}
+
 private enum InlineStyle {
     static let outerSpacing: CGFloat = 12
     static let sectionSpacing: CGFloat = 20
@@ -253,8 +278,8 @@ private enum InlineStyle {
     static let containerRadius: CGFloat = 26
     static let cardRadius: CGFloat = 18
     static let smallRadius: CGFloat = 12
-    static let previewHeight: CGFloat = 220
     static let maxHeight: CGFloat = 460
+    static let heroHeight: CGFloat = 190
     static let containerStrokeOpacity: Double = 0.2
     static let containerFill: some ShapeStyle = .ultraThinMaterial
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
@@ -407,15 +432,17 @@ private struct InfluencerCarousel: View {
     let onOpen: (PremiumCalendarAttachment) -> Void
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            LazyHStack(spacing: InlineStyle.gridSpacing) {
-                ForEach(attachments) { attachment in
-                    MediaTile(attachment: attachment,
-                              previewKind: previewKind(attachment),
-                              onOpen: { onOpen(attachment) })
+        PremiumCard {
+            ScrollView(.horizontal, showsIndicators: false) {
+                LazyHStack(spacing: InlineStyle.gridSpacing) {
+                    ForEach(attachments) { attachment in
+                        MediaTile(attachment: attachment,
+                                  previewKind: previewKind(attachment),
+                                  onOpen: { onOpen(attachment) })
+                    }
                 }
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
         }
     }
 }
@@ -427,6 +454,11 @@ private struct MediaTile: View {
 
     @State private var thumbnail: UIImage?
 
+    private var remoteURL: URL? {
+        guard let remote = attachment.remoteURL else { return nil }
+        return URL(string: remote)
+    }
+
     var body: some View {
         Button(action: onOpen) {
             ZStack(alignment: .bottomLeading) {
@@ -436,6 +468,16 @@ private struct MediaTile: View {
                 if let thumbnail {
                     Image(uiImage: thumbnail)
                         .resizable()
+                        .scaledToFill()
+                        .clipped()
+                        .overlay(
+                            LinearGradient(colors: [
+                                Color.black.opacity(0.55),
+                                Color.black.opacity(0.05)
+                            ], startPoint: .bottom, endPoint: .top)
+                        )
+                } else if let remoteURL, previewKind == .image {
+                    AsyncCachedImage(url: remoteURL)
                         .scaledToFill()
                         .clipped()
                         .overlay(
@@ -483,7 +525,7 @@ private struct MediaTile: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                 }
             }
-            .frame(width: 230, height: 170)
+            .frame(width: 240, height: InlineStyle.heroHeight)
             .clipShape(RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
