@@ -119,8 +119,6 @@ struct GridPostsInline: View {
             .frame(maxHeight: InlineStyle.maxHeight)
         }
         .padding(.top, InlineStyle.topPadding)
-        .background(InlineContainerBackground())
-        .padding(.horizontal, InlineStyle.containerInset)
         .fullScreenCover(item: $presentedPreview) { preview in
             AttachmentPreviewScreen(preview: preview)
         }
@@ -215,45 +213,32 @@ private struct AttachmentPreviewScreen: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack {
-            Color.black.opacity(0.6)
-                .ignoresSafeArea()
+        ZStack(alignment: .topTrailing) {
+            Color.black.ignoresSafeArea()
 
-            BubbleOverlay {
-                VStack(spacing: 12) {
-                    HStack {
-                        Text("Aperçu")
-                            .font(.system(.headline, design: .rounded).weight(.semibold))
-                            .foregroundColor(.white)
-
-                        Spacer()
-
-                        Button(action: { dismiss() }) {
-                            Image(systemName: "xmark")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(.white)
-                                .padding(8)
-                                .background(Color.black.opacity(0.45))
-                                .clipShape(Circle())
-                        }
+            Group {
+                switch preview.kind {
+                case .pdf:
+                    QuickLookPreview(url: preview.url)
+                case .media:
+                    if preview.previewKind == .video {
+                        VideoPlayer(player: AVPlayer(url: preview.url))
+                    } else {
+                        QuickLookPreview(url: preview.url)
                     }
-
-                    Group {
-                        switch preview.kind {
-                        case .pdf:
-                            QuickLookPreview(url: preview.url)
-                        case .media:
-                            if preview.previewKind == .video {
-                                VideoPlayer(player: AVPlayer(url: preview.url))
-                            } else {
-                                QuickLookPreview(url: preview.url)
-                            }
-                        }
-                    }
-                    .frame(maxHeight: InlineStyle.previewMaxHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: InlineStyle.smallRadius, style: .continuous))
                 }
             }
+            .ignoresSafeArea()
+
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.black.opacity(0.55))
+                    .clipShape(Circle())
+            }
+            .padding(16)
         }
     }
 }
@@ -265,13 +250,10 @@ private enum InlineStyle {
     static let horizontalPadding: CGFloat = 16
     static let bottomPadding: CGFloat = 24
     static let topPadding: CGFloat = 8
-    static let containerInset: CGFloat = 12
-    static let containerRadius: CGFloat = 26
     static let cardRadius: CGFloat = 18
     static let smallRadius: CGFloat = 12
     static let maxHeight: CGFloat = 460
     static let heroHeight: CGFloat = 190
-    static let previewMaxHeight: CGFloat = 420
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
     static let secondaryTextOpacity: Double = 0.72
     static let captionOpacity: Double = 0.58
@@ -312,45 +294,6 @@ private struct InlineHeader: View {
             .accessibilityLabel("Fermer")
         }
         .padding(.horizontal, InlineStyle.horizontalPadding)
-    }
-}
-
-private struct InlineContainerBackground: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-            .fill(Color.black.opacity(0.78))
-            .overlay(
-                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-                    .fill(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.12),
-                                Color.white.opacity(0.02),
-                                Color.clear
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                    )
-                    .blendMode(.screen)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-                    .stroke(
-                        LinearGradient(
-                            colors: [
-                                Color.white.opacity(0.35),
-                                Color.white.opacity(0.08),
-                                Color.clear
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        ),
-                        lineWidth: 1
-                    )
-            )
-            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 16)
-            .padding(.vertical, 4)
     }
 }
 
