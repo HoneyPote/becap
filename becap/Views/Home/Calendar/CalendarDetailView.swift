@@ -291,11 +291,13 @@ struct CalendarDetailView: View {
                     }
 
                     GlassCircleIcon(systemName: "bell.fill")
+                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             showNotifSheet = true
                         }
                     GlassCircleIcon(systemName: "square.and.arrow.up.fill")
+                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             presentShareSheet()
@@ -324,6 +326,7 @@ struct CalendarDetailView: View {
                                     .accessibilityHidden(true)
                             }
                         }
+                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             showParticipantsSheet = true
