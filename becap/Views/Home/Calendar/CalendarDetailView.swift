@@ -305,6 +305,7 @@ struct CalendarDetailView: View {
                     if viewModel.canEditPremiumContent {
                         premiumQuickAddButton
                         GlassCircleIcon(systemName: isEditingPremiumAttachments ? "checkmark.circle.fill" : "pencil.circle.fill")
+                            .hapticTap()
                             .onTapGesture {
                                 showJokerBubble = false
                                 withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
