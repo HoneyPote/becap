@@ -214,7 +214,7 @@ struct CalendarMonthGrid: View {
                                 .clipShape(Circle())
                                 .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 2)
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(.hapticPlain)
                         .padding(6)
                     }
                 }

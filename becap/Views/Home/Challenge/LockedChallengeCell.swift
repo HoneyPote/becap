@@ -73,7 +73,7 @@ struct LockedChallengeCell: View {
                         .padding(8)
                         .background(Color.white.opacity(0.1), in: Circle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hapticPlain)
                 .popover(isPresented: $showInfo) {
                     ChallengeInfoBubble(challenge: challenge)
                         .frame(width: 320)

@@ -48,6 +48,7 @@ struct MainTabView: View {
                     .transition(.scale)
             }
         }
+        .buttonStyle(.hapticPlain)
         .navigationBarBackButtonHidden(true)
 
         .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in

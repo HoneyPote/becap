@@ -511,11 +511,16 @@ struct ChallengeChip: View {
 
 private struct PressableButtonStyle: ButtonStyle {
     var scale: CGFloat = 0.97
+    @Environment(\.isEnabled) private var isEnabled
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed ? scale : 1)
             .opacity(configuration.isPressed ? 0.9 : 1)
+            .simultaneousGesture(TapGesture().onEnded {
+                guard isEnabled else { return }
+                Haptics.lightTap()
+            })
     }
 }
 

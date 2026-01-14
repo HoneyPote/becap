@@ -86,7 +86,7 @@ struct GroupChatMessageRow: View {
                                   count: entry.users.count,
                                   isHighlighted: viewModel.reactionBadgeIsHighlighted(entryUsers: entry.users))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hapticPlain)
             }
 
         }

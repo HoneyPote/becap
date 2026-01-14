@@ -40,6 +40,7 @@ private struct PaymentButtonRepresentable: UIViewRepresentable {
         }
 
         @objc func didTapButton() {
+            Haptics.lightTap()
             action()
         }
     }

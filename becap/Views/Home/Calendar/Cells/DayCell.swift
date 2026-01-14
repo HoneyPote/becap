@@ -6,15 +6,6 @@
 //
 
 import SwiftUI
-import UIKit
-
-enum Haptics {
-    static func lightTap() {
-        let feedbackGenerator = UIImpactFeedbackGenerator(style: .light)
-        feedbackGenerator.prepare()
-        feedbackGenerator.impactOccurred(intensity: 0.8)
-    }
-}
 
 struct DayCell: View {
     let date: Date
@@ -55,7 +46,7 @@ struct DayCell: View {
             }
             .frame(height: 72)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hapticPlain)
     }
 
     func formattedDate(_ date: Date) -> String {

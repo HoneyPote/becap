@@ -34,11 +34,13 @@ struct RegisterView: View {
                 authViewModel.register(email: email, password: password, name: name)
             }
             .buttonStyle(.borderedProminent)
+            .hapticTap()
 
             if let error = authViewModel.authError {
                 Text(error).foregroundColor(.red).font(.caption)
             }
         }
         .padding()
+        .buttonStyle(.hapticPlain)
     }
 }

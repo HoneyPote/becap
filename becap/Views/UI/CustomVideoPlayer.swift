@@ -162,6 +162,7 @@ final class PlayerContainerView: UIView {
     @objc private func toggleMute() {
         guard let player else { return }
 
+        Haptics.lightTap()
         isMuted.toggle()
         player.isMuted = isMuted
         let iconName = isMuted ? "speaker.slash.fill" : "speaker.wave.2.fill"
