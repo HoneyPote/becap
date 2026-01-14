@@ -7,6 +7,7 @@
 
 import SwiftUI
 import FirebaseAuth
+import AuthenticationServices
 
 struct LoginView: View {
     @StateObject var authViewModel = AuthentificationViewModel()
@@ -51,6 +52,15 @@ struct LoginView: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "arrow.right.circle.fill")
                                     .font(.system(size: 20, weight: .semibold))
+                        SignInWithAppleButton(.signIn, onRequest: { _ in
+                        }, onCompletion: { _ in
+                        })
+                        .signInWithAppleButtonStyle(.white)
+                        .frame(height: 50)
+                        .clipShape(Capsule())
+                        .padding(.horizontal, 28)
+                        .hapticTap()
+
                                 Text("Se connecter")
                                     .font(.system(.headline, design: .rounded).weight(.semibold))
                             }

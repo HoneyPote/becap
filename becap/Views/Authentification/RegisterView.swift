@@ -9,34 +9,50 @@ import SwiftUI
 
 struct RegisterView: View {
     @ObservedObject var authViewModel: AuthentificationViewModel
+    @Environment(\.dismiss) private var dismiss
 
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
 
     var body: some View {
-        ZStack {
-            LinearGradient(
-                colors: [
-                    Color(red: 19 / 255, green: 86 / 255, blue: 94 / 255),
-                    Color(red: 9 / 255, green: 25 / 255, blue: 28 / 255)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
+        ZStack(alignment: .topTrailing) {
+            VStack(spacing: 20) {
+                Text("Créer un compte")
+                    .font(.largeTitle.bold())
 
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 28) {
-                    headerCard
+                TextField("Name", text: $name)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
 
-                    VStack(spacing: 18) {
-                        labeledField(title: "Nom") {
-                            TextField("Votre nom", text: $name)
-                                .textInputAutocapitalization(.words)
-                                .disableAutocorrection(true)
-                        }
+                TextField("Email", text: $email)
+                    .keyboardType(.emailAddress)
+                    .autocapitalization(.none)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
 
+                SecureField("Mot de passe", text: $password)
+                    .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                Button("S'inscrire") {
+                    authViewModel.register(email: email, password: password, name: name)
+                }
+                .buttonStyle(.borderedProminent)
+                .hapticTap()
+
+                if let error = authViewModel.authError {
+                    Text(error).foregroundColor(.red).font(.caption)
+                }
+            .padding(.top, 32)
+
+            Button(action: { dismiss() }) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .padding(10)
+                    .background(Color.black.opacity(0.6))
+                    .clipShape(Circle())
+                    .shadow(color: Color.black.opacity(0.2), radius: 6, x: 0, y: 4)
+            .padding(.top, 8)
+            .padding(.trailing, 4)
                         labeledField(title: "Email") {
                             TextField("nom@email.com", text: $email)
                                 .keyboardType(.emailAddress)
