@@ -54,45 +54,41 @@ struct GridPostsInline: View {
             InlineHeader(title: "Détails du jour", onClose: onClose)
 
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
+                VStack(spacing: InlineStyle.sectionSpacing) {
                     if hasInfluencerMedia || hasDocuments {
-                        SectionHeader(title: "Contenus premium", subtitle: "Influenceur & documents", symbol: "starPrenium")
+                        SectionCard(title: "Contenus premium", subtitle: "Influenceur & documents", symbol: "starPrenium") {
+                            HStack(spacing: InlineStyle.gridSpacing) {
+                                if hasInfluencerMedia, let firstInfluencer = influencerMediaAttachments.first {
+                                    InfluencerCompactCard(attachment: firstInfluencer,
+                                                          previewKind: previewKind(for: firstInfluencer),
+                                                          count: influencerMediaAttachments.count,
+                                                          onOpen: { open(attachment: firstInfluencer) })
+                                }
 
-                        HStack(spacing: InlineStyle.gridSpacing) {
-                            if hasInfluencerMedia, let firstInfluencer = influencerMediaAttachments.first {
-                                InfluencerCompactCard(attachment: firstInfluencer,
-                                                      previewKind: previewKind(for: firstInfluencer),
-                                                      count: influencerMediaAttachments.count,
-                                                      onOpen: { open(attachment: firstInfluencer) })
-                            }
-
-                            if hasDocuments, let firstDocument = documentAttachments.first {
-                                DocumentCompactCard(attachment: firstDocument,
-                                                    count: documentAttachments.count,
-                                                    onOpen: { open(attachment: firstDocument) })
+                                if hasDocuments, let firstDocument = documentAttachments.first {
+                                    DocumentCompactCard(attachment: firstDocument,
+                                                        count: documentAttachments.count,
+                                                        onOpen: { open(attachment: firstDocument) })
+                                }
                             }
                         }
                     }
 
                     if hasPosts {
-                        Section {
+                        SectionCard(title: "Posts du jour", subtitle: "Vos participants", symbol: "post") {
                             LazyVGrid(columns: columns, spacing: InlineStyle.gridSpacing) {
                                 postsView
                             }
-                        } header: {
-                            SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "post")
                         }
                     }
 
                     if hasJokers {
-                        Section {
+                        SectionCard(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "donut") {
                             LazyVGrid(columns: jokerColumns, spacing: InlineStyle.gridSpacing) {
                                 ForEach(cell.jokers) { usage in
                                     JokerRow(usage: usage)
                                 }
                             }
-                        } header: {
-                            SectionHeader(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "donut")
                         }
                     }
                 }
@@ -243,8 +239,6 @@ private enum InlineStyle {
     static let compactCardHeight: CGFloat = 120
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
     static let secondaryTextOpacity: Double = 0.72
-    static let captionOpacity: Double = 0.58
-    static let headerOpacity: Double = 0.85
 }
 
 private enum AttachmentPreviewKind {
@@ -259,8 +253,8 @@ private struct InlineContainerBackground: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        Color(red: 0.04, green: 0.12, blue: 0.16).opacity(0.98),
-                        Color(red: 0.02, green: 0.07, blue: 0.09).opacity(0.96)
+                        Color(red: 27 / 255, green: 40 / 255, blue: 74 / 255),
+                        Color(red: 21 / 255, green: 73 / 255, blue: 114 / 255)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -284,28 +278,29 @@ private struct InlineHeader: View {
     let onClose: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(title)
-                .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                .foregroundColor(.white.opacity(InlineStyle.headerOpacity))
+        HStack {
+            Button(action: onClose) {
+                Image(systemName: "xmark")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .padding(8)
+                    .background(.ultraThinMaterial)
+                    .clipShape(Circle())
+                    .shadow(radius: 5, x: 0, y: 2)
+            }
+            .buttonStyle(.hapticPlain)
+            .accessibilityLabel("Fermer")
 
             Spacer()
 
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(.white)
-                    .padding(10)
-                    .background(Color.black.opacity(0.35))
-                    .clipShape(Circle())
-                    .overlay(
-                        Circle()
-                            .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
-                    )
-            }
-            .accessibilityLabel("Fermer")
+            Text(title)
+                .font(.system(.title2, design: .rounded).weight(.heavy))
+                .foregroundColor(.white)
+
+            Spacer(minLength: 32)
         }
         .padding(.horizontal, InlineStyle.horizontalPadding)
+        .padding(.top, 6)
     }
 }
 
@@ -316,28 +311,70 @@ private struct SectionHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(symbol)
-                .resizable()
-                        .scaledToFit()
-                        .padding(5)                // pour laisser de l’air dans le 28x28
-                        .foregroundColor(InlineStyle.accent) // utile seulement si ton asset est "Template"
-                        .frame(width: 28, height: 28)
-                        .background(Color.white.opacity(0.12))
-                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            ZStack {
+                Circle()
+                    .fill(Color.white.opacity(0.2))
+                    .frame(width: 46, height: 46)
+                Image(symbol)
+                    .resizable()
+                    .scaledToFit()
+                    .padding(8)
+                    .frame(width: 28, height: 28)
+            }
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
-                    .font(.system(.headline, design: .rounded).weight(.semibold))
+                    .font(.system(.headline, design: .rounded).weight(.heavy))
                     .foregroundColor(.white)
 
                 Text(subtitle)
                     .font(.system(.caption, design: .rounded).weight(.medium))
-                    .foregroundColor(.white.opacity(InlineStyle.captionOpacity))
+                    .foregroundColor(.white.opacity(InlineStyle.secondaryTextOpacity))
             }
 
             Spacer()
         }
-        .padding(.vertical, 6)
+    }
+}
+
+private struct SectionCard<Content: View>: View {
+    let title: String
+    let subtitle: String
+    let symbol: String
+    let content: Content
+
+    init(title: String, subtitle: String, symbol: String, @ViewBuilder content: () -> Content) {
+        self.title = title
+        self.subtitle = subtitle
+        self.symbol = symbol
+        self.content = content()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SectionHeader(title: title, subtitle: subtitle, symbol: symbol)
+            content
+        }
+        .padding(.vertical, 18)
+        .padding(.horizontal, 20)
+        .background(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 58 / 255, green: 107 / 255, blue: 173 / 255).opacity(0.88),
+                            Color(red: 47 / 255, green: 146 / 255, blue: 200 / 255).opacity(0.76)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 16)
     }
 }
 
