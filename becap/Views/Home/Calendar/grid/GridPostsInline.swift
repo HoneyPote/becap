@@ -51,7 +51,7 @@ struct GridPostsInline: View {
 
     var body: some View {
         VStack(spacing: InlineStyle.outerSpacing) {
-            InlineHeader(onClose: onClose)
+            InlineHeader(title: "Détails du jour", onClose: onClose)
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
@@ -234,7 +234,7 @@ private enum InlineStyle {
     static let gridSpacing: CGFloat = 10
     static let horizontalPadding: CGFloat = 16
     static let bottomPadding: CGFloat = 24
-    static let topPadding: CGFloat = 2
+    static let topPadding: CGFloat = 4
     static let containerInset: CGFloat = 14
     static let containerRadius: CGFloat = 22
     static let cardRadius: CGFloat = 18
@@ -244,6 +244,7 @@ private enum InlineStyle {
     static let accent = Color(red: 0.55, green: 0.83, blue: 0.96)
     static let secondaryTextOpacity: Double = 0.72
     static let captionOpacity: Double = 0.58
+    static let headerOpacity: Double = 0.85
 }
 
 private enum AttachmentPreviewKind {
@@ -255,20 +256,39 @@ private enum AttachmentPreviewKind {
 private struct InlineContainerBackground: View {
     var body: some View {
         RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-            .fill(Color(red: 0.03, green: 0.09, blue: 0.11).opacity(0.9))
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.04, green: 0.12, blue: 0.16).opacity(0.98),
+                        Color(red: 0.02, green: 0.07, blue: 0.09).opacity(0.96)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
             .overlay(
                 RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
-                    .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                    .stroke(Color.white.opacity(0.1), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 12)
+            .overlay(
+                RoundedRectangle(cornerRadius: InlineStyle.containerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(0.04), lineWidth: 0.6)
+                    .padding(1)
+            )
+            .shadow(color: Color.black.opacity(0.4), radius: 20, x: 0, y: 14)
     }
 }
 
 private struct InlineHeader: View {
+    let title: String
     let onClose: () -> Void
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Text(title)
+                .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(InlineStyle.headerOpacity))
+
             Spacer()
 
             Button(action: onClose) {
@@ -276,8 +296,12 @@ private struct InlineHeader: View {
                     .font(.system(size: 14, weight: .bold))
                     .foregroundColor(.white)
                     .padding(10)
-                    .background(Color.black.opacity(0.3))
+                    .background(Color.black.opacity(0.35))
                     .clipShape(Circle())
+                    .overlay(
+                        Circle()
+                            .stroke(Color.white.opacity(0.12), lineWidth: 0.6)
+                    )
             }
             .accessibilityLabel("Fermer")
         }
@@ -312,10 +336,6 @@ private struct SectionHeader: View {
             Spacer()
         }
         .padding(.vertical, 6)
-        .background(
-            Color.black.opacity(0.001)
-                .background(.ultraThinMaterial.opacity(0.02))
-        )
     }
 }
 
@@ -331,13 +351,23 @@ private struct PremiumCard<Content: View>: View {
             .padding(InlineStyle.horizontalPadding)
             .background(
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
-                    .fill(Color.white.opacity(0.06))
-                    .background(.ultraThinMaterial)
+                    .fill(Color.white.opacity(0.07))
+                    .background(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.12),
+                                Color.white.opacity(0.02)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
             )
             .overlay(
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.16), lineWidth: 0.6)
             )
+            .shadow(color: Color.black.opacity(0.2), radius: 10, x: 0, y: 6)
     }
 }
 
@@ -409,6 +439,15 @@ private struct InfluencerCompactCard: View {
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
             )
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(8)
+                    .background(Color.black.opacity(0.35))
+                    .clipShape(Circle())
+                    .padding(8)
+            }
         }
         .buttonStyle(.plain)
         .onAppear { loadThumbnailIfNeeded() }
@@ -481,6 +520,15 @@ private struct DocumentCompactCard: View {
                 RoundedRectangle(cornerRadius: InlineStyle.cardRadius, style: .continuous)
                     .stroke(Color.white.opacity(0.12), lineWidth: 0.8)
             )
+            .overlay(alignment: .topTrailing) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .bold))
+                    .foregroundColor(.white.opacity(0.7))
+                    .padding(8)
+                    .background(Color.black.opacity(0.35))
+                    .clipShape(Circle())
+                    .padding(8)
+            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Ouvrir document premium")
@@ -491,6 +539,10 @@ private struct PostTile: View {
     let post: ChallengePost
     let thumbnailURL: URL?
     let medalIconName: String?
+
+    private var initial: String {
+        post.authorName.trimmingCharacters(in: .whitespacesAndNewlines).prefix(1).uppercased()
+    }
 
     var body: some View {
         ZStack(alignment: .bottomLeading) {
@@ -507,6 +559,13 @@ private struct PostTile: View {
                             Color.black.opacity(0.05)
                         ], startPoint: .bottom, endPoint: .top)
                     )
+            } else {
+                ZStack {
+                    Color.white.opacity(0.06)
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.white.opacity(0.5))
+                }
             }
 
             HStack(spacing: 6) {
@@ -528,6 +587,15 @@ private struct PostTile: View {
                 }
             }
             .padding(8)
+            .overlay(alignment: .topLeading) {
+                Text(initial)
+                    .font(.system(.caption2, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+                    .padding(6)
+                    .background(Color.black.opacity(0.45))
+                    .clipShape(Circle())
+                    .padding(8)
+            }
         }
         .frame(height: 110)
         .clipShape(RoundedRectangle(cornerRadius: InlineStyle.smallRadius, style: .continuous))
