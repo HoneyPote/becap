@@ -56,7 +56,7 @@ struct GridPostsInline: View {
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: InlineStyle.sectionSpacing, pinnedViews: [.sectionHeaders]) {
                     if hasInfluencerMedia || hasDocuments {
-                        SectionHeader(title: "Contenus premium", subtitle: "Influenceur & documents", symbol: "sparkles")
+                        SectionHeader(title: "Contenus premium", subtitle: "Influenceur & documents", symbol: "starPrenium")
 
                         HStack(spacing: InlineStyle.gridSpacing) {
                             if hasInfluencerMedia, let firstInfluencer = influencerMediaAttachments.first {
@@ -80,7 +80,7 @@ struct GridPostsInline: View {
                                 postsView
                             }
                         } header: {
-                            SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "photo.on.rectangle.angled")
+                            SectionHeader(title: "Posts du jour", subtitle: "Vos participants", symbol: "post")
                         }
                     }
 
@@ -92,7 +92,7 @@ struct GridPostsInline: View {
                                 }
                             }
                         } header: {
-                            SectionHeader(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "circle.hexagonpath")
+                            SectionHeader(title: "Jokers utilisés", subtitle: "Votes & validations", symbol: "donut")
                         }
                     }
                 }
@@ -316,12 +316,14 @@ private struct SectionHeader: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            Image(systemName: symbol)
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(InlineStyle.accent)
-                .frame(width: 28, height: 28)
-                .background(Color.white.opacity(0.12))
-                .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
+            Image(symbol)
+                .resizable()
+                        .scaledToFit()
+                        .padding(5)                // pour laisser de l’air dans le 28x28
+                        .foregroundColor(InlineStyle.accent) // utile seulement si ton asset est "Template"
+                        .frame(width: 28, height: 28)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 9, style: .continuous))
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
