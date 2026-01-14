@@ -92,7 +92,7 @@ struct GroupChatMessageRow: View {
                         isHighlighted: entry.users.contains(where: { $0 == currentUserId })
                     )
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hapticPlain)
             }
 
         }

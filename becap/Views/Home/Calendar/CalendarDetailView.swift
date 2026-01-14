@@ -461,7 +461,7 @@ extension CalendarDetailView {
                     .background(Color.white.opacity(0.18))
                     .cornerRadius(10)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(.hapticPlain)
             } else {
                 Text("Journée déjà validée ou aucun joker disponible.")
                     .font(.system(.footnote, design: .rounded))
@@ -510,7 +510,7 @@ extension CalendarDetailView {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hapticPlain)
         .accessibilityLabel("Afficher mes jokers")
         .background(
             GeometryReader { proxy in

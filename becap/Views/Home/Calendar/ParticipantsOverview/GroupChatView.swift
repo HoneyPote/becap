@@ -86,7 +86,7 @@ struct GroupChatView: View {
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(.hapticPlain)
                     .accessibilityLabel("Fermer le chat")
                 }
             }

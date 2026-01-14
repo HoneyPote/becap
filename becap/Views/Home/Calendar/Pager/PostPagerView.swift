@@ -271,7 +271,7 @@ extension PostPagerView {
             Button(action: { handleJokerTap(for: state) }) {
                 decorated
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hapticPlain)
         } else {
             decorated
         }

@@ -62,7 +62,7 @@ struct DefiCell: View {
         }
         .frame(height: 100)
         .contentShape(RoundedRectangle(cornerRadius: 18))
-        .buttonStyle(PlainButtonStyle())
+        .buttonStyle(.hapticPlain)
         .contextMenu {
             Button(role: .destructive) {
                 onDelete()

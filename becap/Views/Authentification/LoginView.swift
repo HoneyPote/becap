@@ -32,6 +32,7 @@ struct LoginView: View {
                     authViewModel.login(email: email, password: password)
                 }
                 .buttonStyle(.borderedProminent)
+                .hapticTap()
 
                 NavigationLink("Créer un compte", destination: RegisterView(authViewModel: authViewModel))
 
@@ -40,6 +41,7 @@ struct LoginView: View {
                 }
             }
             .padding()
+            .buttonStyle(.hapticPlain)
             .toolbar(.hidden, for: .tabBar)
             .navigationBarBackButtonHidden(true)
         }

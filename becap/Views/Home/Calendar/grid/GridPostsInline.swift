@@ -118,7 +118,7 @@ struct GridPostsInline: View {
                          thumbnailURL: thumbnailUrl(media: post.media),
                          medalIconName: latestMedalIconName(for: post))
             }
-            .buttonStyle(.plain)
+            .buttonStyle(.hapticPlain)
         }
     }
 
@@ -451,7 +451,7 @@ private struct InfluencerCompactCard: View {
                     .padding(8)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hapticPlain)
         .onAppear { loadThumbnailIfNeeded() }
     }
 
@@ -532,7 +532,7 @@ private struct DocumentCompactCard: View {
                     .padding(8)
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.hapticPlain)
         .accessibilityLabel("Ouvrir document premium")
     }
 }
