@@ -540,11 +540,12 @@
 				CODE_SIGN_ENTITLEMENTS = becap/becap.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.6;
+				CURRENT_PROJECT_VERSION = 1.6.1;
 				DEVELOPMENT_TEAM = 9P67VM9236;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = becap/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = CFBundleURLTypes;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Access is needed to share photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need the microphone to record videos.";
@@ -576,11 +577,12 @@
 				CODE_SIGN_ENTITLEMENTS = becap/becap.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1.6;
+				CURRENT_PROJECT_VERSION = 1.6.1;
 				DEVELOPMENT_TEAM = 9P67VM9236;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = becap/Info.plist;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = CFBundleURLTypes;
 				INFOPLIST_KEY_NSCameraUsageDescription = "Access is needed to share photos.";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "We need the microphone to record videos.";
