@@ -7,20 +7,41 @@
 
 import SwiftUI
 
-struct Participant: Hashable {
-    let id: String
-    let name: String
-    var medals: [UserMedal]
-    var photoURL: String?
+struct ParticipantUIModel: Hashable {
+    let userId: String
+    let userName: String
+    let userMedals: [UserMedal]
+    let userProfilePhotoURL: String?
+    let progress: ParticipantProgress
+    let posts: [ChallengePost]
 
-    static func ==(lhs: Participant, rhs: Participant) -> Bool {
-        lhs.id == rhs.id && lhs.name == rhs.name
+    var isAdmin: Bool
+
+    static func == (lhs: ParticipantUIModel, rhs: ParticipantUIModel) -> Bool {
+        lhs.userId == rhs.userId && lhs.userName == rhs.userName
     }
 
     func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-        hasher.combine(name)
+        hasher.combine(userId)
+        hasher.combine(userName)
     }
+}
+
+struct ParticipantProgress: Identifiable, Codable {
+    var id: String {
+        userId
+    }
+
+    var userId: String
+    var validatedDays: [Date]
+    var currentStreak: Int
+    var jokerProgress: ParticipantJokerProgress
+    var medals: [UserMedal]
+
+    let challengeId: String
+    let joinedDate: Date
+    let isCreator: Bool
+    let isBlocked: Bool
 }
 
 struct CalendarDayJokerUsage: Identifiable, Hashable {
@@ -50,10 +71,12 @@ class CalendarDetailViewModel: ObservableObject {
     @Published var detailCells: [CalendarDetailCell]?
     @Published var doneLoadingPosts: Bool = false
     @Published var selectedPagerInfo: PagerInfo?
-    @Published var participants: [Participant] = []
+    @Published var participants: [ParticipantUIModel] = []
     @Published var participantProgresses: [ParticipantProgress] = []
     @Published var chatMessages: [ChallengeChatMessage] = []
     @Published var chatHasUnreadMessages: Bool = false
+
+    private var allCells: [CalendarDetailCell] = []
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
@@ -73,17 +96,23 @@ class CalendarDetailViewModel: ObservableObject {
 
         Task {
             async let postsTask = try fetchPosts()
-            async let allParticipants = try buildParticipants()
             async let progressesTask = try fetchParticipantProgresses()
             async let chatTask = try fetchChatMessages()
 
-            let (posts, participants, progresses, chatMessages) = try await (postsTask, allParticipants, progressesTask, chatTask)
+            let (posts, progresses, chatMessages) = try await (postsTask, progressesTask, chatTask)
+
+            let allParticipants = try await buildParticipants(from: progresses, allPosts: posts)
 
             await MainActor.run {
+                guard let progresses, !allParticipants.isEmpty else {
+                    self.doneLoadingPosts = true
+                    return
+                }
                 self.updatePosts(posts)
-                self.participants = participants
+                self.participants = allParticipants
                 self.participantProgresses = progresses
-                self.updateChat(messages: chatMessages)
+                self.updateHasUnreadMessages(messages: chatMessages)
+                self.allCells = self.buildDetailcells()
                 self.doneLoadingPosts = true
             }
         }
@@ -95,68 +124,34 @@ class CalendarDetailViewModel: ObservableObject {
         return posts.first?.authorUid == currentUserId
     }
 
+    func filterDetailCells(for selectedParticipant: ParticipantUIModel?) -> [CalendarDetailCell] {
+        guard let selectedParticipant else { return allCells }
+
+        return allCells.map { cell in
+            let filteredPosts = cell.posts.filter { $0.authorUid == selectedParticipant.userId }
+            let filteredJokers = cell.jokers.filter { $0.participantId == selectedParticipant.userId }
+
+            return CalendarDetailCell(date: cell.date,
+                                      posts: filteredPosts,
+                                      jokers: filteredJokers,
+                                      isToday: cell.isToday
+            )
+        }
+    }
+
     func detailButtonClicked(cell: CalendarDetailCell) {
         if !cell.posts.isEmpty {
             buildPagerInfo(cell: cell)
         }
     }
 
-    func buildDetailcells(for selectedParticipant: Participant? = nil) -> [CalendarDetailCell] {
-        let calendar = Calendar.current
-        let participantMap = Dictionary(uniqueKeysWithValues: participants.map { ($0.id, $0) })
-
-        return (0..<challenge.duration).compactMap { day in
-            guard let date = calendar.date(byAdding: .day, value: day, to: challenge.startDate) else {
-                return nil
-            }
-
-            let posts = allPosts.filter {
-                Calendar.current.isDate($0.date, inSameDayAs: date)
-                && (selectedParticipant != nil ? $0.authorUid == selectedParticipant?.id : true)
-            }
-
-            let jokerUsages: [CalendarDayJokerUsage] = participantProgresses.flatMap { progress -> [CalendarDayJokerUsage] in
-                if let selectedParticipant, progress.id != selectedParticipant.id {
-                    return []
-                }
-
-                guard let jokerProgress = progress.jokerProgress else { return [] }
-
-                let usagesForDay = jokerProgress.confirmedUsages.filter {
-                    calendar.isDate($0.date, inSameDayAs: date)
-                }
-                guard !usagesForDay.isEmpty else { return [] }
-
-                let participant = participantMap[progress.id]
-
-                return usagesForDay.map { usage in
-                    CalendarDayJokerUsage(id: usage.id,
-                                          participantId: progress.id,
-                                          participantName: participant?.name ?? "Participant",
-                                          participantPhotoURL: participant?.photoURL,
-                                          declaredByAuthor: usage.declaredByAuthor,
-                                          voterIds: usage.voters,
-                                          voterNames: usage.voters.compactMap { participantMap[$0]?.name },
-                                          postId: usage.postId)
-                }
-            }
-
-            let isToday = calendar.isDateInToday(date)
-
-            return CalendarDetailCell(date: date,
-                                      posts: posts,
-                                      jokers: jokerUsages.sorted(by: { $0.participantName.localizedCaseInsensitiveCompare($1.participantName) == .orderedAscending }),
-                                      isToday: isToday)
-        }
-    }
-
-    func jokerUsageCounts(for selectedParticipant: Participant? = nil) -> [Date: Int] {
-        guard (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return [:] }
+    func jokerUsageCounts(for selectedParticipant: ParticipantUIModel? = nil) -> [Date: Int] {
+        guard challenge.jokerConfiguration > 0 else { return [:] }
 
         let relevantProgresses: [ParticipantProgress]
 
         if let selectedParticipant {
-            relevantProgresses = participantProgresses.filter { $0.id == selectedParticipant.id }
+            relevantProgresses = [selectedParticipant.progress]
         } else {
             relevantProgresses = participantProgresses
         }
@@ -169,9 +164,7 @@ class CalendarDetailViewModel: ObservableObject {
         let calendar = Calendar.current
 
         for progress in relevantProgresses {
-            guard let jokerProgress = progress.jokerProgress else { continue }
-
-            for usage in jokerProgress.confirmedUsages {
+            for usage in progress.jokerProgress.confirmedUsages {
                 let day = calendar.startOfDay(for: usage.date)
                 counts[day, default: 0] += 1
             }
@@ -184,8 +177,8 @@ class CalendarDetailViewModel: ObservableObject {
         self.allPosts.removeAll(where: { $0.id == postId })
     }
 
-    func getParticipant(for uid: String) -> Participant? {
-        participants.first(where: { $0.id == uid })
+    func getParticipant(for uid: String) -> ParticipantUIModel? {
+        participants.first(where: { $0.userId == uid })
     }
 
     var currentUserId: String? {
@@ -195,22 +188,23 @@ class CalendarDetailViewModel: ObservableObject {
     var currentUserProgress: ParticipantProgress? {
         guard let currentUserId else { return nil }
 
-        return participantProgresses.first(where: { $0.id == currentUserId })
+        return participantProgresses.first(where: { $0.userId == currentUserId })
     }
 
     var currentUserJokerStatus: (total: Int, remaining: Int)? {
+        let total = challenge.jokerConfiguration
+
         guard let progress = currentUserProgress else {
-            guard let total = challenge.jokerConfiguration?.jokersPerParticipant, total > 0 else { return nil }
+            guard total > 0 else { return nil }
             return (total, total)
         }
 
-        let total = progress.jokerProgress?.total ?? challenge.jokerConfiguration?.jokersPerParticipant ?? 0
         guard total > 0 else { return nil }
-        let remaining = progress.jokerProgress?.remaining ?? total
+        let remaining = progress.jokerProgress.remaining
         return (total, remaining)
     }
 
-    func canUseJokerToday() -> Bool {
+    var canUseJokerToday: Bool {
         guard let status = currentUserJokerStatus else { return false }
         guard status.remaining > 0 else { return false }
 
@@ -223,111 +217,123 @@ class CalendarDetailViewModel: ObservableObject {
     }
 
     func useJokerForToday() {
-        guard canUseJokerToday() else { return }
+        guard canUseJokerToday, let currentUserProgress else { return }
 
         Task {
             do {
-                try await challengeManager.declareJokerUsage(for: challenge,
-                                                             on: Date(),
-                                                             postId: nil)
+                try await challengeManager.autoDeclareDailyJoker(for: currentUserProgress)
+
                 await MainActor.run {
                     self.fetchInfos()
                 }
             } catch {
-                print("❌ Failed to declare joker today: \(error)")
+                print("❌ Failed to declare joker for today: \(error)")
             }
-        }
-    }
-
-    func markChatAsRead() {
-        challengeManager.markChatAsRead(for: challenge.id)
-        chatHasUnreadMessages = false
-    }
-
-    func sendChatMessage(content: String) async {
-        do {
-            try await challengeManager.sendChatMessage(content, challengeId: challenge.id)
-            let messages = try await fetchChatMessages()
-
-            await MainActor.run {
-                self.updateChat(messages: messages)
-                if !messages.isEmpty {
-                    self.markChatAsRead()
-                }
-            }
-        } catch {
-            print("❌ Failed to send chat message: \(error)")
-        }
-    }
-
-    func toggleReaction(_ reaction: String, for message: ChallengeChatMessage) async {
-        guard let userId = challengeManager.currentUser?.id else { return }
-
-        do {
-            let latestMessages = try await fetchChatMessages()
-
-            guard let targetMessage = latestMessages.first(where: { $0.id == message.id }) else {
-                print("❌ Failed to resolve message for reaction toggle")
-                return
-            }
-
-            let userHasReaction = targetMessage.reactions[reaction]?.contains(userId) ?? false
-
-            if userHasReaction {
-                try await challengeManager.removeChatReaction(reaction,
-                                                              from: targetMessage,
-                                                              challengeId: challenge.id,
-                                                              userId: userId)
-            } else {
-                try await challengeManager.addChatReaction(reaction,
-                                                           to: targetMessage,
-                                                           challengeId: challenge.id,
-                                                           userId: userId)
-            }
-
-            let refreshedMessages = try await fetchChatMessages()
-
-            await MainActor.run {
-                self.updateChat(messages: refreshedMessages)
-            }
-        } catch {
-            print("❌ Failed to toggle reaction: \(error)")
         }
     }
 
     // MARK: - Private functions
 
-    private func buildParticipants() async throws -> [Participant] {
-        var allParticipants: [Participant] = []
+    private func buildParticipants(from participantProgresses: [ParticipantProgress]?,
+                                   allPosts: [ChallengePost]) async throws -> [ParticipantUIModel] {
+        guard let participantProgresses, let currentUser = challengeManager.currentUser else { return [] }
 
-        for participantUid in challenge.participantUids {
-            guard let currentUser = challengeManager.currentUser,
-                  let user = try await accountManager.fetchUser(uid: participantUid) else { continue }
+        var allParticipants: [ParticipantUIModel] = []
 
-            let participantName = currentUser.id == user.id ? "Moi" : user.name
+        for progress in participantProgresses {
+            guard let user = try await accountManager.fetchUser(uid: progress.id),
+                  let userId = user.id
+            else { continue }
 
-            allParticipants.append(
-                Participant(id: participantUid,
-                            name: participantName,
-                            medals: user.medals ?? [],
-                            photoURL: user.photoURL)
-            )
+            let participantName = currentUser.id == user.id ? "\(user.name) (moi)" : user.name
+            let isAdmin = challenge.adminUids.contains(where: { $0 == userId })
+            let posts = allPosts.filter { $0.authorUid == userId }
+
+            let newParticipant = ParticipantUIModel(userId: userId,
+                                                    userName: participantName,
+                                                    userMedals: user.medals,
+                                                    userProfilePhotoURL: user.photoURL,
+                                                    progress: progress,
+                                                    posts: posts,
+                                                    isAdmin: isAdmin)
+
+            allParticipants.append(newParticipant)
         }
 
         return allParticipants
     }
 
-    private func fetchParticipantProgresses() async throws -> [ParticipantProgress] {
-        var progresses = try await challengeManager.fetchParticipantsProgress(for: challenge.id)
+    private func buildDetailcells() -> [CalendarDetailCell] {
+        let calendar = Calendar.current
 
-        if let currentUserId = challengeManager.currentUser?.id,
-           let index = progresses.firstIndex(where: { $0.id == currentUserId }),
-           let updated = await challengeManager.autoDeclareMissedDayIfNeeded(for: challenge,
-                                                                             progress: progresses[index]) {
-            progresses[index] = updated
+        let postsByDay: [Date: [ChallengePost]] = Dictionary(grouping: allPosts) {
+            calendar.startOfDay(for: $0.date)
         }
 
-        return progresses
+        let participantMap = Dictionary(uniqueKeysWithValues: participants.map { ($0.userId, $0) })
+
+        var jokersByDay: [Date: [CalendarDayJokerUsage]] = [:]
+        jokersByDay.reserveCapacity(challenge.duration)
+
+        for progress in participantProgresses {
+            guard let participant = participantMap[progress.userId] else { continue }
+
+            for usage in progress.jokerProgress.confirmedUsages {
+                let day = calendar.startOfDay(for: usage.date)
+                let joker = CalendarDayJokerUsage(id: usage.id,
+                                                  participantId: progress.userId,
+                                                  participantName: participant.userName,
+                                                  participantPhotoURL: participant.userProfilePhotoURL,
+                                                  declaredByAuthor: usage.declaredByAuthor,
+                                                  voterIds: usage.voters,
+                                                  voterNames: usage.voters.compactMap { participantMap[$0]?.userName },
+                                                  postId: usage.postId)
+                jokersByDay[day, default: []].append(joker)
+            }
+        }
+
+        return (0..<challenge.duration).compactMap { dayOffset in
+            guard let date = calendar.date(byAdding: .day, value: dayOffset, to: challenge.startDate) else {
+                return nil
+            }
+            let day = calendar.startOfDay(for: date)
+
+            let posts = postsByDay[day] ?? []
+            let jokers = (jokersByDay[day] ?? []).sorted { $0.participantName < $1.participantName }
+
+            return CalendarDetailCell(date: date,
+                                      posts: posts,
+                                      jokers: jokers,
+                                      isToday: calendar.isDateInToday(date))
+        }
+    }
+
+    private func fetchParticipantProgresses() async throws -> [ParticipantProgress]? {
+        let allProgresses = try await challengeManager.fetchParticipantsProgress(for: challenge.id)
+
+        guard let allProgresses,
+              let currentUserProgress = allProgresses.first(where: { $0.id == currentUserId })
+        else { return nil }
+
+        // When entering calendar view we update current user progress with autodeclared missed days jokers
+        let updatedUserProgress = await challengeManager.autoDeclareMissedDayJokers(for: challenge, progress: currentUserProgress)
+
+        // Deleting old current user progress and positionning the updated one at the begining of the progresses array
+        var newAllProgresses = allProgresses
+        guard let updatedUserProgress,
+              let index = newAllProgresses.firstIndex(where: { $0.id == currentUserId })
+        else { return nil }
+
+        newAllProgresses.remove(at: index)
+        newAllProgresses.insert(updatedUserProgress, at: 0)
+
+        return newAllProgresses
+    }
+
+    private func updateHasUnreadMessages(messages: [ChallengeChatMessage]) {
+        guard let lasMessageDate = messages.last?.createdAt else { return }
+        self.chatHasUnreadMessages = challengeManager.checkForUnreadMessages(for: challenge.id,
+                                                                             latestMessageDate: lasMessageDate)
     }
 
     private func fetchChatMessages() async throws -> [ChallengeChatMessage] {
@@ -344,13 +350,5 @@ class CalendarDetailViewModel: ObservableObject {
 
     private func updatePosts(_ posts: [ChallengePost]) {
         self.allPosts = posts
-    }
-
-    @MainActor
-    private func updateChat(messages: [ChallengeChatMessage]) {
-        self.chatMessages = messages
-
-        self.chatHasUnreadMessages = challengeManager.hasUnreadMessages(for: challenge.id,
-                                                                        latestMessageDate: messages.last?.createdAt)
     }
 }

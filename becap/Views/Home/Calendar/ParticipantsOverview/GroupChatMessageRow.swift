@@ -2,19 +2,18 @@
 //  GroupChatMessageRow.swift
 //  becap
 //
-//  Created by OpenAI on 05/08/2025.
+//  Created by Adam Mabrouki on 05/08/2025.
 //
 
 import SwiftUI
 
 struct GroupChatMessageRow: View {
-    let message: ChallengeChatMessage
-    let isCurrentUser: Bool
-    let currentUserId: String?
-    let availableReactions: [String]
-    let onToggleReaction: (String) -> Void
+    @ObservedObject var viewModel: GroupChatViewModel
 
-    @State private var showingReactionPicker = false
+    @State private var isShowingReactionPicker: Bool = false
+
+    let message: ChallengeChatMessage
+    let availableReactions = ["👍", "🔥", "👏", "❤️", "😂", "😮"]
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -24,8 +23,8 @@ struct GroupChatMessageRow: View {
     }()
 
     var body: some View {
-        VStack(alignment: isCurrentUser ? .trailing : .leading, spacing: 8) {
-            if !isCurrentUser {
+        VStack(alignment: viewModel.isFromCurrentUser(message) ? .trailing : .leading, spacing: 8) {
+            if !viewModel.isFromCurrentUser(message) {
                 Text(message.senderName)
                     .font(.system(.caption, design: .rounded).weight(.bold))
                     .foregroundColor(.white.opacity(0.7))
@@ -40,8 +39,7 @@ struct GroupChatMessageRow: View {
                 .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                 .contentShape(Rectangle())
                 .onLongPressGesture(minimumDuration: 0.35) {
-                    guard canReact else { return }
-                    showingReactionPicker = true
+                    isShowingReactionPicker = true
                 }
 
             if !message.reactions.isEmpty {
@@ -52,15 +50,17 @@ struct GroupChatMessageRow: View {
                 .font(.system(.caption2, design: .rounded))
                 .foregroundColor(.white.opacity(0.5))
         }
-        .frame(maxWidth: .infinity, alignment: isCurrentUser ? .trailing : .leading)
-        .confirmationDialog("Réagir au message", isPresented: $showingReactionPicker, titleVisibility: .visible) {
+        .frame(maxWidth: .infinity, alignment: viewModel.isFromCurrentUser(message) ? .trailing : .leading)
+        .confirmationDialog("Réagir au message", isPresented: $isShowingReactionPicker, titleVisibility: .visible) {
             ForEach(availableReactions, id: \.self) { reaction in
                 Button {
-                    onToggleReaction(reaction)
+                    viewModel.toggleReaction(reaction, for: message)
                 } label: {
-                    let hasReacted = userHasReacted(to: reaction)
-                    Text("\(reaction) " + (hasReacted ? "Retirer" : "Ajouter"))
+                    Text(viewModel.hasReacted(to: message, with: reaction))
                 }
+
+//                Text(viewModel.hasReacted(to: message, with: reaction))
+//                    .onTapGesture { viewModel.toggleReaction(reaction, for: message) }
             }
 
             Button("Annuler", role: .cancel) { }
@@ -69,14 +69,10 @@ struct GroupChatMessageRow: View {
 
     private var bubbleBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
-            .fill(
-                isCurrentUser
-                ? Color.white.opacity(0.26)
-                : Color.white.opacity(0.14)
-            )
+            .fill(viewModel.isFromCurrentUser(message) ? Color.white.opacity(0.26) : Color.white.opacity(0.14))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.white.opacity(isCurrentUser ? 0.35 : 0.18), lineWidth: 0.8)
+                    .stroke(Color.white.opacity(viewModel.isFromCurrentUser(message) ? 0.35 : 0.18), lineWidth: 0.8)
             )
     }
 
@@ -84,23 +80,20 @@ struct GroupChatMessageRow: View {
         HStack(spacing: 8) {
             ForEach(reactionEntries, id: \.emoji) { entry in
                 Button {
-                    onToggleReaction(entry.emoji)
+                    viewModel.toggleReaction(entry.emoji, for: message)
                 } label: {
-                    ReactionBadge(
-                        emoji: entry.emoji,
-                        count: entry.users.count,
-                        isHighlighted: entry.users.contains(where: { $0 == currentUserId })
-                    )
+                    ReactionBadge(emoji: entry.emoji,
+                                  count: entry.users.count,
+                                  isHighlighted: viewModel.reactionBadgeIsHighlighted(entryUsers: entry.users))
                 }
                 .buttonStyle(.plain)
             }
 
         }
-        .frame(maxWidth: .infinity, alignment: isCurrentUser ? .trailing : .leading)
+        .frame(maxWidth: .infinity, alignment: viewModel.isFromCurrentUser(message) ? .trailing : .leading)
     }
 
-    private var reactionEntries: [(emoji: String, users: [String])]
-    {
+    private var reactionEntries: [(emoji: String, users: [String])] {
         message.reactions
             .map { (key: String, value: [String]) -> (emoji: String, users: [String]) in
                 (emoji: key, users: value)
@@ -112,13 +105,6 @@ struct GroupChatMessageRow: View {
                 }
                 return lhs.users.count > rhs.users.count
             }
-    }
-
-    private var canReact: Bool { currentUserId != nil }
-
-    private func userHasReacted(to reaction: String) -> Bool {
-        guard let currentUserId else { return false }
-        return message.reactions[reaction]?.contains(currentUserId) ?? false
     }
 
     private struct ReactionBadge: View {

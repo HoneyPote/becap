@@ -12,7 +12,7 @@ struct LikeSection: View {
     var postLikes: [String]
     let likeAction: (String) -> Void
     let unlikeAction: (String) -> Void
-    let getParticipant: (String) -> Participant?
+    let getParticipant: (String) -> ParticipantUIModel?
 
     var currentUserId: String? {
         UserManager.shared.currentUser?.id // Adapte si besoin
@@ -44,7 +44,7 @@ struct LikeSection: View {
                     .font(.subheadline.bold())
             }
             if !postLikes.isEmpty {
-                let names = postLikes.compactMap { getParticipant($0)?.name }
+                let names = postLikes.compactMap { getParticipant($0)?.userName }
                 if !names.isEmpty {
                     Text("Aimé par : \(names.joined(separator: ", "))")
                         .foregroundColor(.white.opacity(0.7))

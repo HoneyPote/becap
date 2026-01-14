@@ -2,7 +2,7 @@
 //  ReportContentView.swift
 //  becap
 //
-//  Created by OpenAI on 13/08/2025.
+//  Created by Adam Mabrouki on 13/08/2025.
 //
 
 import SwiftUI
@@ -102,9 +102,11 @@ private extension ContentReportReason {
                              duration: 5,
                              startDate: Date(),
                              creatorUID: "1",
+                             adminUids: [],
                              participantUids: [],
                              notificationsConfig: nil,
-                             code: nil),
+                             code: nil,
+                             jokerConfiguration: 1),
         isSubmitting: .constant(false),
         errorMessage: .constant(nil),
         onSubmit: { _, _ in },

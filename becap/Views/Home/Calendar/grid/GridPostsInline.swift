@@ -10,7 +10,7 @@ import SwiftUI
 // TODO: Découper vue
 struct GridPostsInline: View {
     let cell: CalendarDetailCell
-    let getParticipant: (String) -> Participant?
+    let getParticipant: (String) -> ParticipantUIModel?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
 
@@ -113,7 +113,7 @@ struct GridPostsInline: View {
                             .lineLimit(1)
 
                         if let participant = getParticipant(post.authorUid),
-                           let latest = participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
+                           let latest = participant.userMedals.sorted(by: { $0.achievedDate > $1.achievedDate }).first {
                             MedalIconView(iconName: latest.iconName)
                                 .frame(width: 20, height: 20)
                                 .shadow(color: Color.black.opacity(0.13), radius: 2, x: 0, y: 1)

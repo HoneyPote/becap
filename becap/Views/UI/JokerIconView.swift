@@ -2,7 +2,7 @@
 //  JokerIconView.swift
 //  becap
 //
-//  Created by OpenAI on 07/08/2025.
+//  Created by Adam Mabrouki on 07/08/2025.
 //
 
 import SwiftUI

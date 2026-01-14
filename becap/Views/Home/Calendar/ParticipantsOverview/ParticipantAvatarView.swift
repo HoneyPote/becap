@@ -2,7 +2,7 @@
 //  ParticipantAvatarView.swift
 //  becap
 //
-//  Created by OpenAI on 05/08/2025.
+//  Created by Adam Mabrouki on 05/08/2025.
 //
 
 import SwiftUI

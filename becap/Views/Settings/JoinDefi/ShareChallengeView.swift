@@ -77,11 +77,9 @@ struct ShareChallengeView: View {
             }
         }
         .alert(isPresented: $viewModel.showingAlert) {
-            Alert(
-                title: Text(viewModel.alertTitle),
-                message: Text(viewModel.alertMessage),
-                dismissButton: .default(Text("OK"))
-            )
+            Alert(title: Text(viewModel.alertTitle),
+                  message: Text(viewModel.alertMessage),
+                  dismissButton: .default(Text("OK")))
         }
         .overlay(alignment: .top) {
             if showCopiedToast {

@@ -13,8 +13,8 @@ struct User: Identifiable, Codable {
     var email: String
     var name: String
     var photoURL: String?
-    var medals: [UserMedal]?
-    var joinedChallenges: [String]?
+    var medals: [UserMedal]
+    var participatingChallengesIds: [String]?
 }
 
 struct UserMedal: Codable, Identifiable, Equatable {
@@ -24,13 +24,4 @@ struct UserMedal: Codable, Identifiable, Equatable {
     let iconName: String
     let achievedDate: Date
     var challengeId: String
-}
-
-struct ParticipantProgress: Identifiable, Codable {
-    var id: String
-    var joinedDate: Date
-    var validatedDays: [Date]
-    var medals: [UserMedal]
-    var currentStreak: Int
-    var jokerProgress: ParticipantJokerProgress?
 }

@@ -2,26 +2,24 @@
 //  ParticipantsOverviewView.swift
 //  becap
 //
-//  Created by OpenAI on 05/08/2025.
+//  Created by Adam Mabrouki on 05/08/2025.
 //
 
 import SwiftUI
 
 struct ParticipantsOverviewView: View {
+    @StateObject private var viewModel: ParticipantOverviewViewModel
     @Environment(\.dismiss) private var dismiss
 
-    let participants: [Participant]
-    let posts: [ChallengePost]
-    let progresses: [ParticipantProgress]
-    let chatMessages: [ChallengeChatMessage]
-    let hasUnreadMessages: Bool
-    let currentUserId: String?
-    let jokerConfiguration: ChallengeJokerConfiguration?
-    let onSendMessage: (String) async -> Void
-    let onToggleReaction: (ChallengeChatMessage, String) async -> Void
-    let onChatOpened: () -> Void
-
     @State private var showingChat = false
+
+    let onChallengeQuit: () -> Void
+
+    init(challenge: Challenge, participants: [ParticipantUIModel], onChallengeQuit: @escaping () -> Void) {
+        self.onChallengeQuit = onChallengeQuit
+        _viewModel = StateObject(wrappedValue: ParticipantOverviewViewModel(challenge: challenge,
+                                                                            participants: participants))
+    }
 
     var body: some View {
         NavigationStack {
@@ -31,22 +29,19 @@ struct ParticipantsOverviewView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         GlassCard {
-                            GroupChatCardView(
-                                messages: chatMessages,
-                                hasUnreadMessages: hasUnreadMessages,
-                                onOpenChat: {
-                                    showingChat = true
-                                    onChatOpened()
-                                }
-                            )
+                            GroupChatCardView(hasUnreadMessages: viewModel.hasUnreadMessages,
+                                              onOpenChat: { showingChat = true })
                         }
 
-                        ForEach(participants, id: \.self) { participant in
+                        ForEach(viewModel.participants, id: \.self) { participant in
                             GlassCard {
-                                ParticipantCardView(
-                                    participant: participant,
-                                    stats: stats(for: participant)
-                                )
+                                ParticipantCardView(viewModel: viewModel,
+                                                    participant: participant,
+                                                    stats: viewModel.buildParticipantStats(for: participant),
+                                                    onChallengeQuit: {
+                                    dismiss()
+                                    onChallengeQuit()
+                                })
                             }
                         }
                     }
@@ -74,35 +69,12 @@ struct ParticipantsOverviewView: View {
             }
         }
         .sheet(isPresented: $showingChat) {
-            GroupChatView(
-                messages: chatMessages,
-                currentUserId: currentUserId,
-                onSendMessage: onSendMessage,
-                onToggleReaction: onToggleReaction
-            )
+            GroupChatView(challenge: viewModel.challenge)
         }
-        .onChange(of: chatMessages.count) { _ in
-            if showingChat {
-                onChatOpened()
-            }
+        .alert(isPresented: $viewModel.showingAlert) {
+            Alert(title: Text(viewModel.alertTitle),
+                  message: Text(viewModel.alertMessage),
+                  dismissButton: .default(Text("OK")))
         }
-    }
-
-    private func stats(for participant: Participant) -> ParticipantOverviewStats {
-        let participantPosts = posts.filter { $0.authorUid == participant.id }
-        let likes = participantPosts.reduce(0) { partialResult, post in
-            partialResult + (post.likes?.count ?? 0)
-        }
-        let progress = progresses.first { $0.id == participant.id }
-        let jokerProgress = progress?.jokerProgress
-        let totalJokers = jokerProgress?.total ?? jokerConfiguration?.jokersPerParticipant ?? 0
-        let remainingJokers = jokerProgress?.remaining ?? totalJokers
-
-        return ParticipantOverviewStats(postsCount: participantPosts.count,
-                                        likesCount: likes,
-                                        streak: progress?.currentStreak ?? 0,
-                                        validatedDays: progress?.validatedDays.count ?? 0,
-                                        totalJokers: totalJokers,
-                                        remainingJokers: remainingJokers)
     }
 }

@@ -42,8 +42,8 @@ struct HomeView: View {
                 }
             }
             .overlay {
-                if let error = viewModel.deleteChallengeError {
-                    deleteChallengeErrorView(error: error)
+                if let error = viewModel.quitChallengeError {
+                    quitChallengeErrorView(error: error)
                 }
             }
             .overlay(alignment: .top) {
@@ -128,8 +128,8 @@ struct HomeView: View {
         } message: {
             Text(deepLinkJoinError ?? "Une erreur inattendue est survenue. Veuillez réessayer plus tard.")
         }
-        .alert("Delete this challenge?", isPresented: $viewModel.showDeleteAlert) {
-            deleteChallengeConfirmationAlert
+        .alert("Quitter ce défi ?", isPresented: $viewModel.showQuitAlert) {
+            quitChallengeConfirmationAlert
         }
     }
 
@@ -165,9 +165,12 @@ struct HomeView: View {
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
                 ForEach(viewModel.challenges) { challenge in
-                    NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
+                    NavigationLink(destination: {
+                        CalendarDetailView(challenge: challenge)
+                            .onDisappear { viewModel.refreshChallenges() }
+                    }) {
                         DefiCell(challenge: challenge,
-                                 onDelete: { viewModel.confirmDelete(challenge) },
+                                 onQuit: { viewModel.confirmQuit(challenge) },
                                  onReport: { viewModel.presentReport(for: challenge) })
                     }
                 }
@@ -184,14 +187,14 @@ struct HomeView: View {
             }
     }
 
-    private var deleteChallengeConfirmationAlert: some View {
+    private var quitChallengeConfirmationAlert: some View {
         Group {
-            Button("Delete", role: .destructive) { viewModel.performDelete() }
-            Button("Cancel", role: .cancel) { viewModel.cancelDelete() }
+            Button("Quitter", role: .destructive) { viewModel.quitChallenge() }
+            Button("Annuler", role: .cancel) { viewModel.cancelQuit() }
         }
     }
 
-    private func deleteChallengeErrorView(error: String) -> some View {
+    private func quitChallengeErrorView(error: String) -> some View {
         VStack {
             Spacer()
             HStack {
@@ -206,7 +209,7 @@ struct HomeView: View {
                     .shadow(radius: 12)
 
                 Button(action: {
-                    withAnimation { viewModel.deleteChallengeError = nil }
+                    withAnimation { viewModel.quitChallengeError = nil }
                 }) {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundColor(.white)
@@ -217,7 +220,7 @@ struct HomeView: View {
             }
             .padding(.bottom, 88)
         }
-        .onAppear { viewModel.onAppearDeleteChallengeError() }
+        .onAppear { viewModel.onAppearQuitChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .zIndex(10)
     }
@@ -253,7 +256,10 @@ extension HomeView {
         if let challenge = deepLinkedChallenge {
             CalendarDetailView(challenge: challenge, initialPostId: deepLinkedPostId)
                 .id(calendarDetailIdentity(for: challenge, postId: deepLinkedPostId))
-                .onDisappear { deepLinkedPostId = nil }
+                .onDisappear {
+                    deepLinkedPostId = nil
+                    viewModel.refreshChallenges()
+                }
         } else {
             EmptyView()
         }

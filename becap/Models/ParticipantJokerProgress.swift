@@ -2,7 +2,7 @@
 //  ParticipantJokerProgress.swift
 //  becap
 //
-//  Created by OpenAI on 09/08/2025.
+//  Created by Adam Mabrouki on 09/08/2025.
 //
 
 import Foundation
@@ -24,19 +24,20 @@ struct ParticipantJokerProgress: Codable, Hashable {
         max(0, total - confirmedUsages.count)
     }
 
-    mutating func registerConfirmedUsage(on date: Date,
+    mutating func jokerUsageIsRegistered(on date: Date,
                                          postId: String?,
                                          declaredByAuthor: Bool,
-                                         voters: [String]) {
-        if let postId,
-           let index = usages.firstIndex(where: { $0.postId == postId }) {
+                                         voters: [String]) -> Bool {
+        guard remaining > 0 else { return false }
+
+        if let postId, let index = usages.firstIndex(where: { $0.postId == postId }) {
             var usage = usages[index]
             usage.voters = voters
             usage.declaredByAuthor = declaredByAuthor
             usage.status = .confirmed
             usage.confirmedAt = Date()
             usages[index] = usage
-            return
+            return true
         }
 
         let usage = JokerUsage(date: date,
@@ -46,6 +47,7 @@ struct ParticipantJokerProgress: Codable, Hashable {
                                status: .confirmed,
                                confirmedAt: Date())
         usages.append(usage)
+        return true
     }
 
     mutating func removeUsage(withPostId postId: String?) {

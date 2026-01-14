@@ -2,7 +2,7 @@
 //  ShareSheet.swift
 //  becap
 //
-//  Created by OpenAI on 15/03/2024.
+//  Created by Adam Mabrouki on 15/03/2024.
 //
 
 import SwiftUI

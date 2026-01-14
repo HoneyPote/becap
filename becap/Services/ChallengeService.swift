@@ -22,6 +22,7 @@ protocol ChallengeServiceProtocol {
     func addChallenge(_ challenge: Challenge) async throws -> Challenge?
     func updateChallenge(_ challenge: Challenge) async throws
     func deleteChallenge(challengeId: String) async throws
+    func listenToGroupChat(challengeId: String, onUpdate: @escaping ([ChallengeChatMessage]) -> Void)
 
     // Posts
     func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost?
@@ -32,10 +33,9 @@ protocol ChallengeServiceProtocol {
     func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void)
 
     // Reward flow
-    func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
-    func fetchParticipants(for challengeId: String, completion: @escaping ([ParticipantProgress]) -> Void)
-    func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)?)
-    func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws
+    func addParticipant(progress: ParticipantProgress, completion: ((Error?) -> Void)?)
+    func setUserProgress(progress: ParticipantProgress) throws
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress]?
     func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress?
 
     // Notifications
@@ -68,7 +68,9 @@ extension ChallengeService {
     func fetchAllChallenges() async throws -> [Challenge] {
         do {
             let snapshot = try await firestoreDB.collection(collecChallenges).getDocuments()
-            let challenges = try snapshot.documents.map { try $0.data(as: Challenge.self) }
+            let challenges = snapshot.documents.compactMap { doc in
+                return try? doc.data(as: Challenge.self)
+            }
 
             return challenges.filter { $0.id != "" }
         } catch {
@@ -150,6 +152,84 @@ extension ChallengeService {
 
         // 3. Supprimer le document du challenge
         try await deleteChallengeDocument(challengeId: challengeId)
+    }
+
+    func fetchAdminUids(for challengeId: String) async throws -> [String]? {
+        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+
+        do {
+            let snapshot = try await ref.getDocument()
+            let data = snapshot.data()
+
+            return data?["adminUids"] as? [String]
+        } catch {
+            print("❌ Erreur Firestore fetchAdminUids: \(error)")
+            return nil
+        }
+    }
+
+    func addAdminUid(challengeId: String, uid: String) async throws {
+        guard let currentAdmins = try? await fetchAdminUids(for: challengeId),
+              !currentAdmins.contains(where: { $0 == uid })
+        else { return }
+
+        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+
+        try await ref.updateData([
+            "adminUids": FieldValue.arrayUnion([uid])
+        ])
+    }
+
+    func removeAdminUid(challengeId: String, uid: String) async throws {
+        guard let currentAdmins = try? await fetchAdminUids(for: challengeId),
+              currentAdmins.contains(where: { $0 == uid })
+        else { return }
+
+        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+
+        try await ref.updateData([
+            "adminUids": FieldValue.arrayRemove([uid])
+        ])
+    }
+
+    func blockParticipant(challengeId: String, userId: String) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .document(userId)
+
+        try await ref.updateData([
+            "isBlocked": true
+        ])
+    }
+
+    func unblockParticipant(challengeId: String, userId: String) async throws {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .document(userId)
+
+        try await ref.updateData([
+            "isBlocked": false
+        ])
+    }
+
+    func addParticipant(challengeId: String, userId: String) async throws {
+        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+
+        try await ref.updateData([
+            "participantUids": FieldValue.arrayUnion([userId])
+        ])
+    }
+
+    func removeParticipant(challengeId: String, userId: String) async throws {
+        let ref = firestoreDB.collection(collecChallenges).document(challengeId)
+
+        try await ref.updateData([
+            "participantUids": FieldValue.arrayRemove([userId])
+        ])
     }
 
     // Privates
@@ -469,10 +549,10 @@ extension ChallengeService {
 
 // MARK: - Reward flow
 extension ChallengeService {
-    func addParticipant(to challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
+    func addParticipant(progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
         let ref = firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(progress.challengeId)
             .collection(collecParticipants)
             .document(progress.id)
 
@@ -485,48 +565,24 @@ extension ChallengeService {
         }
     }
 
-    func fetchParticipants(for challengeId: String, completion: @escaping ([ParticipantProgress]) -> Void) {
-        let ref = firestoreDB.collection(collecChallenges).document(challengeId).collection(collecParticipants)
-
-        ref.addSnapshotListener { snapshot, error in
-            let progresses = snapshot?.documents.compactMap { try? $0.data(as: ParticipantProgress.self) } ?? []
-
-            completion(progresses)
-        }
-    }
-
-    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress]? {
         let snapshot = try await firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
             .collection(collecParticipants)
             .getDocuments()
 
-        return snapshot.documents.compactMap { try? $0.data(as: ParticipantProgress.self) }
+        let progresses = snapshot.documents.compactMap { try? $0.data(as: ParticipantProgress.self) }
+
+        return progresses.isEmpty ? nil : progresses
     }
 
-    func updateProgress(for challengeId: String, progress: ParticipantProgress, completion: ((Error?) -> Void)? = nil) {
-        let ref = firestoreDB
-            .collection(collecChallenges)
-            .document(challengeId)
-            .collection(collecParticipants)
-            .document(progress.id)
-
-        do {
-            try ref.setData(from: progress) { error in
-                completion?(error)
-            }
-        } catch {
-            completion?(error)
-        }
-    }
-
-    func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
+    func setUserProgress(progress: ParticipantProgress) throws {
         return try firestoreDB
             .collection(collecChallenges)
-            .document(challengeId)
+            .document(progress.challengeId)
             .collection(collecParticipants)
-            .document(userId)
+            .document(progress.userId)
             .setData(from: progress)
     }
 
@@ -621,6 +677,22 @@ extension ChallengeService {
         }
     }
 
+    func listenToGroupChat(challengeId: String, onUpdate: @escaping ([ChallengeChatMessage]) -> Void) {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecChat)
+
+
+        _ = ref.order(by: "createdAt").addSnapshotListener { snapshot, error in
+            guard let documents = snapshot?.documents else { return onUpdate([]) }
+
+            let comments = documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
+
+            onUpdate(comments)
+        }
+    }
+
     func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void) {
         let ref = firestoreDB
             .collection(collecChallenges)
@@ -698,5 +770,21 @@ extension ChallengeService {
                 prevRef.delete { _ in c.resume() } // on ignore l’erreur si le fichier n’existe plus
             }
         }
+    }
+
+    func addParticipatingChallenge(to userId: String, challengeId: String) async throws {
+        let ref = firestoreDB.collection("users").document(userId)
+
+        try await ref.updateData([
+            "participatingChallenges": FieldValue.arrayUnion([challengeId])
+        ])
+    }
+
+    func removeParticipatingChallenge(to userId: String, challengeId: String) async throws {
+        let ref = firestoreDB.collection("users").document(userId)
+
+        try await ref.updateData([
+            "participatingChallenges": FieldValue.arrayRemove([challengeId])
+        ])
     }
 }

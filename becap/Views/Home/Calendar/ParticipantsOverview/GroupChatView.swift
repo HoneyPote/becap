@@ -2,59 +2,24 @@ import SwiftUI
 
 struct GroupChatView: View {
     @Environment(\.dismiss) private var dismiss
-
-    let messages: [ChallengeChatMessage]
-    let currentUserId: String?
-    let onSendMessage: (String) async -> Void
-    let onToggleReaction: (ChallengeChatMessage, String) async -> Void
+    @StateObject private var viewModel: GroupChatViewModel
 
     @State private var messageDraft: String = ""
     @FocusState private var isInputFocused: Bool
-    @State private var displayedMessages: [ChallengeChatMessage] = []
 
-    private let availableReactions = ["👍", "🔥", "👏", "❤️", "😂", "😮"]
+    init(challenge: Challenge) {
+        _viewModel = StateObject(wrappedValue: GroupChatViewModel(challenge: challenge))
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                ScrollViewReader { proxy in
-                    ScrollView {
-                        if displayedMessages.isEmpty {
-                            emptyState
-                        } else {
-                            LazyVStack(alignment: .leading, spacing: 16) {
-                                ForEach(displayedMessages) { message in
-                                    GroupChatMessageRow(
-                                        message: message,
-                                        isCurrentUser: message.senderId == currentUserId,
-                                        currentUserId: currentUserId,
-                                        availableReactions: availableReactions,
-                                        onToggleReaction: { reaction in
-                                            Task { await onToggleReaction(message, reaction) }
-                                        }
-                                    )
-                                }
-                            }
-                            .padding(.horizontal, 20)
-                            .padding(.top, 24)
-                            .padding(.bottom, 16)
-                        }
-                    }
-                    .onChange(of: displayedMessages.count) { _ in
-                        scrollToBottom(proxy: proxy)
-                    }
-                    .onChange(of: messages) { newValue in
-                        displayedMessages = newValue
-                    }
-                    .onAppear {
-                        displayedMessages = messages
-                        scrollToBottom(proxy: proxy, animated: false)
-                    }
-                }
+                messageScrollView
 
                 chatInput
                     .background(.thinMaterial)
             }
+            .onAppear { viewModel.onAppear() }
             .background(
                 ZStack {
                     // Filler: covers edges at any ratio
@@ -89,6 +54,31 @@ struct GroupChatView: View {
                     .buttonStyle(.plain)
                     .accessibilityLabel("Fermer le chat")
                 }
+            }
+        }
+    }
+
+    private var messageScrollView: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                if viewModel.allMessages.isEmpty {
+                    emptyState
+                } else {
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        ForEach(viewModel.allMessages) { message in
+                            GroupChatMessageRow(viewModel: viewModel, message: message)
+                        }
+                    }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 24)
+                    .padding(.bottom, 16)
+                }
+            }
+            .onChange(of: viewModel.allMessages.count) { _ in
+                scrollToBottom(proxy: proxy)
+            }
+            .onAppear {
+                scrollToBottom(proxy: proxy, animated: false)
             }
         }
     }
@@ -130,16 +120,18 @@ struct GroupChatView: View {
                 )
                 .foregroundColor(.white)
 
-            Button(action: sendMessage) {
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundColor(.white)
-                    .frame(width: 44, height: 44)
-                    .background(
-                        Circle().fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
-                    )
-            }
-            .disabled(isSendDisabled)
+
+            Image(systemName: "paperplane.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundColor(.white)
+                .frame(width: 44, height: 44)
+                .background(
+                    Circle().fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
+                )
+                .onTapGesture {
+                    sendMessage()
+                }
+                .disabled(isSendDisabled)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -153,11 +145,11 @@ struct GroupChatView: View {
         let trimmed = messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         messageDraft = ""
-        Task { await onSendMessage(trimmed) }
+        viewModel.sendChatMessage(content: trimmed)
     }
 
     private func scrollToBottom(proxy: ScrollViewProxy, animated: Bool = true) {
-        guard let lastId = displayedMessages.last?.id else { return }
+        guard let lastId = viewModel.allMessages.last?.id else { return }
         DispatchQueue.main.async {
             withAnimation(animated ? .easeOut(duration: 0.25) : nil) {
                 proxy.scrollTo(lastId, anchor: .bottom)

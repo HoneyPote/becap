@@ -2,7 +2,7 @@
 //  ChallengeChatMessage.swift
 //  becap
 //
-//  Created by OpenAI on 06/08/2025.
+//  Created by Adam Mabrouki on 06/08/2025.
 //
 
 import Foundation

@@ -14,6 +14,7 @@ enum FirestoreUserKeys {
     static let users = "users"
     static let email = "email"
     static let name = "name"
+    static let medals = "medals"
     static let createdAt = "createdAt"
 }
 
@@ -99,6 +100,7 @@ extension AccountService {
         try await ref.setData([
             FirestoreUserKeys.email: email,
             FirestoreUserKeys.name: name,
+            FirestoreUserKeys.medals: [],
             FirestoreUserKeys.createdAt: FieldValue.serverTimestamp()
         ])
     }

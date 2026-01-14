@@ -2,7 +2,7 @@
 //  JokerUsage.swift
 //  becap
 //
-//  Created by OpenAI on 09/08/2025.
+//  Created by Adam Mabrouki on 09/08/2025.
 //
 
 import Foundation

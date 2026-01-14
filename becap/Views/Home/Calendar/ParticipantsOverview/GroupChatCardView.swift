@@ -2,17 +2,16 @@
 //  GroupChatCardView.swift
 //  becap
 //
-//  Created by OpenAI on 05/08/2025.
+//  Created by Adam Mabrouki on 05/08/2025.
 //
 
 import SwiftUI
 
 struct GroupChatCardView: View {
-    let messages: [ChallengeChatMessage]
     let hasUnreadMessages: Bool
     let onOpenChat: () -> Void
 
-    private var lastMessage: ChallengeChatMessage? { messages.last }
+//    private var lastMessage: ChallengeChatMessage? { messages.last }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -29,17 +28,17 @@ struct GroupChatCardView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(lastMessageTitle)
-                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                    .foregroundColor(.white.opacity(0.85))
-                    .lineLimit(1)
-
-                Text(lastMessagePreview)
-                    .font(.system(.footnote, design: .rounded))
-                    .foregroundColor(.white.opacity(0.6))
-                    .lineLimit(2)
-            }
+//            VStack(alignment: .leading, spacing: 6) {
+//                Text(lastMessageTitle)
+//                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
+//                    .foregroundColor(.white.opacity(0.85))
+//                    .lineLimit(1)
+//
+//                Text(lastMessagePreview)
+//                    .font(.system(.footnote, design: .rounded))
+//                    .foregroundColor(.white.opacity(0.6))
+//                    .lineLimit(2)
+//            }
 
             Button(action: onOpenChat) {
                 HStack(spacing: 10) {
@@ -84,21 +83,21 @@ struct GroupChatCardView: View {
         }
     }
 
-    private var lastMessageTitle: String {
-        guard let lastMessage else {
-            return "Commencez la discussion"
-        }
-
-        return "Dernier message de \(lastMessage.senderName)"
-    }
-
-    private var lastMessagePreview: String {
-        guard let lastMessage else {
-            return "Personne n'a encore écrit dans le chat. Lance la conversation !"
-        }
-
-        return lastMessage.content
-    }
+//    private var lastMessageTitle: String {
+//        guard let lastMessage else {
+//            return "Commencez la discussion"
+//        }
+//
+//        return "Dernier message de \(lastMessage.senderName)"
+//    }
+//
+//    private var lastMessagePreview: String {
+//        guard let lastMessage else {
+//            return "Personne n'a encore écrit dans le chat. Lance la conversation !"
+//        }
+//
+//        return lastMessage.content
+//    }
 
     private struct NotificationDot: View {
         var size: CGFloat = 12

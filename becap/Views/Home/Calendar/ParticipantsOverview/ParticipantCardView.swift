@@ -2,7 +2,7 @@
 //  ParticipantCardView.swift
 //  becap
 //
-//  Created by OpenAI on 05/08/2025.
+//  Created by Adam Mabrouki on 05/08/2025.
 //
 
 import SwiftUI
@@ -17,26 +17,55 @@ struct ParticipantOverviewStats {
 }
 
 struct ParticipantCardView: View {
-    let participant: Participant
+    @ObservedObject var viewModel: ParticipantOverviewViewModel
+
+    let participant: ParticipantUIModel
     let stats: ParticipantOverviewStats
+    let onChallengeQuit: () -> Void
 
     @State private var showingMedals = false
+    @State private var showPromoteConfirmation = false
+    @State private var showExclusionConfirmation = false
+    @State private var showQuitConfirmation = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 16) {
-                ParticipantAvatarView(name: participant.name, photoURL: participant.photoURL)
+                ParticipantAvatarView(name: participant.userName, photoURL: participant.userProfilePhotoURL)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text(participant.name)
+                    if let titles = viewModel.participantTitles(participant: participant) {
+                        Text(titles)
+                            .font(.system(.subheadline, design: .rounded).bold())
+                            .foregroundColor(.white.opacity(0.7))
+                    }
+                    Text(participant.userName)
                         .font(.system(.title3, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
-                    Text("Fait partie du défi")
+                    Text(participant.progress.isBlocked
+                         ? "Ne fait plus partie du défi"
+                         : "Fait partie du défi")
                         .font(.system(.subheadline, design: .rounded))
-                        .foregroundColor(.white.opacity(0.7))
+                        .foregroundColor(participant.progress.isBlocked ? .red.opacity(0.7) : .white.opacity(0.7))
                 }
 
                 Spacer()
+
+                if viewModel.showPromoteToAdminButton(for: participant) {
+                    Button(action: { showPromoteConfirmation = true }) {
+                        Image(systemName: "laurel.leading.laurel.trailing")
+                            .font(.system(size: 16, weight: .semibold, design: .rounded))
+                            .foregroundColor(.white)
+                            .frame(width: 40, height: 40)
+                            .background(Color.white.opacity(0.18))
+                            .clipShape(Circle())
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.white.opacity(0.3), lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             ParticipantStatsGrid(stats: stats)
@@ -70,18 +99,67 @@ struct ParticipantCardView: View {
                 }
             }
 
-            MedalTriggerRow(
-                medalCount: participant.medals.count,
-                participantName: participant.name,
-                onTap: {
-                    if !participant.medals.isEmpty {
-                        showingMedals = true
+            if !participant.userMedals.isEmpty {
+                MedalTriggerRow(medalCount: participant.userMedals.count,
+                                participantName: participant.userName,
+                                onTap: { showingMedals = true })
+            }
+
+            if viewModel.showQuitButton(for: participant) {
+                Button {
+                    showQuitConfirmation = true
+                } label: {
+                    Text("Quitter le défi")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .buttonStyle(.plain)
+            } else if viewModel.showBlockParticipantButton(for: participant) {
+                Button {
+                    showExclusionConfirmation = true
+                } label: {
+                    Text("Exclure du défi")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(.red)
+                        .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .alert("Promouvoir en tant qu'administrateur ?", isPresented: $showPromoteConfirmation) {
+            Button("Annuler", role: .cancel) {}
+
+            Button("Confirmer", role: .destructive) {
+                viewModel.promoteToAdmin(userId: participant.userId)
+            }
+        } message: {
+            Text("Voulez-vous vraiment promouvoir \(participant.userName) en tant qu’administrateur du défi ? Cette personne détiendra le droit d'exclure des participants du défi, ainsi que de nommer d'autres participants comme adminitrateur.")
+        }
+        .alert("Exclure du défi ?", isPresented: $showExclusionConfirmation) {
+            Button("Annuler", role: .cancel) {}
+
+            Button("Confirmer", role: .destructive) {
+                viewModel.blockParticipant(userId: participant.userId)
+            }
+        } message: {
+            Text("Voulez-vous vraiment exclure \(participant.userName) du défi ? Cette personne apparaitera encore dans la liste des participants, mais ne pourra plus intéragir avec le défi.")
+        }
+        .alert("Quitter le défi ?", isPresented: $showQuitConfirmation) {
+            Button("Annuler", role: .cancel) {}
+
+            Button("Confirmer", role: .destructive) {
+                viewModel.quitChallenge() { hasQuit in
+                    if hasQuit {
+                        onChallengeQuit()
                     }
                 }
-            )
+            }
+        } message: {
+            Text("Voulez-vous vraiment quitter le défi ? Vous apparaiterez encore dans la liste des participants, mais ne pourrez plus intéragir avec le défi.")
         }
         .popover(isPresented: $showingMedals, arrowEdge: .top) {
-            MedalBubbleView(medals: participant.medals)
+            MedalBubbleView(medals: participant.userMedals)
         }
     }
 }

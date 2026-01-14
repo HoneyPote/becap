@@ -27,7 +27,7 @@ struct CalendarDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: CalendarDetailViewModel
 
-    @State private var selectedParticipant: Participant?
+    @State private var selectedParticipant: ParticipantUIModel?
     @State private var selectedGridCell: CalendarDetailCell?
     @State private var showNotifSheet = false
     @State private var showParticipantsSheet = false
@@ -64,34 +64,27 @@ struct CalendarDetailView: View {
                                      ? Color(red: 0.55, green: 0.82, blue: 0.61)
                                      : Color(red: 1.0, green: 0.71, blue: 0.81))
 
-
                 participantFilter
                     .frame(height: 42)
                     .padding(.horizontal, 14)
                     .padding(.top, 8)
                     .padding(.bottom, 10)
 
-                monthGrid
+                Group {
+                    if viewModel.doneLoadingPosts {
+                        monthGrid
+                    } else {
+                        Spacer(minLength: 0)
+
+                        loadingView
+                    }
+                }
 
                 Spacer(minLength: 0)
             }
         }
         .background(
-            ZStack {
-                // Filler: covers edges at any ratio
-                Image(calendarBackgroundImageName)
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: 12)
-                    .ignoresSafeArea()
-
-                Image(calendarBackgroundImageName)
-                    .resizable()
-                    .scaledToFill()
-                    .overlay(Color.black.opacity(0.2))
-                    .offset(x: -40)
-                    .ignoresSafeArea()
-            }
+            backgroundImageView
         )
         .coordinateSpace(name: "CalendarDetailRoot")
         // Bubble with the inline grid
@@ -196,7 +189,7 @@ struct CalendarDetailView: View {
 
     // MARK: - Month Grid (w/ precomputed counts)
     private var monthGrid: some View {
-        let cells = viewModel.buildDetailcells(for: selectedParticipant)
+        let cells = viewModel.filterDetailCells(for: selectedParticipant)
         let postCountByDay: [Date: Int] = {
             var map: [Date: Int] = [:]
             map.reserveCapacity(cells.count)
@@ -213,11 +206,11 @@ struct CalendarDetailView: View {
         let currentUserJokerDays: Set<Date> = {
             guard let currentUserId = viewModel.currentUserId else { return [] }
 
-            if let selectedParticipant, selectedParticipant.id != currentUserId {
+            if let selectedParticipant, selectedParticipant.userId != currentUserId {
                 return []
             }
 
-            guard let usages = viewModel.currentUserProgress?.jokerProgress?.confirmedUsages, !usages.isEmpty else {
+            guard let usages = viewModel.currentUserProgress?.jokerProgress.confirmedUsages, !usages.isEmpty else {
                 return []
             }
 
@@ -244,6 +237,21 @@ struct CalendarDetailView: View {
             }
         )
         .padding(.horizontal, 14)
+    }
+
+    private func buildGridPosts(cell: CalendarDetailCell) -> some View {
+        GridPostsInline(cell: cell,
+                        getParticipant: { viewModel.getParticipant(for: $0) },
+                        onClose: {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                selectedGridCell = nil
+            }
+        },
+                        onOpenPager: { info in
+            DispatchQueue.main.async {
+                pagerInfo = info
+            }
+        })
     }
 
     // MARK: - Header
@@ -299,24 +307,9 @@ struct CalendarDetailView: View {
                     NotificationSettingsView(challenge: viewModel.challenge)
                 }
                 .sheet(isPresented: $showParticipantsSheet) {
-                    ParticipantsOverviewView(participants: viewModel.participants,
-                                             posts: viewModel.allPosts,
-                                             progresses: viewModel.participantProgresses,
-                                             chatMessages: viewModel.chatMessages,
-                                             hasUnreadMessages: viewModel.chatHasUnreadMessages,
-                                             currentUserId: viewModel.currentUserId,
-                                             jokerConfiguration: viewModel.challenge.jokerConfiguration,
-                                             onSendMessage: { message in
-                        await viewModel.sendChatMessage(content: message)
-                    },
-                                             onToggleReaction: { message, reaction in
-                        await viewModel.toggleReaction(reaction, for: message)
-                    },
-                                             onChatOpened: {
-                        Task {
-                            viewModel.markChatAsRead()
-                        }
-                    })
+                    ParticipantsOverviewView(challenge: viewModel.challenge,
+                                             participants: viewModel.participants,
+                                             onChallengeQuit: { dismiss() })
                 }
                 .sheet(isPresented: $isShareSheetPresented) {
                     if !shareItems.isEmpty {
@@ -329,6 +322,7 @@ struct CalendarDetailView: View {
         }
     }
 
+    // MARK: - Filter
     private var participantFilter: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
@@ -340,29 +334,14 @@ struct CalendarDetailView: View {
                 )
 
             Picker("Filtrer par", selection: $selectedParticipant) {
-                Text("Tous").tag(Participant?.none)
-                ForEach(viewModel.participants, id: \.self) { participant in
-                    Text(participant.name).tag(Optional(participant))
+                Text("Tous").tag(ParticipantUIModel?.none)
+                ForEach(viewModel.participants.filter { !$0.progress.isBlocked }, id: \.self) { participant in
+                    Text(participant.userName).tag(Optional(participant))
                 }
             }
             .pickerStyle(.segmented)
             .padding(4)
         }
-    }
-
-    private func buildGridPosts(cell: CalendarDetailCell) -> some View {
-        GridPostsInline(cell: cell,
-                        getParticipant: { viewModel.getParticipant(for: $0) },
-                        onClose: {
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
-                selectedGridCell = nil
-            }
-        },
-                        onOpenPager: { info in
-            DispatchQueue.main.async {
-                pagerInfo = info
-            }
-        })
     }
 
     private func presentShareSheet() {
@@ -377,7 +356,34 @@ extension CalendarDetailView {
         viewModel.challenge.calendarBackgroundImageName
     }
 
-    @ViewBuilder
+    private var loadingView: some View {
+        HStack {
+            Text("Chargement du défi...")
+                .font(.system(.title3, design: .rounded).weight(.heavy))
+                .foregroundColor(.white)
+            ProgressView()
+                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+        }
+    }
+
+    private var backgroundImageView: some View {
+        ZStack {
+            // Filler: covers edges at any ratio
+            Image(calendarBackgroundImageName)
+                .resizable()
+                .scaledToFill()
+                .blur(radius: 12)
+                .ignoresSafeArea()
+
+            Image(calendarBackgroundImageName)
+                .resizable()
+                .scaledToFill()
+                .overlay(Color.black.opacity(0.2))
+                .offset(x: -40)
+                .ignoresSafeArea()
+        }
+    }
+
     private func jokerBubbleContent(status: (total: Int, remaining: Int)) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
@@ -407,7 +413,7 @@ extension CalendarDetailView {
                 }
             }
 
-            if viewModel.canUseJokerToday() {
+            if viewModel.canUseJokerToday {
                 Button(action: {
                     showJokerBubble = false
                     viewModel.useJokerForToday()
@@ -494,7 +500,7 @@ extension CalendarDetailView {
             return
         }
 
-        let cells = viewModel.buildDetailcells(for: nil)
+        let cells = viewModel.filterDetailCells(for: nil)
         guard let cell = cells.first(where: { sameDay($0.date, post.date) }),
               let index = cell.posts.firstIndex(where: { $0.id == postId }) else {
             return

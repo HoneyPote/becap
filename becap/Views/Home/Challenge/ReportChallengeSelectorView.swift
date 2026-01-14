@@ -2,7 +2,7 @@
 //  ReportChallengeSelectorView.swift
 //  becap
 //
-//  Created by OpenAI on 19/08/2025.
+//  Created by Adam Mabrouki on 19/08/2025.
 //
 
 import SwiftUI
@@ -64,9 +64,15 @@ struct ReportChallengeSelectorView: View {
 
 #Preview {
     ReportChallengeSelectorView(
-        challenges: [
-            Challenge(title: "Défi Matinal", duration: 7, startDate: .now, creatorUID: "1", participantUids: ["1"], notificationsConfig: nil, code: "ABC123")
-        ],
+        challenges: [Challenge(title: "Défi Matinal",
+                               duration: 7,
+                               startDate: .now,
+                               creatorUID: "1",
+                               adminUids: ["1"],
+                               participantUids: ["1"],
+                               notificationsConfig: nil,
+                               code: "ABC123",
+                               jokerConfiguration: 1)],
         onSelect: { _ in }
     )
 }

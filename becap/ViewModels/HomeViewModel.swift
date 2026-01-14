@@ -9,8 +9,8 @@ import SwiftUI
 import Combine
 
 class HomeViewModel: ObservableObject {
-    @Published var showDeleteAlert = false
-    @Published var deleteChallengeError: String?
+    @Published var showQuitAlert = false
+    @Published var quitChallengeError: String?
     @Published var challenges: [Challenge] = []
     @Published var challengeToReport: Challenge?
     @Published var isSubmittingReport = false
@@ -18,10 +18,10 @@ class HomeViewModel: ObservableObject {
     @Published var showReportSuccessToast = false
 
     private var cancellables = Set<AnyCancellable>()
+    private var challengeToQuit: Challenge?
 
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
-    private var challengeToDelete: Challenge?
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
          reportManager: ReportManagerProtocol = ReportManager.shared) {
@@ -31,36 +31,27 @@ class HomeViewModel: ObservableObject {
         observeChallengesChanges()
     }
 
-    func onAppearDeleteChallengeError() {
+    func onAppearQuitChallengeError() {
         DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
             withAnimation {
-                self.deleteChallengeError = nil
+                self.quitChallengeError = nil
             }
         }
     }
 
-    func confirmDelete(_ challenge: Challenge) {
-        challengeToDelete = challenge
-        showDeleteAlert = true
+    func confirmQuit(_ challenge: Challenge) {
+        challengeToQuit = challenge
+        showQuitAlert = true
     }
 
-    func performDelete() {
-        guard let challenge = challengeToDelete else { return }
+    func quitChallenge() {
+        guard let challenge = challengeToQuit,
+              let currentUserId = challengeManager.currentUser?.id
+        else { return }
 
         Task {
             do {
-                try await challengeManager.deleteChallenge(challenge.id)
-
-                await MainActor.run {
-                    self.challengeToDelete = nil
-                    self.showDeleteAlert = false
-                }
-            } catch {
-                await MainActor.run {
-                    self.deleteChallengeError = "Erreur lors de la suppression du défi."
-                    self.challengeToDelete = nil
-                    self.showDeleteAlert = false
-                }
+                try await challengeManager.removeParticipant(challenge.id, userId: currentUserId)
             }
         }
     }
@@ -80,9 +71,9 @@ class HomeViewModel: ObservableObject {
         try await challengeManager.ensureMembership(in: challengeId)
     }
 
-    func cancelDelete() {
-        challengeToDelete = nil
-        showDeleteAlert = false
+    func cancelQuit() {
+        challengeToQuit = nil
+        showQuitAlert = false
     }
 
     func presentReport(for challenge: Challenge) {

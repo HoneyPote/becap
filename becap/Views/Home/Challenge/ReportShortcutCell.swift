@@ -2,7 +2,7 @@
 //  ReportShortcutCell.swift
 //  becap
 //
-//  Created by OpenAI on 19/08/2025.
+//  Created by Adam Mabrouki on 19/08/2025.
 //
 
 import SwiftUI

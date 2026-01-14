@@ -9,7 +9,7 @@ import SwiftUI
 
 struct DefiCell: View {
     let challenge: Challenge
-    let onDelete: () -> Void
+    let onQuit: () -> Void
     let onReport: () -> Void
 
     var body: some View {
@@ -63,9 +63,9 @@ struct DefiCell: View {
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
             Button(role: .destructive) {
-                onDelete()
+                onQuit()
             } label: {
-                Label("Supprimer", systemImage: "trash")
+                Label("Quitter le défi", systemImage: "trash")
             }
 
             Button {

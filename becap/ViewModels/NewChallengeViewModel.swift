@@ -97,7 +97,7 @@ class NewChallengeViewModel: ObservableObject {
             await MainActor.run {
                 // 🎖️ Affiche les médailles gagnées aujourd'hui
                 let today = Calendar.current.startOfDay(for: Date())
-                for medal in newUser.medals ?? [] {
+                for medal in newUser.medals {
                     if Calendar.current.isDate(medal.achievedDate, inSameDayAs: today) {
                         alertManager.show(medal: medal, challengeId: medal.challengeId)
                     }
@@ -112,17 +112,16 @@ class NewChallengeViewModel: ObservableObject {
         }
         let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
 
-        let jokerConfig = nombreJokers > 0 ? ChallengeJokerConfiguration(jokersPerParticipant: nombreJokers) : nil
-
         return Challenge(title: nom,
                          duration: duree,
                          startDate: Date(),
                          creatorUID: userId,
+                         adminUids: [userId],
                          participantUids: [userId],
                          category: categorie,
                          notificationsConfig: config,
                          code: code,
-                         jokerConfiguration: jokerConfig)
+                         jokerConfiguration: nombreJokers)
     }
 
     private func updateSuggestedJokersIfNeeded() {

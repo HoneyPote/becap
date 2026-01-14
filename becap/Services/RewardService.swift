@@ -21,7 +21,7 @@ class RewardService {
         do {
             let snapshot = try await userRef.getDocument()
             var user = try snapshot.data(as: User.self)
-            var medals = user.medals ?? []
+            var medals = user.medals
             var newMedals: [UserMedal] = []
 
             if medals.first(where: { $0.name == "🛠 Premier défi" }) == nil {
@@ -62,7 +62,7 @@ class RewardService {
         do {
             let snapshot = try await userRef.getDocument()
             var user = try snapshot.data(as: User.self)
-            var userMedals = user.medals ?? []
+            var userMedals = user.medals
             for medal in medals {
                 if !userMedals.contains(where: { $0.name == medal.name && $0.challengeId == medal.challengeId }) {
                     userMedals.append(medal)
@@ -77,19 +77,14 @@ class RewardService {
         }
     }
 
-    func persistProgress(_ progress: ParticipantProgress, for challengeId: String) async {
-        guard !challengeId.isEmpty else {
-            print("❌ persistProgress > challengeId est vide !")
-            return
-        }
-
+    func persistProgress(_ progress: ParticipantProgress) async {
         do {
             try db.collection("challenges")
-                .document(challengeId)
+                .document(progress.challengeId)
                 .collection("participants")
                 .document(progress.id)
                 .setData(from: progress)
-            print("✅ Progress sauvegardé pour \(progress.id) dans défi \(challengeId)")
+            print("✅ Progress sauvegardé pour \(progress.id) dans défi \(progress.challengeId)")
         } catch {
             print("❌ Erreur Firestore persistProgress: \(error)")
         }

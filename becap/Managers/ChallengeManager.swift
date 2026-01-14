@@ -16,12 +16,11 @@ protocol ChallengeManagerProtocol {
 
     // Challenge
     func createChallenge(_ challenge: Challenge) async throws -> Challenge?
-    func fetchAllChallenges() async throws -> [Challenge]
     func fetchAndFilterChallenges() async throws
     func ensureMembership(in challengeId: String) async throws
     func deleteChallenge(_ challengeId: String) async throws
-    func joinChallenge(_ challenge: Challenge, userId: String) async throws
     func joinChallenge(withCode code: String) async throws -> Challenge
+    func removeParticipant(_ challengeId: String, userId: String) async throws
 
     // Posts
     func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
@@ -33,10 +32,11 @@ protocol ChallengeManagerProtocol {
 
     // Reward flow
     func createNewParticipantProgress(userId: String, challenge: Challenge) async throws
-    func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws
+    func updateParticipantProgress(progress: ParticipantProgress) async throws -> ParticipantProgress
     func assignCreationMedalsToUser(_ userId: String) async
-    func declareJokerUsage(for challenge: Challenge, on date: Date, postId: String?) async throws
-    func toggleJokerVote(for post: ChallengePost, currentState: PostJokerState) async throws
+    func autoDeclareDailyJoker(for progress: ParticipantProgress) async throws
+    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress?
+    func declareJokerOnPost(for post: ChallengePost, jokerState: PostJokerState) async throws
 
     // Notifications
     func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
@@ -45,7 +45,7 @@ protocol ChallengeManagerProtocol {
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
     func sendChatMessage(_ content: String, challengeId: String) async throws
     func markChatAsRead(for challengeId: String)
-    func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool
+    func checkForUnreadMessages(for challengeId: String, latestMessageDate: Date) -> Bool
     func addChatReaction(_ reaction: String, to message: ChallengeChatMessage, challengeId: String, userId: String) async throws
     func removeChatReaction(_ reaction: String, from message: ChallengeChatMessage, challengeId: String, userId: String) async throws
 }
@@ -53,6 +53,8 @@ protocol ChallengeManagerProtocol {
 enum ChallengeManagerError: LocalizedError {
     case userNotLoggedIn
     case challengeNotFound
+    case progressNotUpdated
+    case userSoloAdmin
 
     var errorDescription: String? {
         switch self {
@@ -60,6 +62,10 @@ enum ChallengeManagerError: LocalizedError {
             return "Vous devez être connecté pour rejoindre ce défi."
         case .challengeNotFound:
             return "Le défi partagé est introuvable ou n’existe plus."
+        case .progressNotUpdated:
+            return "Nous n'avons pas pu mettre à jour vos progrès"
+        case .userSoloAdmin:
+            return "Vous êtes seul admin de ce challenge. Vous devez promouvoir un autre utilisateur comme admin pour pouvoir quitter ce challenge."
         }
     }
 }
@@ -81,6 +87,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let alertManager: GlobalAlertManager
     private let defaults: UserDefaults
     private let chatLastReadPrefix = "challengeChatLastRead_"
+    private let hasUnreadMessagePrefix = "challengeHasUnreadMessage_"
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
@@ -112,17 +119,17 @@ extension ChallengeManager {
         }
     }
 
-    /// Récupère tous les défis présents dans Firestore sans filtrage
-    func fetchAllChallenges() async throws -> [Challenge] {
-        return try await challengeService.fetchAllChallenges()
-    }
-
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
     func fetchAndFilterChallenges() async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
         let filtered = try await fetchAllChallenges().filter { challenge in
             challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
+        }
+
+        // TODO: Temporary piece of code, to be removed when all the users have an existing participatingChallenges field in database
+        for filter in filtered {
+            try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: filter.id)
         }
 
         await MainActor.run {
@@ -137,44 +144,56 @@ extension ChallengeManager {
             return
         }
 
-        guard let currentUser, let userId = currentUser.id else {
+        guard let currentUser, let currentUserId = currentUser.id else {
             throw ChallengeManagerError.userNotLoggedIn
         }
 
-        guard var remoteChallenge = try await challengeService.fetchChallenge(by: challengeId) else {
+        guard let joinedChallenge = try await challengeService.fetchChallenge(by: challengeId),
+              let progresses = try await challengeService.fetchParticipantsProgress(for: joinedChallenge.id)
+        else {
             throw ChallengeManagerError.challengeNotFound
         }
 
-        if remoteChallenge.participantUids.contains(userId) {
-            try await updateChallenge(remoteChallenge)
-        } else {
-            remoteChallenge.participantUids.append(userId)
-            try await joinChallenge(remoteChallenge, userId: userId)
-        }
+        let isNewToChallenge = !progresses.contains(where: { $0.userId == currentUserId })
+
+        try await manageJoiningChallenge(joinedChallenge,
+                                         currentUserId: currentUserId,
+                                         isNewToChallenge: isNewToChallenge)
     }
 
     func joinChallenge(withCode code: String) async throws -> Challenge {
-        guard let currentUser, let userId = currentUser.id else {
+        guard let currentUser, let currentUserId = currentUser.id else {
             throw ChallengeManagerError.userNotLoggedIn
         }
 
         let trimmedCode = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedCode.isEmpty else {
+
+        guard !trimmedCode.isEmpty,
+              let joinedChallenge = try await challengeService.fetchChallenge(byCode: trimmedCode),
+              let progresses = try await challengeService.fetchParticipantsProgress(for: joinedChallenge.id)
+        else {
             throw ChallengeManagerError.challengeNotFound
         }
 
-        guard var remoteChallenge = try await challengeService.fetchChallenge(byCode: trimmedCode) else {
-            throw ChallengeManagerError.challengeNotFound
-        }
+        let isNewToChallenge = !progresses.contains(where: { $0.userId == currentUserId })
 
-        if !remoteChallenge.participantUids.contains(userId) {
-            remoteChallenge.participantUids.append(userId)
-            try await joinChallenge(remoteChallenge, userId: userId)
+        try await manageJoiningChallenge(joinedChallenge,
+                                         currentUserId: currentUserId,
+                                         isNewToChallenge: isNewToChallenge)
+
+        return joinedChallenge
+    }
+
+    func manageJoiningChallenge(_ challenge: Challenge, currentUserId: String, isNewToChallenge: Bool) async throws {
+        if isNewToChallenge {
+            try await createNewParticipantProgress(userId: currentUserId, challenge: challenge)
         } else {
-            try await fetchAndFilterChallenges()
+            try await challengeService.unblockParticipant(challengeId: challenge.id, userId: currentUserId)
         }
 
-        return remoteChallenge
+        try await challengeService.addParticipant(challengeId: challenge.id, userId: currentUserId)
+        try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: challenge.id)
+        try await fetchAndFilterChallenges()
     }
 
     func deleteChallenge(_ challengeId: String) async throws {
@@ -186,12 +205,28 @@ extension ChallengeManager {
         }
     }
 
-    func joinChallenge(_ challenge: Challenge, userId: String) async throws {
-        try await updateChallenge(challenge)
-        try await createNewParticipantProgress(userId: userId, challenge: challenge)
+    func removeParticipant(_ challengeId: String, userId: String) async throws {
+        guard let allAdmins = try await challengeService.fetchAdminUids(for: challengeId) else { return }
+
+        if allAdmins.contains(userId) {
+            if allAdmins.count == 1 {
+                throw ChallengeManagerError.userSoloAdmin
+            } else {
+                try await challengeService.removeAdminUid(challengeId: challengeId, uid: userId)
+            }
+        }
+
+        try await challengeService.removeParticipant(challengeId: challengeId, userId: userId)
+        try await challengeService.removeParticipatingChallenge(to: userId, challengeId: challengeId)
+        try await challengeService.blockParticipant(challengeId: challengeId, userId: userId)
     }
 
     // Challenges - Privates
+
+    /// Récupère tous les défis présents dans Firestore sans filtrage
+    private func fetchAllChallenges() async throws -> [Challenge] {
+        return try await challengeService.fetchAllChallenges()
+    }
 
     private func updateChallenge(_ challenge: Challenge) async throws {
         try await challengeService.updateChallenge(challenge)
@@ -217,27 +252,29 @@ extension ChallengeManager {
         let trimmedContent = content.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedContent.isEmpty else { return }
 
-        let message = ChallengeChatMessage(
-            documentId: nil,
-            challengeId: challengeId,
-            senderId: userId,
-            senderName: currentUser.name,
-            content: trimmedContent,
-            createdAt: Date(),
-            reactions: [:]
-        )
+        let message = ChallengeChatMessage(documentId: nil,
+                                           challengeId: challengeId,
+                                           senderId: userId,
+                                           senderName: currentUser.name,
+                                           content: trimmedContent,
+                                           createdAt: Date(),
+                                           reactions: [:])
 
         try await challengeService.addChatMessage(message, to: challengeId)
     }
 
     func markChatAsRead(for challengeId: String) {
         defaults.set(Date(), forKey: chatLastReadPrefix + challengeId)
+        defaults.set(false, forKey: hasUnreadMessagePrefix + challengeId)
     }
 
-    func hasUnreadMessages(for challengeId: String, latestMessageDate: Date?) -> Bool {
-        guard let latestMessageDate else { return false }
+    func getHasUnreadMessages(for challengeId: String) -> Bool {
+        defaults.bool(forKey: hasUnreadMessagePrefix + challengeId)
+    }
 
+    func checkForUnreadMessages(for challengeId: String, latestMessageDate: Date) -> Bool {
         let lastRead = defaults.object(forKey: chatLastReadPrefix + challengeId) as? Date ?? .distantPast
+        defaults.set(latestMessageDate > lastRead, forKey: hasUnreadMessagePrefix + challengeId)
         return latestMessageDate > lastRead
     }
 
@@ -247,10 +284,7 @@ extension ChallengeManager {
                          userId: String) async throws {
         guard let messageId = message.documentId else { return }
 
-        try await challengeService.addReaction(reaction,
-                                               to: messageId,
-                                               in: challengeId,
-                                               userId: userId)
+        try await challengeService.addReaction(reaction, to: messageId, in: challengeId, userId: userId)
     }
 
     func removeChatReaction(_ reaction: String,
@@ -269,20 +303,31 @@ extension ChallengeManager {
 // MARK: - Posts
 extension ChallengeManager {
     func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws {
-        guard let currentUser, let currentUserId = currentUser.id else { return }
+        let allParticipants = challenge.participantUids
 
-        print("📤 Upload du post en cours...")
+        guard let currentUser,
+              let currentUserId = currentUser.id,
+              let progress = try await fetchProgress(challengeId: challenge.id, userId: currentUserId)
+        else { return }
+
         let uploadedPost = try await uploadPostToFirebase(media: media,
                                                           challengeId: challenge.id,
                                                           author: currentUser,
                                                           description: descriptionText)
 
-        print("✅ Upload réussi, mise à jour progression Firestore...")
-        try await updateParticipantProgress(for: challenge.id, userId: currentUserId, date: Date())
+        var newProgress = progress
+        if !dayAlreadyValidated(progress: newProgress, day: Date()) {
+            newProgress.validatedDays.append(Date())
+        }
 
-        await notificationService.sendPostNotification(challenge: challenge,
-                                                        authorName: currentUser.name,
-                                                        postId: uploadedPost.id)
+        _ = try await updateParticipantProgress(progress: newProgress)
+
+        let externalIds = Array(Set(allParticipants.filter { $0 != currentUserId }))
+        if !externalIds.isEmpty {
+            await notificationService.sendPostNotification(challenge: challenge,
+                                                           authorName: currentUser.name,
+                                                           postId: uploadedPost.id)
+        }
     }
 
     func loadPosts(from challengeId: String) async throws -> [ChallengePost] {
@@ -390,82 +435,51 @@ extension ChallengeManager {
 // MARK: - Reward flow
 extension ChallengeManager {
     func createNewParticipantProgress(userId: String, challenge: Challenge) async throws {
-        let totalJokers = challenge.jokerConfiguration?.jokersPerParticipant ?? 0
-        let jokerProgress = ParticipantJokerProgress(total: totalJokers)
+        let newUserProgress = ParticipantProgress(userId: userId,
+                                                  validatedDays: [],
+                                                  currentStreak: 0,
+                                                  jokerProgress: ParticipantJokerProgress(total: challenge.jokerConfiguration),
+                                                  medals: [],
+                                                  challengeId: challenge.id,
+                                                  joinedDate: Date(),
+                                                  isCreator: challenge.creatorUID == userId,
+                                                  isBlocked: false)
 
-        let userProgress = ParticipantProgress(id: userId,
-                                               joinedDate: Date(),
-                                               validatedDays: [],
-                                               medals: [],
-                                               currentStreak: 0,
-                                               jokerProgress: jokerProgress)
-
-        try setUserProgress(userId: userId, challengeId: challenge.id, progress: userProgress)
-    }
-    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress] {
-        var progresses = try await challengeService.fetchParticipantsProgress(for: challengeId)
-
-
-        let resolvedChallenge: Challenge
-        if let local = challenge(for: challengeId) {
-            resolvedChallenge = local
-        } else if let fetched = try await fetchChallenge(by: challengeId) {
-            resolvedChallenge = fetched
-        } else {
-            // si le challenge n'existe plus, on renvoie juste les progresses
-            return progresses
-           
-            // throw ChallengeManagerError.challengeNotFound
-        }
-
-        // Étape 2 : auto-déclaration pour le user courant
-        if let currentUserId = currentUser?.id,
-           let index = progresses.firstIndex(where: { $0.id == currentUserId }),
-           let updatedProgress = await autoDeclareMissedDayIfNeeded(
-                for: resolvedChallenge,
-                progress: progresses[index]
-           ) {
-            progresses[index] = updatedProgress
-        }
-
-        return progresses
+        try setUserProgress(progress: newUserProgress)
     }
 
-    func updateParticipantProgress(for challengeId: String, userId: String, date: Date) async throws {
+    func fetchParticipantsProgress(for challengeId: String) async throws -> [ParticipantProgress]? {
+        return try await challengeService.fetchParticipantsProgress(for: challengeId)
+    }
+
+    func updateParticipantProgress(progress: ParticipantProgress) async throws -> ParticipantProgress {
         do {
-            print("📥 updateProgress lancé pour userId=\(userId), challengeId=\(challengeId)")
-            guard var progress = try await fetchProgress(challengeId: challengeId, userId: userId) else { return }
+            let userId = progress.userId
+            let challengeId = progress.challengeId
 
-            if progress.jokerProgress == nil {
-                let total = challenge(for: challengeId)?.jokerConfiguration?.jokersPerParticipant ?? 0
-                progress.jokerProgress = ParticipantJokerProgress(total: total)
-            }
+            var newProgress = progress
 
-            guard shouldAppendDay(progress: progress, day: date) else {
-                print("🔁 Journée déjà validée pour \(date)")
-                return
-            }
+            newProgress.currentStreak = calculateStreak(from: newProgress.validatedDays)
 
-            progress.validatedDays.append(date)
-            progress.currentStreak = calculateStreak(from: progress.validatedDays)
-            print("✅ Nouvelle journée ajoutée. Streak actuel: \(progress.currentStreak)")
+            let newMedals = detectNewMedals(from: newProgress)
+            newProgress.medals.append(contentsOf: newMedals)
 
-            let newMedals = detectNewMedals(from: progress, challengeId: challengeId)
-            progress.medals.append(contentsOf: newMedals)
-
-            await rewardService.persistProgress(progress, for: challengeId)
+            await rewardService.persistProgress(newProgress)
             await rewardService.addMedals(to: userId, medals: newMedals)
 
             _ = try await accountManager.updateCurrentUser(with: userId)
 
-            for medal in newMedals {
-                await MainActor.run {
+            await MainActor.run {
+                for medal in newMedals {
                     alertManager.show(medal: medal, challengeId: challengeId)
                     triggerLocalNotification(for: medal)
                 }
             }
+
+            return newProgress
         } catch {
             print("❌ updateProgress > Erreur fetch: \(error)")
+            throw ChallengeManagerError.progressNotUpdated
         }
     }
 
@@ -474,126 +488,112 @@ extension ChallengeManager {
         await rewardService.assignCreationMedals(to: userId, createdCount: createdCount)
     }
 
-    func declareJokerUsage(for challenge: Challenge, on date: Date, postId: String?) async throws {
+    func autoDeclareDailyJoker(for progress: ParticipantProgress) async throws {
+        let today = Date()
+
         guard let currentUser,
               let currentUserId = currentUser.id,
-              (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
+              !dayAlreadyValidated(progress: progress, day: today)
+        else { return }
 
-        let voters = [currentUserId]
+        var newProgress = progress
+        let jokerUsageIsRegistered = newProgress.jokerProgress.jokerUsageIsRegistered(on: today, postId: nil, declaredByAuthor: true, voters: [currentUserId])
 
-        if let postId {
-            let state = PostJokerState(declaredByAuthor: true,
-                                        voters: voters,
-                                        isConfirmed: true,
-                                        confirmedAt: Date())
-            try await challengeService.updatePostJokerState(challengeId: challenge.id,
-                                                            postId: postId,
-                                                            state: state)
+        if jokerUsageIsRegistered {
+            newProgress.validatedDays.append(today)
         }
 
-        try await consumeJoker(for: currentUserId,
-                               in: challenge,
-                               on: date,
-                               postId: postId,
-                               declaredByAuthor: true,
-                               voters: voters)
+        await rewardService.persistProgress(newProgress)
     }
 
-    func autoDeclareMissedDayIfNeeded(for challenge: Challenge,
-                                      progress: ParticipantProgress) async -> ParticipantProgress? {
-        guard let currentUserId = currentUser?.id,
-              currentUserId == progress.id,
-              (challenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return nil }
+    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress? {
+        guard let currentUserId = currentUser?.id, currentUserId == progress.id
+        else { return nil }
 
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        guard let targetDay = calendar.date(byAdding: .day, value: -1, to: today) else { return nil }
+        var lastValidatedDay = progress.validatedDays.max() ?? progress.joinedDate
 
-        let startBoundary = calendar.startOfDay(for: max(challenge.startDate, progress.joinedDate))
-        let endBoundary = calendar.startOfDay(for: challenge.lastDayDate)
+        guard let yesterday = calendar.date(byAdding: .day, value: -1, to: Date()),
+              !calendar.isDate(lastValidatedDay, inSameDayAs: yesterday),
+              challenge.jokerConfiguration > 0,
+              progress.jokerProgress.remaining > 0
+        else { return progress }
 
-        guard targetDay >= startBoundary, targetDay <= endBoundary else { return nil }
+        let endBoundary = Date() > challenge.lastDayDate ? challenge.lastDayDate : yesterday
 
-        let hasValidatedDay = progress.validatedDays.contains { calendar.isDate($0, inSameDayAs: targetDay) }
+        var newProgress = progress
+        while calendar.startOfDay(for: lastValidatedDay) <= calendar.startOfDay(for: endBoundary) {
+            if !dayAlreadyValidated(progress: newProgress, day: lastValidatedDay) {
+                let jokerUsageIsRegistered = newProgress.jokerProgress.jokerUsageIsRegistered(on: lastValidatedDay, postId: nil, declaredByAuthor: true, voters: [currentUserId])
 
-        var jokerProgress = progress.jokerProgress
-            ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
+                if jokerUsageIsRegistered {
+                    newProgress.validatedDays.append(lastValidatedDay)
+                }
+            }
 
-        let alreadyUsedJokerForDay = jokerProgress.confirmedUsages.contains { usage in
-            calendar.isDate(usage.date, inSameDayAs: targetDay)
+            lastValidatedDay = calendar.date(byAdding: .day, value: 1, to: lastValidatedDay)!
         }
 
-        guard !hasValidatedDay, !alreadyUsedJokerForDay, jokerProgress.remaining > 0 else { return nil }
-
         do {
-            try await consumeJoker(for: currentUserId,
-                                   in: challenge,
-                                   on: targetDay,
-                                   postId: nil,
-                                   declaredByAuthor: true,
-                                   voters: [currentUserId])
-
-            return try await fetchProgress(challengeId: challenge.id, userId: currentUserId)
+            return try await updateParticipantProgress(progress: newProgress)
         } catch {
             print("❌ Impossible d'attribuer automatiquement un joker : \(error)")
             return nil
         }
     }
 
-    func toggleJokerVote(for post: ChallengePost, currentState: PostJokerState) async throws {
-        guard let currentUser, let currentUserId = currentUser.id else { return }
-
-        let resolvedChallenge: Challenge
-        if let localChallenge = challenge(for: post.challengeId) {
-            resolvedChallenge = localChallenge
-        } else if let fetchedChallenge = try? await fetchChallenge(by: post.challengeId) {
-            resolvedChallenge = fetchedChallenge
-        } else {
-            return
+    func declareJokerOnPost(for post: ChallengePost, jokerState: PostJokerState) async throws {
+        guard let currentUser,
+              let currentUserId = currentUser.id,
+              let challenge = challenge(for: post.challengeId)
+        else {
+            throw NSError(domain: "FetchError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de trouver le user ou le challenge associé."])
         }
 
-        guard (resolvedChallenge.jokerConfiguration?.jokersPerParticipant ?? 0) > 0 else { return }
-
-        let latestState = try await challengeService.fetchPost(challengeId: post.challengeId, postId: post.id)?.jokerState
-        var state = latestState ?? currentState
-
-        if state.isConfirmed {
-            print("ℹ️ Joker déjà confirmé pour ce post")
-            return
-        }
-
-        if state.voters.contains(currentUserId) {
-            print("ℹ️ L'utilisateur a déjà voté pour ce joker")
-            return
-        }
+        var state = jokerState
+        let isAutoDeclared = currentUserId == post.authorUid
 
         state.voters.append(currentUserId)
 
-        let eligibleVoters = max(resolvedChallenge.participantUids.count - 1, 1)
-        let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
-        let isConfirmed = state.voters.count >= requiredVotes
+        if isAutoDeclared {
+            state.declaredByAuthor = true
+            state.isConfirmed = true
+            state.confirmedAt = Date()
+        } else {
+            let eligibleVoters = max(challenge.participantUids.count - 1, 1)
+            let requiredVotes = eligibleVoters <= 2 ? eligibleVoters : (eligibleVoters / 2 + 1)
 
-        state.isConfirmed = isConfirmed
-        state.confirmedAt = isConfirmed ? Date() : nil
+            if state.voters.count >= requiredVotes {
+                state.isConfirmed = true
+                state.confirmedAt = Date()
+            }
+        }
 
         try await challengeService.updatePostJokerState(challengeId: post.challengeId,
                                                         postId: post.id,
                                                         state: state)
 
-        if isConfirmed {
-            try await consumeJoker(for: post.authorUid,
-                                   in: resolvedChallenge,
-                                   on: post.date,
-                                   postId: post.id,
-                                   declaredByAuthor: state.declaredByAuthor,
-                                   voters: state.voters)
+        if state.isConfirmed,
+           var progress = try await fetchProgress(challengeId: post.challengeId, userId: post.authorUid) {
+            _ = progress.jokerProgress.jokerUsageIsRegistered(on: Date(),
+                                                              postId: post.id,
+                                                              declaredByAuthor: isAutoDeclared,
+                                                              voters: state.voters)
+            await rewardService.persistProgress(progress)
+
+            if !isAutoDeclared {
+                await notificationService.sendJokerConsumedNotification(to: post.authorUid,
+                                                                        challenge: challenge,
+                                                                        postId: post.id,
+                                                                        remainingJokers: progress.jokerProgress.remaining)
+            }
         }
     }
 
     // Reward flow - Privates
 
-    private func setUserProgress(userId: String, challengeId: String, progress: ParticipantProgress) throws {
-        return try challengeService.setUserProgress(userId: userId, challengeId: challengeId, progress: progress)
+    private func setUserProgress(progress: ParticipantProgress) throws {
+        return try challengeService.setUserProgress(progress: progress)
     }
 
     private func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress? {
@@ -608,15 +608,16 @@ extension ChallengeManager {
         try await challengeService.fetchAllChallenges().first(where: { $0.id == id })
     }
 
-    private func shouldAppendDay(progress: ParticipantProgress, day: Date) -> Bool {
-        !progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: day) }
+    private func dayAlreadyValidated(progress: ParticipantProgress, day: Date) -> Bool {
+        progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: day) }
     }
 
-    private func detectNewMedals(from progress: ParticipantProgress, challengeId: String) -> [UserMedal] {
+    private func detectNewMedals(from progress: ParticipantProgress) -> [UserMedal] {
         let sortedCount = progress.validatedDays.count
+        let challengeId = progress.challengeId
         var medals: [UserMedal] = []
 
-        if sortedCount == 1 && !progress.medals.contains(where: { $0.name == "🚀 Premier jour" }) {
+        if sortedCount >= 1 && !progress.medals.contains(where: { $0.name == "🚀 Premier jour" }) {
             print("🥇 Ajout médaille: Premier jour")
             medals.append(UserMedal(name: "🚀 Premier jour",
                                     description: "Première validation !",
@@ -625,7 +626,7 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 3 && !progress.medals.contains(where: { $0.name == "🔥 3 jours" }) {
+        if progress.currentStreak >= 3 && !progress.medals.contains(where: { $0.name == "🔥 3 jours" }) {
             print("🥈 Ajout médaille: 3 jours")
             medals.append(UserMedal(name: "🔥 3 jours",
                                     description: "3 jours validés d'affilée",
@@ -634,7 +635,7 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 5 && !progress.medals.contains(where: { $0.name == "🥉 5 jours" }) {
+        if progress.currentStreak >= 5 && !progress.medals.contains(where: { $0.name == "🥉 5 jours" }) {
             medals.append(UserMedal(name: "🥉 5 jours",
                                     description: "5 jours validés d'affilée",
                                     iconName: "bronze",
@@ -642,7 +643,7 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 7 && !progress.medals.contains(where: { $0.name == "🎖️ 7 jours" }) {
+        if progress.currentStreak >= 7 && !progress.medals.contains(where: { $0.name == "🎖️ 7 jours" }) {
             medals.append(UserMedal(name: "🎖️ 7 jours",
                                     description: "7 jours validés d'affilée",
                                     iconName: "green",
@@ -650,7 +651,7 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 10 && !progress.medals.contains(where: { $0.name == "🧨 10 jours" }) {
+        if progress.currentStreak >= 10 && !progress.medals.contains(where: { $0.name == "🧨 10 jours" }) {
             medals.append(UserMedal(name: "🧨 10 jours",
                                     description: "10 jours validés d'affilée",
                                     iconName: "apple",
@@ -658,16 +659,15 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-
-
-        if progress.currentStreak == 14 && !progress.medals.contains(where: { $0.name == "🥈 14 jours" }) {
+        if progress.currentStreak >= 14 && !progress.medals.contains(where: { $0.name == "🥈 14 jours" }) {
             medals.append(UserMedal(name: "🥈 14 jours",
                                     description: "14 jours de suite !",
                                     iconName: "silver",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
         }
-        if progress.currentStreak == 21 && !progress.medals.contains(where: { $0.name == " 🥇21 jours" }) {
+
+        if progress.currentStreak >= 21 && !progress.medals.contains(where: { $0.name == "🥇21 jours" }) {
             medals.append(UserMedal(name: "🥇21 jours",
                                     description: "21 jours de suite !",
                                     iconName: "gold",
@@ -675,9 +675,9 @@ extension ChallengeManager {
                                     challengeId: challengeId))
         }
 
-        if progress.currentStreak == 25 && !progress.medals.contains(where: { $0.name == " 25 jours" }) {
+        if progress.currentStreak >= 25 && !progress.medals.contains(where: { $0.name == "25 jours" }) {
             medals.append(UserMedal(name: "25 jours",
-                                    description: "21 jours de suite !",
+                                    description: "25 jours de suite !",
                                     iconName: "boxing",
                                     achievedDate: Date(),
                                     challengeId: challengeId))
@@ -694,86 +694,6 @@ extension ChallengeManager {
         }
 
         return medals
-    }
-
-    private func consumeJoker(for userId: String,
-                              in challenge: Challenge,
-                              on date: Date,
-                              postId: String?,
-                              declaredByAuthor: Bool,
-                              voters: [String]) async throws {
-        var progress = try await fetchProgress(challengeId: challenge.id, userId: userId)
-
-        if progress == nil {
-            print("⚠️ Aucune progression trouvée pour \(userId), initialisation d'un suivi avec jokers par défaut")
-
-            let jokerTotal = challenge.jokerConfiguration?.jokersPerParticipant ?? 0
-            let newProgress = ParticipantProgress(id: userId,
-                                                  joinedDate: Date(),
-                                                  validatedDays: [],
-                                                  medals: [],
-                                                  currentStreak: 0,
-                                                  jokerProgress: ParticipantJokerProgress(total: jokerTotal))
-
-            try setUserProgress(userId: userId, challengeId: challenge.id, progress: newProgress)
-            progress = newProgress
-        }
-
-        guard var progress else { return }
-
-        var jokerProgress = progress.jokerProgress
-            ?? ParticipantJokerProgress(total: challenge.jokerConfiguration?.jokersPerParticipant ?? 0)
-
-        let alreadyRecorded = postId != nil && (jokerProgress.usages.contains { $0.postId == postId })
-
-        if !alreadyRecorded && jokerProgress.remaining <= 0 {
-            print("⚠️ Aucun joker restant pour l'utilisateur \(userId)")
-            return
-        }
-
-        jokerProgress.registerConfirmedUsage(on: date,
-                                             postId: postId,
-                                             declaredByAuthor: declaredByAuthor,
-                                             voters: voters)
-
-        progress.jokerProgress = jokerProgress
-
-        if shouldAppendDay(progress: progress, day: date) {
-            progress.validatedDays.append(date)
-        }
-
-        progress.currentStreak = calculateStreak(from: progress.validatedDays)
-
-        let newMedals = detectNewMedals(from: progress, challengeId: challenge.id)
-        if !newMedals.isEmpty {
-            progress.medals.append(contentsOf: newMedals)
-        }
-
-        await rewardService.persistProgress(progress, for: challenge.id)
-
-        if !newMedals.isEmpty {
-            await rewardService.addMedals(to: userId, medals: newMedals)
-        }
-
-        if declaredByAuthor, currentUser?.id == userId {
-            _ = try? await accountManager.updateCurrentUser(with: userId)
-        }
-
-        if !declaredByAuthor, let postId {
-            await notificationService.sendJokerConsumedNotification(to: userId,
-                                                                    challenge: challenge,
-                                                                    postId: postId,
-                                                                    remainingJokers: jokerProgress.remaining)
-        }
-
-        if !newMedals.isEmpty {
-            for medal in newMedals {
-                await MainActor.run {
-                    alertManager.show(medal: medal, challengeId: challenge.id)
-                    triggerLocalNotification(for: medal)
-                }
-            }
-        }
     }
 
     private func triggerLocalNotification(for medal: UserMedal) {

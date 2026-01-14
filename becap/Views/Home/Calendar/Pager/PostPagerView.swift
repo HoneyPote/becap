@@ -20,7 +20,7 @@ struct PostPagerView: View {
     @State private var pendingJokerAction: JokerAction?
     @State private var showDeleteAlert = false
 
-    let getParticipant: (String) -> Participant?
+    let getParticipant: (String) -> ParticipantUIModel?
     let onDelete: (String) -> Void
     let onClose: () -> Void
 
@@ -32,7 +32,7 @@ struct PostPagerView: View {
     init(posts: [ChallengePost],
          startIndex: Int = 0,
          challenge: Challenge,
-         getParticipant: @escaping (String) -> Participant?,
+         getParticipant: @escaping (String) -> ParticipantUIModel?,
          onDelete: @escaping (String) -> Void,
          onClose: @escaping () -> Void) {
         self.getParticipant = getParticipant
@@ -86,7 +86,7 @@ struct PostPagerView: View {
                 return Alert(title: Text("Utiliser un joker"),
                              message: Text("Confirmer que cette journée consomme un de vos jokers ?"),
                              primaryButton: .default(Text("Confirmer")) {
-                                viewModel.declareJokerUsage()
+                                viewModel.toggleJoker()
                                 pendingJokerAction = nil
                              },
                              secondaryButton: .cancel())
@@ -94,7 +94,7 @@ struct PostPagerView: View {
                 return Alert(title: Text("Voter pour un joker"),
                              message: Text("Confirmer que ce post doit utiliser un joker ?"),
                              primaryButton: .default(Text("Voter")) {
-                                viewModel.toggleJokerVote()
+                                viewModel.toggleJoker()
                                 pendingJokerAction = nil
                              },
                              secondaryButton: .cancel())
@@ -114,7 +114,7 @@ struct PostPagerView: View {
 
             if !commentSectionIsShown {
                 if let participant = getParticipant(postVM.post.authorUid) {
-                    MedalsSection(medals: participant.medals)
+                    MedalsSection(medals: participant.userMedals)
                         .padding(.bottom, 6)
                 }
 
@@ -256,25 +256,15 @@ extension PostPagerView {
         }
     }
 
-    @ViewBuilder
     private func jokerBadge(for state: PostJokerState) -> some View {
-        let voteCount = state.voters.count
-        let hasCurrentUserVoted = viewModel.hasCurrentUserVoted
-        let canAct = !state.isConfirmed && (viewModel.canDeclareJoker || viewModel.canToggleJokerVote)
-
-        let decorated = JokerIconView(size: 40, isDimmed: state.isConfirmed || hasCurrentUserVoted)
-            .overlay(alignment: .topTrailing) {
-                voteBubble(for: voteCount)
-            }
-
-        if canAct {
-            Button(action: { handleJokerTap(for: state) }) {
-                decorated
-            }
-            .buttonStyle(.plain)
-        } else {
-            decorated
+        Button(action: { handleJokerTap(for: state) }) {
+            JokerIconView(size: 40, isDimmed: state.isConfirmed || viewModel.hasCurrentUserVoted)
+                .overlay(alignment: .topTrailing) {
+                    voteBubble(for: state.voters.count)
+                }
         }
+        .buttonStyle(.plain)
+        .disabled(!viewModel.canToggleJokerVote)
     }
 
     private func voteBubble(for count: Int) -> some View {

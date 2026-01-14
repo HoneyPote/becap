@@ -2,7 +2,7 @@
 //  LegalDocumentsView.swift
 //  becap
 //
-//  Created by OpenAI on 13/08/2025.
+//  Created by Adam Mabrouki on 13/08/2025.
 //
 
 import SwiftUI

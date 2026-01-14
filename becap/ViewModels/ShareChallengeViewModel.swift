@@ -85,13 +85,12 @@ final class ShareChallengeViewModel: ObservableObject {
         }
 
         do {
-            var joinedChallenge = try await challengeManager.joinChallenge(withCode: trimmedCode)
+            let joinedChallenge = try await challengeManager.joinChallenge(withCode: trimmedCode)
             let resolvedChallenge = challengeManager.challenges.first(where: { $0.id == joinedChallenge.id }) ?? joinedChallenge
 
             await MainActor.run {
                 selectedChallenge = resolvedChallenge
                 joinCodeInput = ""
-                joinedChallenge = resolvedChallenge
                 presentAlert(title: "Défi rejoint", message: "Tu as bien rejoint \"\(resolvedChallenge.title)\".")
             }
         } catch {

@@ -61,11 +61,12 @@ struct Challenge: Identifiable, Codable, Hashable {
     var duration: Int
     var startDate: Date
     var creatorUID: String
+    var adminUids: [String]
     var participantUids: [String]
     var category: ChallengeCategory? = nil
     var notificationsConfig: [ChallengeNotification]?
     var code: String?
-    var jokerConfiguration: ChallengeJokerConfiguration?
+    var jokerConfiguration: Int
 
     var endDate: Date {
         Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
@@ -122,7 +123,7 @@ struct ChallengePost: Identifiable, Codable, Hashable {
     var description: String?             // Description optionnelle (légende)
     var date: Date                       // Date de prise ou de soumission
 
-    var likes: [String]? // <--- AJOUTE CE CHAMP ! (optional pour backward compatibilité)
+    var likes: [String]?
     var jokerState: PostJokerState?
 
     var media: ChallengeMedia
