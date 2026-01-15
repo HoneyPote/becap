@@ -55,7 +55,8 @@ struct WaterHeaderView: View {
                 Spacer()
 
                 Text(title)
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .kerning(0.6)
                     .foregroundColor(.black)
                     .padding(.bottom, 36)
             }
