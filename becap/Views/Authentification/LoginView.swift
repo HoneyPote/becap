@@ -16,99 +16,109 @@ struct LoginView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                LinearGradient(
-                    colors: [
-                        Color(red: 19 / 255, green: 86 / 255, blue: 94 / 255),
-                        Color(red: 9 / 255, green: 25 / 255, blue: 28 / 255)
-                    ],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+            GeometryReader { proxy in
+                ZStack {
+                    LinearGradient(
+                        colors: [
+                            Color(red: 19 / 255, green: 86 / 255, blue: 94 / 255),
+                            Color(red: 9 / 255, green: 25 / 255, blue: 28 / 255)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                    .ignoresSafeArea()
 
-                ScrollView(showsIndicators: false) {
-                    VStack(spacing: 28) {
-                        headerCard
+                    VStack(spacing: 0) {
+                        WaterHeaderView(
+                            title: "Sign In",
+                            accessoryText: "Sign Up",
+                            accessoryIcon: "person.crop.circle"
+                        )
+                        .frame(height: proxy.size.height * 0.5)
 
-                        VStack(spacing: 18) {
-                            labeledField(title: "Email") {
-                                TextField("nom@email.com", text: $email)
-                                    .keyboardType(.emailAddress)
-                                    .textInputAutocapitalization(.never)
-                                    .disableAutocorrection(true)
-                            }
+                        ScrollView(showsIndicators: false) {
+                            VStack(spacing: 28) {
+                                VStack(spacing: 18) {
+                                    labeledField(title: "Email") {
+                                        TextField("nom@email.com", text: $email)
+                                            .keyboardType(.emailAddress)
+                                            .textInputAutocapitalization(.never)
+                                            .disableAutocorrection(true)
+                                    }
 
-                            labeledField(title: "Mot de passe") {
-                                SecureField("••••••••••", text: $password)
-                            }
-                        }
-                        .padding(.horizontal, 24)
-
-                        Button(action: {
-                            authViewModel.login(email: email, password: password)
-                        }) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "arrow.right.circle.fill")
-                                    .font(.system(size: 20, weight: .semibold))
-                                Text("Se connecter")
-                                    .font(.system(.headline, design: .rounded).weight(.semibold))
-                            }
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity, minHeight: 54)
-                            .background(Color.black.opacity(0.72))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 26, style: .continuous)
-                                    .stroke(
-                                        LinearGradient(
-                                            colors: [
-                                                Color(red: 0.96, green: 0.48, blue: 0.83),
-                                                Color(red: 0.95, green: 0.62, blue: 0.38)
-                                            ],
-                                            startPoint: .leading,
-                                            endPoint: .trailing
-                                        ),
-                                        lineWidth: 2
-                                    )
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
-                        }
-                        .padding(.horizontal, 28)
-                        .hapticTap()
-
-                        VStack(spacing: 14) {
-                            Text("Ou se connecter avec")
-                                .font(.system(.footnote, design: .rounded))
-                                .foregroundColor(.white.opacity(0.7))
-
-                            HStack(spacing: 18) {
-                                socialButton(systemName: "globe")
-                                socialButton(systemName: "message")
-                                socialButton(systemName: "xmark")
-                                socialButton(systemName: "music.note")
-                            }
-                        }
-
-                        NavigationLink(destination: RegisterView(authViewModel: authViewModel)) {
-                            HStack(spacing: 6) {
-                                Image(systemName: "person.crop.circle")
-                                Text("Créer un compte")
-                                    .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                            }
-                            .foregroundColor(.white.opacity(0.9))
-                        }
-                        .padding(.bottom, 8)
-
-                        if let error = authViewModel.authError {
-                            Text(error)
-                                .font(.footnote)
-                                .foregroundColor(.red)
-                                .multilineTextAlignment(.center)
+                                    labeledField(title: "Mot de passe") {
+                                        SecureField("••••••••••", text: $password)
+                                    }
+                                }
                                 .padding(.horizontal, 24)
+
+                                Button(action: {
+                                    authViewModel.login(email: email, password: password)
+                                }) {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: "arrow.right.circle.fill")
+                                            .font(.system(size: 20, weight: .semibold))
+                                        Text("Se connecter")
+                                            .font(.system(.headline, design: .rounded).weight(.semibold))
+                                    }
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity, minHeight: 54)
+                                    .background(Color.black.opacity(0.72))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 26, style: .continuous)
+                                            .stroke(
+                                                LinearGradient(
+                                                    colors: [
+                                                        Color(red: 0.96, green: 0.48, blue: 0.83),
+                                                        Color(red: 0.95, green: 0.62, blue: 0.38)
+                                                    ],
+                                                    startPoint: .leading,
+                                                    endPoint: .trailing
+                                                ),
+                                                lineWidth: 2
+                                            )
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+                                }
+                                .padding(.horizontal, 28)
+                                .hapticTap()
+
+                                VStack(spacing: 14) {
+                                    Text("Ou se connecter avec")
+                                        .font(.system(.footnote, design: .rounded))
+                                        .foregroundColor(.white.opacity(0.7))
+
+                                    HStack(spacing: 18) {
+                                        socialButton(systemName: "globe")
+                                        socialButton(systemName: "message")
+                                        socialButton(systemName: "xmark")
+                                        socialButton(systemName: "music.note")
+                                    }
+                                }
+
+                                NavigationLink(destination: RegisterView(authViewModel: authViewModel)) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "person.crop.circle")
+                                        Text("Créer un compte")
+                                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                                    }
+                                    .foregroundColor(.white.opacity(0.9))
+                                }
+                                .padding(.bottom, 8)
+
+                                if let error = authViewModel.authError {
+                                    Text(error)
+                                        .font(.footnote)
+                                        .foregroundColor(.red)
+                                        .multilineTextAlignment(.center)
+                                        .padding(.horizontal, 24)
+                                }
+                            }
+                            .padding(.horizontal)
+                            .padding(.vertical, 24)
+                            .frame(minHeight: proxy.size.height * 0.5)
                         }
                     }
-                    .padding(.horizontal)
-                    .padding(.vertical, 24)
                 }
             }
             .buttonStyle(.hapticPlain)
@@ -119,38 +129,6 @@ struct LoginView: View {
 }
 
 private extension LoginView {
-    var headerCard: some View {
-        ZStack {
-            WaveCardShape()
-                .fill(Color.white)
-                .frame(height: 190)
-                .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 12)
-
-            HStack {
-                Image(systemName: "sparkles")
-                    .foregroundColor(.black)
-                    .font(.system(size: 18, weight: .bold))
-
-                Spacer()
-
-                HStack(spacing: 6) {
-                    Image(systemName: "person.crop.circle")
-                    Text("Sign Up")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
-                }
-                .foregroundColor(.black.opacity(0.75))
-            }
-            .padding(.horizontal, 28)
-            .frame(height: 140, alignment: .top)
-
-            Text("Sign In")
-                .font(.system(size: 32, weight: .bold, design: .rounded))
-                .foregroundColor(.black)
-                .offset(y: 36)
-        }
-        .padding(.horizontal, 28)
-    }
-
     func labeledField<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
