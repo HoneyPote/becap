@@ -4,20 +4,41 @@ struct WaterHeaderView: View {
     let title: String
     let accessoryText: String
     let accessoryIcon: String
+    let leadingAction: (() -> Void)?
 
     @State private var phase: CGFloat = 0
 
     var body: some View {
         ZStack {
             WaveCardShape(phase: phase)
-                .fill(Color.white)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color.white,
+                            Color.white.opacity(0.94)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 12)
 
             VStack {
                 HStack {
-                    Image(systemName: "sparkles")
-                        .foregroundColor(.black)
-                        .font(.system(size: 18, weight: .bold))
+                    if let leadingAction {
+                        Button(action: leadingAction) {
+                            Image(systemName: "xmark")
+                                .foregroundColor(.black)
+                                .font(.system(size: 18, weight: .bold))
+                                .frame(width: 34, height: 34)
+                                .background(Color.white.opacity(0.7))
+                                .clipShape(Circle())
+                        }
+                    } else {
+                        Image(systemName: "sparkles")
+                            .foregroundColor(.black)
+                            .font(.system(size: 18, weight: .bold))
+                    }
 
                     Spacer()
 
@@ -39,8 +60,9 @@ struct WaterHeaderView: View {
                     .padding(.bottom, 36)
             }
         }
+        .ignoresSafeArea(edges: .top)
         .onAppear {
-            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+            withAnimation(.linear(duration: 14).repeatForever(autoreverses: false)) {
                 phase = .pi * 2
             }
         }

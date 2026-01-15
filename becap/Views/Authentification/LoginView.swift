@@ -32,7 +32,8 @@ struct LoginView: View {
                         WaterHeaderView(
                             title: "Sign In",
                             accessoryText: "Sign Up",
-                            accessoryIcon: "person.crop.circle"
+                            accessoryIcon: "person.crop.circle",
+                            leadingAction: nil
                         )
                         .frame(height: proxy.size.height * 0.5)
 

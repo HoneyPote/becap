@@ -10,6 +10,8 @@ import SwiftUI
 struct RegisterView: View {
     @ObservedObject var authViewModel: AuthentificationViewModel
 
+    @Environment(\.dismiss) private var dismiss
+
     @State private var name = ""
     @State private var email = ""
     @State private var password = ""
@@ -31,7 +33,10 @@ struct RegisterView: View {
                     WaterHeaderView(
                         title: "Créer un compte",
                         accessoryText: "Sign In",
-                        accessoryIcon: "person.crop.circle"
+                        accessoryIcon: "person.crop.circle",
+                        leadingAction: {
+                            dismiss()
+                        }
                     )
                     .frame(height: proxy.size.height * 0.5)
 
@@ -113,6 +118,7 @@ struct RegisterView: View {
             }
         }
         .buttonStyle(.hapticPlain)
+        .navigationBarBackButtonHidden(true)
     }
 }
 
