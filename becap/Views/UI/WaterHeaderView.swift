@@ -35,7 +35,7 @@ struct WaterHeaderView: View {
                                 .clipShape(Circle())
                         }
                     } else {
-                        Image(systemName: "sparkles")
+                        Image(systemName: "")
                             .foregroundColor(.black)
                             .font(.system(size: 18, weight: .bold))
                     }
