@@ -5,14 +5,18 @@ struct WaterHeaderView: View {
     let accessoryText: String
     let accessoryIcon: String
 
+    @State private var phase: CGFloat = 0
+
     var body: some View {
         ZStack {
-            AnimatedWaterView()
+            WaveCardShape(phase: phase)
+                .fill(Color.white)
+                .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 12)
 
             VStack {
                 HStack {
                     Image(systemName: "sparkles")
-                        .foregroundColor(.white)
+                        .foregroundColor(.black)
                         .font(.system(size: 18, weight: .bold))
 
                     Spacer()
@@ -22,18 +26,22 @@ struct WaterHeaderView: View {
                         Text(accessoryText)
                             .font(.system(.subheadline, design: .rounded).weight(.semibold))
                     }
-                    .foregroundColor(.white.opacity(0.9))
+                    .foregroundColor(.black.opacity(0.75))
                 }
                 .padding(.horizontal, 28)
-                .padding(.top, 36)
+                .padding(.top, 28)
 
                 Spacer()
 
                 Text(title)
-                    .font(.system(size: 30, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
-                    .shadow(color: Color.black.opacity(0.25), radius: 12, x: 0, y: 6)
+                    .font(.system(size: 32, weight: .bold, design: .rounded))
+                    .foregroundColor(.black)
                     .padding(.bottom, 36)
+            }
+        }
+        .onAppear {
+            withAnimation(.linear(duration: 4).repeatForever(autoreverses: false)) {
+                phase = .pi * 2
             }
         }
     }
