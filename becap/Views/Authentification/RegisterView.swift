@@ -21,8 +21,8 @@ struct RegisterView: View {
             ZStack {
                 LinearGradient(
                     colors: [
-                        Color(red: 19 / 255, green: 86 / 255, blue: 94 / 255),
-                        Color(red: 9 / 255, green: 25 / 255, blue: 28 / 255)
+                        Color(red: 11 / 255, green: 44 / 255, blue: 87 / 255),
+                        Color(red: 45 / 255, green: 110 / 255, blue: 166 / 255)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -111,9 +111,10 @@ struct RegisterView: View {
                             }
                         }
                         .padding(.horizontal)
-                        .padding(.vertical, 24)
+                        .padding(.vertical, 16)
                         .frame(minHeight: proxy.size.height * 0.5)
                     }
+                    .padding(.top, -18)
                 }
             }
         }
