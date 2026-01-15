@@ -42,9 +42,9 @@ struct CalendarMonthGrid: View {
         self.attachmentCountByDay = attachmentCountByDay
         self.jokerCountByDay = jokerCountByDay
         self.currentUserJokerDays = currentUserJokerDays
+        self.isEditingPremiumContent = isEditingPremiumContent
         self.onSelectDate = onSelectDate
         self.onAddAttachmentForDay = onAddAttachmentForDay
-        self.isEditingPremiumContent = isEditingPremiumContent
 
         let calendar = Calendar.current
         let startOfChallenge = calendar.startOfDay(for: startDate)

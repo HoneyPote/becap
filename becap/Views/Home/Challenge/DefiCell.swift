@@ -65,16 +65,17 @@ struct DefiCell: View {
         .buttonStyle(.hapticPlain)
         .contextMenu {
             if !isLocked {
-	            Button(role: .destructive) {
-	                onQuit()
-	            } label: {
-	                Label("Quitter le défi", systemImage: "trash")
-	            }
-
-            Button {
-                onReport()
-            } label: {
-                Label("Signaler", systemImage: "exclamationmark.bubble")
+                Button(role: .destructive) {
+                    onQuit()
+                } label: {
+                    Label("Quitter le défi", systemImage: "trash")
+                }
+                
+                Button {
+                    onReport()
+                } label: {
+                    Label("Signaler", systemImage: "exclamationmark.bubble")
+                }
             }
         }
         .padding(4)

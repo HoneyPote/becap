@@ -125,7 +125,7 @@ struct GridPostsInline: View {
     private func latestMedalIconName(for post: ChallengePost) -> String? {
         guard let participant = getParticipant(post.authorUid) else { return nil }
 
-        return participant.medals.sorted(by: { $0.achievedDate > $1.achievedDate }).first?.iconName
+        return participant.userMedals.sorted(by: { $0.achievedDate > $1.achievedDate }).first?.iconName
     }
 
     private func open(attachment: PremiumCalendarAttachment) {

@@ -131,6 +131,7 @@ extension ChallengeManager {
         // TODO: Temporary piece of code, to be removed when all the users have an existing participatingChallenges field in database
         for filter in filtered {
             try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: filter.id)
+        }
 
         let paywalled = allChallenges.filter { challenge in
             (challenge.isPremium ?? false)
@@ -802,6 +803,7 @@ extension ChallengeManager {
             .store(in: &cancellables)
     }
 }
+
 extension ChallengeManager {
     func uploadPremiumAttachment(data: Data,
                                 challengeId: String,

@@ -378,7 +378,7 @@ struct CalendarDetailView: View {
 
             Picker("Filtrer par", selection: $selectedParticipant) {
                 Text("Tous").tag(ParticipantUIModel?.none)
-                ForEach(viewModel.participants.filter { !$0.progress.isBlocked }, id: \.self) { participant in
+                ForEach(viewModel.participants.filter { !$0.progress.isBlocked }, id: \.userId) { participant in
                     Text(participant.userName).tag(Optional(participant))
                 }
             }
@@ -445,8 +445,7 @@ extension CalendarDetailView {
                 let displayCount = min(status.total, 8)
                 ForEach(0..<displayCount, id: \.self) { index in
                     let isActive = index < min(status.remaining, displayCount)
-                    JokerIconView(size: 26,
-                                  isDimmed: !isActive)
+                    JokerIconView(size: 26, isDimmed: !isActive)
                 }
 
                 if status.total > displayCount {
@@ -565,11 +564,9 @@ extension CalendarDetailView {
 
     private func openInitialPostIfNeeded() {
         guard viewModel.doneLoadingPosts,
-              let postId = pendingInitialPostId else { return }
-
-        guard let post = viewModel.allPosts.first(where: { $0.id == postId }) else {
-            return
-        }
+              let postId = pendingInitialPostId,
+              let post = viewModel.allPosts.first(where: { $0.id == postId })
+        else { return }
 
         let cells = viewModel.filterDetailCells(for: nil)
         guard let cell = cells.first(where: { sameDay($0.date, post.date) }),

@@ -7,6 +7,7 @@
 
 import Foundation
 
+// TODO: A DELETE
 struct ChallengeJokerConfiguration: Codable, Hashable {
     /// Number of jokers every participant receives when joining the challenge.
     var jokersPerParticipant: Int

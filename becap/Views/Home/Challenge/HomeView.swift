@@ -61,7 +61,9 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
                         shareCreateChallengeSection
-                        premiumChallengesSection
+                        if !viewModel.premiumChallenges.isEmpty {
+                            premiumChallengesSection
+                        }
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -99,14 +101,12 @@ struct HomeView: View {
             case .paywall:
                 PaywallView()
             case .challengePaywall(let challenge):
-                ChallengePaywallView(
-                    challenge: challenge,
-                    isProcessing: $isProcessingPayment,
-                    errorMessage: paymentErrorMessage,
-                    onApplePay: { startPayment(for: challenge, method: .applePay) },
-                    onCard: { startPayment(for: challenge, method: .card) },
-                    onClose: closePaymentSheet
-                )
+                ChallengePaywallView(challenge: challenge,
+                                     isProcessing: $isProcessingPayment,
+                                     errorMessage: paymentErrorMessage,
+                                     onApplePay: { startPayment(for: challenge, method: .applePay) },
+                                     onCard: { startPayment(for: challenge, method: .card) },
+                                     onClose: closePaymentSheet)
             case .report(let challenge):
                 ReportContentView(
                     challenge: challenge,
@@ -215,13 +215,13 @@ struct HomeView: View {
                             sheet = .paywall
                         }
                     } else {
-             NavigationLink(destination: {
-                        CalendarDetailView(challenge: challenge)
-                            .onDisappear { viewModel.refreshChallenges() }
-                    }) {
-                        DefiCell(challenge: challenge,
-                                 onQuit: { viewModel.confirmQuit(challenge) },
-                                 onReport: { viewModel.presentReport(for: challenge) })
+                        NavigationLink(destination: {
+                            CalendarDetailView(challenge: challenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        }) {
+                            DefiCell(challenge: challenge,
+                                     onQuit: { viewModel.confirmQuit(challenge) },
+                                     onReport: { viewModel.presentReport(for: challenge) })
                         }
                     }
                 }
@@ -247,42 +247,44 @@ struct HomeView: View {
 
     private var premiumChallengesSection: some View {
         Group {
-            if !viewModel.premiumChallenges.isEmpty {
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .center, spacing: 10) {
-                        Image(systemName: "star.fill")
-                            .foregroundColor(.yellow)
-                            .imageScale(.large)
-                        Text("CHALLENGE PRENIUM")
-                            .font(.system(.title2, design: .rounded).weight(.heavy))
-                            .textCase(.uppercase)
-                            .foregroundColor(.white)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.top, 26)
-                    .padding(.bottom, 20)
-                    .padding(.horizontal, 6)
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .center, spacing: 10) {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.yellow)
+                        .imageScale(.large)
+                    Text("DÉFI PREMIUM")
+                        .font(.system(.title2, design: .rounded).weight(.heavy))
+                        .textCase(.uppercase)
+                        .foregroundColor(.white)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.top, 26)
+                .padding(.bottom, 20)
+                .padding(.horizontal, 6)
 
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
-                        ForEach(viewModel.premiumChallenges) { challenge in
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 170))], spacing: 18) {
+                    ForEach(viewModel.premiumChallenges) { challenge in
                         let locked = viewModel.isLocked(challenge, store: store)
+
                         if locked {
                             LockedChallengeCell(challenge: challenge) {
                                 paymentErrorMessage = nil
                                 sheet = .challengePaywall(challenge)
                             }
                         } else {
-                                NavigationLink(destination: CalendarDetailView(challenge: challenge)) {
-                                    DefiCell(challenge: challenge,
-                                             onDelete: { viewModel.confirmDelete(challenge) },
-                                             onReport: { viewModel.presentReport(for: challenge) })
-                                }
+                            NavigationLink(destination: {
+                                CalendarDetailView(challenge: challenge)
+                                    .onDisappear { viewModel.refreshChallenges() }
+                            }) {
+                                DefiCell(challenge: challenge,
+                                         onQuit: { viewModel.confirmQuit(challenge) },
+                                         onReport: { viewModel.presentReport(for: challenge) })
                             }
                         }
                     }
                 }
-                .padding(.bottom, 12)
             }
+            .padding(.bottom, 12)
         }
     }
 
@@ -323,6 +325,12 @@ struct HomeView: View {
                 isProcessingPayment = false
             }
         }
+    }
+
+    private func closePaymentSheet() {
+        sheet = nil
+        paymentErrorMessage = nil
+        isProcessingPayment = false
     }
 
     private func quitChallengeErrorView(error: String) -> some View {
@@ -379,7 +387,7 @@ extension HomeView {
                        isActive: $navigateToDeepLinkedChallenge) {
             EmptyView()
         }
-        .hidden()
+                       .hidden()
     }
 
     @ViewBuilder

@@ -29,11 +29,12 @@ class HomeViewModel: ObservableObject {
         duration: 7,
         startDate: Date(),
         creatorUID: "premium@becap",
+        adminUids: [],
         participantUids: [],
         category: .sport,
         notificationsConfig: nil,
         code: nil,
-        jokerConfiguration: nil,
+        jokerConfiguration: 0,
         isPremium: true,
         price: 4.99,
         infoText: "Programme premium guidé avec vidéos, rappel quotidien et récompenses exclusives pour garder la motivation.",
@@ -162,7 +163,7 @@ class HomeViewModel: ObservableObject {
             updatedChallenge.participantUids.append(userId)
         }
 
-        try await challengeManager.joinChallenge(updatedChallenge, userId: userId)
+        try await challengeManager.manageJoiningChallenge(updatedChallenge, currentUserId: userId, isNewToChallenge: true)
     }
 }
 

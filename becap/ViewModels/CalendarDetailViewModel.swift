@@ -69,25 +69,21 @@ struct CalendarDetailCell: Hashable,Identifiable {
 
 class CalendarDetailViewModel: ObservableObject {
     @Published var allPosts: [ChallengePost] = []
-    @Published var detailCells: [CalendarDetailCell]?
     @Published var doneLoadingPosts: Bool = false
     @Published var selectedPagerInfo: PagerInfo?
     @Published var participants: [ParticipantUIModel] = []
     @Published var participantProgresses: [ParticipantProgress] = []
-    @Published var chatMessages: [ChallengeChatMessage] = []
     @Published var chatHasUnreadMessages: Bool = false
     @Published var premiumAttachments: [PremiumCalendarAttachment] = []
     @Published var isSavingPremiumContent: Bool = false
     @Published var premiumSaveProgress: Double = 0.0
     @Published var premiumSaveStage: String? = nil
-  
+    @Published private(set) var challenge: Challenge
 
     private var allCells: [CalendarDetailCell] = []
 
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
-
-    @Published private(set) var challenge: Challenge
 
     init(accountManager: AccountManager = AccountManager(),
          challengeManager: ChallengeManager = ChallengeManager.shared,
@@ -270,6 +266,7 @@ class CalendarDetailViewModel: ObservableObject {
             return CalendarDetailCell(date: cell.date,
                                       posts: filteredPosts,
                                       jokers: filteredJokers,
+                                      premiumAttachments: cell.premiumAttachments, // pas sûr de ça
                                       isToday: cell.isToday
             )
         }
@@ -449,18 +446,18 @@ class CalendarDetailViewModel: ObservableObject {
 
         return (0..<challenge.duration).compactMap { dayOffset in
             guard let date = calendar.date(byAdding: .day, value: dayOffset, to: challenge.startDate) else {
-                return nil
+                return nil // mettre "continue" pour débloquer le débugage puis repasser à "return nil"
             }
-            let day = calendar.startOfDay(for: date)
 
+            let day = calendar.startOfDay(for: date)
             let posts = postsByDay[day] ?? []
             let jokers = (jokersByDay[day] ?? []).sorted { $0.participantName < $1.participantName }
-            let attachments = canRevealPremiumContent(on: date) ? attachments(for: day + 1) : []
+            let attachments = canRevealPremiumContent(on: date) ? attachments(for: dayOffset + 1) : []
 
             return CalendarDetailCell(date: date,
                                       posts: posts,
                                       jokers: jokers,
-									premiumAttachments: attachments,
+                                      premiumAttachments: attachments,
                                       isToday: calendar.isDateInToday(date))
         }
     }
@@ -508,4 +505,14 @@ class CalendarDetailViewModel: ObservableObject {
      func updatePosts(_ posts: [ChallengePost]) {
         self.allPosts = posts
     }
+
+    func canRevealPremiumContent(on date: Date) -> Bool {
+       if canEditPremiumContent {
+           return true
+       }
+
+       let today = Calendar.current.startOfDay(for: Date())
+       let day = Calendar.current.startOfDay(for: date)
+       return day <= today
+   }
 }

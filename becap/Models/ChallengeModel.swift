@@ -81,6 +81,7 @@ struct Challenge: Identifiable, Codable, Hashable {
         case duration
         case startDate
         case creatorUID
+        case adminUids
         case participantUids
         case category
         case notificationsConfig
@@ -92,7 +93,7 @@ struct Challenge: Identifiable, Codable, Hashable {
         case infoVideoURL
         case premiumAttachments
         case premiumContent
-        case iapProductId // <-- add
+        case iapProductId
     }
 
     var endDate: Date {
