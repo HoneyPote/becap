@@ -78,7 +78,7 @@ struct GroupChatCardView: View {
                     }
                 }
             }
-            .buttonStyle(.hapticPlain)
+//            .buttonStyle(.hapticPlain)
             .accessibilityLabel("Ouvrir le chat du groupe")
         }
     }

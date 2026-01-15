@@ -45,7 +45,7 @@ struct ShareButtonCell: View {
             .frame(height: 100)
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }
-        .buttonStyle(.hapticPlain)
+//        .buttonStyle(.hapticPlain)
         .padding(4)
     }
 }

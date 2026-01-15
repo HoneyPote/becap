@@ -6,10 +6,13 @@ struct HapticPlainButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .contentShape(Rectangle())
-            .simultaneousGesture(TapGesture().onEnded {
+            .onChange(of: configuration.isPressed) { pressed in
                 guard isEnabled else { return }
-                Haptics.lightTap()
-            })
+
+                if pressed {
+                    Haptics.lightTap()
+                }
+            }
     }
 }
 

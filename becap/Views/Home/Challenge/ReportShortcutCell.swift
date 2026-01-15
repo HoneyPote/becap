@@ -38,7 +38,7 @@ struct ReportShortcutCell: View {
             .contentShape(RoundedRectangle(cornerRadius: 18))
         }
         .disabled(isDisabled)
-        .buttonStyle(.hapticPlain)
+//        .buttonStyle(.hapticPlain)
         .padding(4)
         .accessibilityLabel("Signaler un défi")
         .accessibilityHint(isDisabled ? "Rejoignez un défi pour pouvoir le signaler." : "Ouvre la fenêtre de signalement.")

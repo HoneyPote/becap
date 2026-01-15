@@ -157,7 +157,7 @@ struct NotificationSettingsView: View {
                         .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
                         .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 6)
                 }
-                .buttonStyle(.hapticPlain)
+//                .buttonStyle(.hapticPlain)
                 .accessibilityLabel("Dupliquer les rappels de ce jour")
             }
 
@@ -193,7 +193,7 @@ struct NotificationSettingsView: View {
                                 .font(.system(size: 20, weight: .semibold))
                                 .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 2)
                         }
-                        .buttonStyle(.hapticPlain)
+//                        .buttonStyle(.hapticPlain)
                         .accessibilityLabel("Supprimer le rappel")
                     }
                     .padding(.vertical, 10)
@@ -228,7 +228,7 @@ struct NotificationSettingsView: View {
                         Capsule().stroke(Color.white.opacity(0.22), lineWidth: 1)
                     )
                 }
-                .buttonStyle(.hapticPlain)
+//                .buttonStyle(.hapticPlain)
             }
         }
         .padding(.vertical, 22)

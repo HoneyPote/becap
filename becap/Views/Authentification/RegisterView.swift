@@ -30,14 +30,10 @@ struct RegisterView: View {
                 .ignoresSafeArea()
 
                 VStack(spacing: 0) {
-                    WaterHeaderView(
-                        title: "Créer un compte",
-                        accessoryText: "Sign In",
-                        accessoryIcon: "person.crop.circle",
-                        leadingAction: {
-                            dismiss()
-                        }
-                    )
+                    WaterHeaderView(title: "Créer un compte",
+                                    accessoryText: "Sign In",
+                                    accessoryIcon: "person.crop.circle",
+                                    leadingAction: { dismiss() })
                     .frame(height: proxy.size.height * 0.5)
 
                     ScrollView(showsIndicators: false) {
@@ -91,7 +87,6 @@ struct RegisterView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                             }
                             .padding(.horizontal, 28)
-                            .hapticTap()
 
                             NavigationLink(destination: LoginView()) {
                                 HStack(spacing: 6) {

@@ -63,7 +63,7 @@ struct PremiumAttachmentEditorView: View {
                     .clipShape(Circle())
                     .shadow(radius: 5, x: 0, y: 2)
             }
-            .buttonStyle(.hapticPlain)
+//            .buttonStyle(.hapticPlain)
 
             Spacer()
 
@@ -105,7 +105,6 @@ struct PremiumAttachmentEditorView: View {
         .padding(.bottom, 30)
         .padding(.top, 2)
         .disabled(pendingAttachment == nil || viewModel.isSavingPremiumContent || isProcessing)
-        .hapticTap()
     }
 
     // MARK: - Sections
@@ -135,7 +134,7 @@ struct PremiumAttachmentEditorView: View {
                                     .background(Color.white.opacity(0.16))
                                     .clipShape(Circle())
                             }
-                            .buttonStyle(.hapticPlain)
+//                            .buttonStyle(.hapticPlain)
                         }
                         .padding(12)
                         .background(Color.white.opacity(0.14))
@@ -157,14 +156,13 @@ struct PremiumAttachmentEditorView: View {
                              matching: .any(of: [.images, .videos])) {
                     addRow(title: "Photo ou vidéo", systemImage: "photo")
                 }
-                .hapticTap()
 
                 Button {
                     isImportingPDF = true
                 } label: {
                     addRow(title: "Document PDF", systemImage: "doc.richtext")
                 }
-                .buttonStyle(.hapticPlain)
+//                .buttonStyle(.hapticPlain)
             }
         }
     }
@@ -204,7 +202,7 @@ struct PremiumAttachmentEditorView: View {
                             .foregroundColor(Color(red: 255 / 255, green: 112 / 255, blue: 112 / 255))
                             .shadow(color: Color.black.opacity(0.2), radius: 4, x: 0, y: 2)
                     }
-                    .buttonStyle(.hapticPlain)
+//                    .buttonStyle(.hapticPlain)
                 }
             }
         }

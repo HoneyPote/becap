@@ -244,7 +244,7 @@ struct ShareChallengeView: View {
                             .background(Color.white.opacity(0.12))
                             .cornerRadius(12)
                     }
-                    .buttonStyle(.hapticPlain)
+//                    .buttonStyle(.hapticPlain)
                 }
 
                 Text("Partage ce code si ton équipier ne peut pas ouvrir le lien.")
@@ -297,7 +297,7 @@ struct ShareChallengeView: View {
                             .frame(minWidth: 44, minHeight: 44)
                     }
                 }
-                .buttonStyle(.hapticPlain)
+//                .buttonStyle(.hapticPlain)
                 .disabled(viewModel.isJoiningByCode)
                 .opacity(viewModel.isJoiningByCode ? 0.6 : 1)
             }
@@ -337,7 +337,7 @@ struct ShareChallengeView: View {
             .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
             .padding(.horizontal, 4)
         }
-        .buttonStyle(.hapticPlain)
+//        .buttonStyle(.hapticPlain)
         .disabled(viewModel.selectedChallenge == nil || viewModel.isLoading)
         .opacity((viewModel.selectedChallenge == nil || viewModel.isLoading) ? 0.6 : 1)
         .modifier(ShakeEffect(animatableData: viewModel.shakeChallenge ? 1 : 0))

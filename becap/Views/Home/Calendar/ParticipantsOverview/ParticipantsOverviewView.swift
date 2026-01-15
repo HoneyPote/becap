@@ -63,7 +63,7 @@ struct ParticipantsOverviewView: View {
                             .clipShape(Circle())
                             .shadow(color: .black.opacity(0.25), radius: 6, x: 0, y: 4)
                     }
-                    .buttonStyle(.hapticPlain)
+//                    .buttonStyle(.hapticPlain)
                     .accessibilityLabel("Fermer")
                 }
             }

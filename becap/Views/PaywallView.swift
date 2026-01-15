@@ -50,7 +50,6 @@ struct PaywallView: View {
                 }
                 .buttonStyle(.bordered)
                 .tint(.gray.opacity(0.4))
-                .hapticTap()
             }
             .disabled(buttonsDisabled)
 
@@ -75,7 +74,6 @@ struct PaywallView: View {
                 .font(.headline)
                 .foregroundColor(.white)
                 .padding()
-                .hapticTap()
         }
         .padding()
         .background(
@@ -146,7 +144,6 @@ private extension PaywallView {
         .tint(Color(red: 0.28, green: 0.52, blue: 0.96))
         .opacity(product == nil ? 0.7 : 1)
         .disabled(product == nil || buttonsDisabled)
-        .hapticTap()
     }
 
     func purchase(_ product: Product?) async {

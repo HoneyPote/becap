@@ -299,13 +299,11 @@ struct CalendarDetailView: View {
                     }
 
                     GlassCircleIcon(systemName: "bell.fill")
-                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             showNotifSheet = true
                         }
                     GlassCircleIcon(systemName: "square.and.arrow.up.fill")
-                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             presentShareSheet()
@@ -313,7 +311,6 @@ struct CalendarDetailView: View {
                     if viewModel.canEditPremiumContent {
                         premiumQuickAddButton
                         GlassCircleIcon(systemName: isEditingPremiumAttachments ? "checkmark.circle.fill" : "pencil.circle.fill")
-                            .hapticTap()
                             .onTapGesture {
                                 showJokerBubble = false
                                 withAnimation(.spring(response: 0.22, dampingFraction: 0.85)) {
@@ -335,7 +332,6 @@ struct CalendarDetailView: View {
                                     .accessibilityHidden(true)
                             }
                         }
-                        .hapticTap()
                         .onTapGesture {
                             showJokerBubble = false
                             showParticipantsSheet = true
@@ -470,7 +466,7 @@ extension CalendarDetailView {
                     .background(Color.white.opacity(0.18))
                     .cornerRadius(10)
                 }
-                .buttonStyle(.hapticPlain)
+//                .buttonStyle(.hapticPlain)
             } else {
                 Text("Journée déjà validée ou aucun joker disponible.")
                     .font(.system(.footnote, design: .rounded))
@@ -519,7 +515,7 @@ extension CalendarDetailView {
                 }
             }
         }
-        .buttonStyle(.hapticPlain)
+//        .buttonStyle(.hapticPlain)
         .accessibilityLabel("Afficher mes jokers")
         .background(
             GeometryReader { proxy in

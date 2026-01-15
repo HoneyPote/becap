@@ -37,7 +37,7 @@ struct NewChallengeCell: View {
             .contentShape(RoundedRectangle(cornerRadius: 18))
 
         }
-        .buttonStyle(.hapticPlain)
+//        .buttonStyle(.hapticPlain)
         .padding(4)
     }
 }

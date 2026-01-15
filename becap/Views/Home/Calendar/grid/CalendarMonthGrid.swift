@@ -198,7 +198,6 @@ struct CalendarMonthGrid: View {
                 .overlay(alignment: .bottomTrailing) {
                     if isEditingPremiumContent {
                         Button {
-                            Haptics.lightTap()
                             onAddAttachmentForDay(item.dayNumber)
                         } label: {
                             Image(systemName: "plus")
@@ -214,7 +213,7 @@ struct CalendarMonthGrid: View {
                                 .clipShape(Circle())
                                 .shadow(color: Color.black.opacity(0.3), radius: 3, x: 0, y: 2)
                         }
-                        .buttonStyle(.hapticPlain)
+//                        .buttonStyle(.hapticPlain)
                         .padding(6)
                     }
                 }

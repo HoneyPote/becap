@@ -88,7 +88,6 @@ struct GroupChatMessageRow: View {
                 }
                 .buttonStyle(.hapticPlain)
             }
-
         }
         .frame(maxWidth: .infinity, alignment: viewModel.isFromCurrentUser(message) ? .trailing : .leading)
     }
