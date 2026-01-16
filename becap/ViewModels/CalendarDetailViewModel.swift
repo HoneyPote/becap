@@ -156,6 +156,13 @@ class CalendarDetailViewModel: ObservableObject {
                        dayIndex: Int,
                        fileExtension: String? = nil) async {
 
+        let resolvedExtension: String = {
+            if let fileExtension, !fileExtension.isEmpty {
+                return fileExtension
+            }
+            return kind == .pdf ? "pdf" : "dat"
+        }()
+
         await MainActor.run {
             premiumSaveStage = "Préparation…"
             premiumSaveProgress = 0.05
@@ -168,23 +175,29 @@ class CalendarDetailViewModel: ObservableObject {
                 premiumSaveProgress = 0.20
             }
 
-            let savedName = try persist(data: data, kind: kind, fileExtension: fileExtension)
+            let savedName = try persist(data: data, kind: kind, fileExtension: resolvedExtension)
 
             await MainActor.run {
-                premiumSaveStage = "Ajout au challenge…"
+                premiumSaveStage = "Envoi sur Firebase…"
                 premiumSaveProgress = 0.45
             }
+
+            let remoteURL = try await challengeManager.uploadPremiumAttachment(data: data,
+                                                                              challengeId: challenge.id,
+                                                                              dayIndex: dayIndex,
+                                                                              fileExtension: resolvedExtension)
 
             let attachment = PremiumCalendarAttachment(
                 dayIndex: dayIndex,
                 title: title,
                 fileName: savedName,
-                kind: kind
+                kind: kind,
+                remoteURL: remoteURL.absoluteString
             )
 
             await MainActor.run {
                 premiumAttachments.append(attachment)
-                premiumSaveStage = "Sauvegarde sur Firebase…"
+                premiumSaveStage = "Sauvegarde sur Firestore…"
                 premiumSaveProgress = 0.70
             }
 
