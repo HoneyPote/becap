@@ -91,7 +91,6 @@ struct RegisterView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                             }
                             .padding(.horizontal, 28)
-                            .hapticTap()
 
                             NavigationLink(destination: LoginView()) {
                                 HStack(spacing: 6) {

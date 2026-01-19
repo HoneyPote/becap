@@ -82,7 +82,6 @@ struct LoginView: View {
                                     .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
                                 }
                                 .padding(.horizontal, 28)
-                                .hapticTap()
 
                                 VStack(spacing: 14) {
                                     Text("Ou se connecter avec")
@@ -123,7 +122,6 @@ struct LoginView: View {
                     }
                 }
             }
-            .padding()
             .toolbar(.hidden, for: .tabBar)
             .navigationBarBackButtonHidden(true)
         }
@@ -159,6 +157,5 @@ private extension LoginView {
                 .background(Color.white.opacity(0.12))
                 .clipShape(Circle())
         }
-        .buttonStyle(.hapticPlain)
     }
 }
