@@ -481,7 +481,6 @@ extension ChallengeManager {
 
             if let challenge = challenges.first(where: { $0.id == challengeId }) {
                 notifyUpcomingMedalIfNeeded(progress: newProgress, challenge: challenge)
-                notifyChallengeEndingIfNeeded(progress: newProgress, challenge: challenge)
             }
 
             return newProgress
@@ -721,28 +720,15 @@ extension ChallengeManager {
         else { return }
 
         let remaining = target - progress.currentStreak
-        guard remaining == 1 else { return }
+        guard remaining > 0 else { return }
 
         let key = "upcoming_medal_\(userId)_\(challenge.id)_\(nextDefinition.name)"
         guard !defaults.bool(forKey: key) else { return }
         defaults.set(true, forKey: key)
 
-        triggerLocalNotification(title: "Plus qu'un jour avant \(nextDefinition.name) 🎯",
-                                 body: "Valide encore une journée pour débloquer ta prochaine médaille.")
-    }
-
-    private func notifyChallengeEndingIfNeeded(progress: ParticipantProgress, challenge: Challenge) {
-        guard let userId = currentUser?.id else { return }
-        let remaining = max(challenge.duration - progress.validatedDays.count, 0)
-        guard remaining <= 2, remaining > 0 else { return }
-
-        let key = "challenge_ending_\(userId)_\(challenge.id)_\(remaining)"
-        guard !defaults.bool(forKey: key) else { return }
-        defaults.set(true, forKey: key)
-
         let dayWord = remaining == 1 ? "jour" : "jours"
-        triggerLocalNotification(title: "Dernière ligne droite 🏁",
-                                 body: "Plus que \(remaining) \(dayWord) pour terminer le défi.")
+        triggerLocalNotification(title: "Plus que \(remaining) \(dayWord) avant \(nextDefinition.name) 🎯",
+                                 body: "Valide encore \(remaining) \(dayWord) pour débloquer ta prochaine médaille.")
     }
 
     private func countValidatedDays(inLast days: Int, from validatedDays: [Date]) -> Int {
