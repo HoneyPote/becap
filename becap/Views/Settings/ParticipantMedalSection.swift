@@ -14,6 +14,7 @@ struct MedalDisplayItem: Identifiable {
     let iconName: String
     let count: Int
     let latestDate: Date
+    let category: MedalCategory
 }
 
 // TODO: Trop de calculs
@@ -22,18 +23,29 @@ struct ParticipantMedalSection: View {
     let medals: [UserMedal]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            ForEach(groupedMedals) { medal in
-                HStack {
-                    MedalIconView(iconName: medal.iconName)
-                        .frame(width: 36, height: 36)
-                    Text(medal.count > 1 ? "×\(medal.count) \(medal.name)" : medal.name)
-                        .font(.system(.body, design: .rounded).weight(.heavy))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Text(shortDate(medal.latestDate))
-                        .font(.caption)
-                        .foregroundColor(.gray)
+        VStack(alignment: .leading, spacing: 16) {
+            ForEach(groupedByCategory, id: \.category) { section in
+                VStack(alignment: .leading, spacing: 8) {
+                    MedalCategoryBadge(category: section.category)
+
+                    ForEach(section.medals) { medal in
+                        HStack {
+                            MedalIconView(iconName: medal.iconName)
+                                .frame(width: 36, height: 36)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(medal.count > 1 ? "×\(medal.count) \(medal.name)" : medal.name)
+                                    .font(.system(.body, design: .rounded).weight(.heavy))
+                                    .foregroundColor(.white)
+                                Text(medal.description)
+                                    .font(.caption)
+                                    .foregroundColor(.white.opacity(0.6))
+                            }
+                            Spacer()
+                            Text(shortDate(medal.latestDate))
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
                 }
             }
         }
@@ -44,13 +56,23 @@ struct ParticipantMedalSection: View {
         let grouped = Dictionary(grouping: medals, by: \.name)
 
         return grouped.map { (name, items) in
+            let definition = MedalCatalog.definition(named: name)
             MedalDisplayItem(name: name,
                              description: items.first?.description ?? "",
                              iconName: items.first?.iconName ?? "star.fill",
                              count: items.count,
-                             latestDate: items.map(\.achievedDate).max() ?? Date())
+                             latestDate: items.map(\.achievedDate).max() ?? Date(),
+                             category: definition?.category ?? .milestone)
         }
         .sorted { $0.latestDate > $1.latestDate }
+    }
+
+    private var groupedByCategory: [(category: MedalCategory, medals: [MedalDisplayItem])] {
+        let grouped = Dictionary(grouping: groupedMedals, by: \.category)
+        return MedalCategory.allCases.compactMap { category in
+            guard let medals = grouped[category] else { return nil }
+            return (category, medals)
+        }
     }
 
     private func shortDate(_ date: Date) -> String {
@@ -76,5 +98,19 @@ struct MedalIconView: View {
                 .scaledToFit()
                 .foregroundColor(.yellow)
         }
+    }
+}
+
+struct MedalCategoryBadge: View {
+    let category: MedalCategory
+
+    var body: some View {
+        Text(category.rawValue)
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .foregroundColor(.white.opacity(0.7))
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.white.opacity(0.12))
+            .clipShape(Capsule())
     }
 }

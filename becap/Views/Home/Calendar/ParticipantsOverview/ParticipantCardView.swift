@@ -99,11 +99,11 @@ struct ParticipantCardView: View {
                 }
             }
 
-            if !participant.userMedals.isEmpty {
-                MedalTriggerRow(medalCount: participant.userMedals.count,
-                                participantName: participant.userName,
-                                onTap: { showingMedals = true })
-            }
+            MedalTriggerRow(medalCount: participant.userMedals.count,
+                            participantName: participant.userName,
+                            progress: participant.progress,
+                            challenge: viewModel.challenge,
+                            onTap: { showingMedals = true })
 
             if viewModel.showQuitButton(for: participant) {
                 Button {
@@ -159,7 +159,9 @@ struct ParticipantCardView: View {
             Text("Voulez-vous vraiment quitter le défi ? Vous apparaiterez encore dans la liste des participants, mais ne pourrez plus intéragir avec le défi.")
         }
         .popover(isPresented: $showingMedals, arrowEdge: .top) {
-            MedalBubbleView(medals: participant.userMedals)
+            MedalBubbleView(medals: participant.userMedals,
+                            progress: participant.progress,
+                            challenge: viewModel.challenge)
         }
     }
 }

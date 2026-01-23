@@ -172,6 +172,8 @@ struct SettingsView: View {
             MedalTriggerRow(
                 medalCount: medals.count,
                 participantName: viewModel.currentUser?.name ?? "Vous",
+                progress: nil,
+                challenge: nil,
                 onTap: {
                     if !sorted.isEmpty { showingMedalsPopover = true }
                 }
@@ -381,4 +383,3 @@ private struct AvatarCircle: View {
         }
     }
 }
-
