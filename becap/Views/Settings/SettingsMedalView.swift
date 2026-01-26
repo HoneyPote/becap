@@ -64,6 +64,18 @@ struct SettingsMedalView: View {
                                        completionCount: completionMedalCountForLongChallenges)
 
                 VStack(alignment: .leading, spacing: 12) {
+                    Text("Collection")
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white)
+
+                    MedalCollectionGrid(definitions: MedalCatalog.streakDefinitions(maxDays: 30) + [MedalCatalog.completionDefinition],
+                                        earnedMedals: medals)
+                }
+                .padding(14)
+                .background(Color.white.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 12) {
                     Text("Total par médaille")
                         .font(.system(.headline, design: .rounded).weight(.semibold))
                         .foregroundColor(.white)

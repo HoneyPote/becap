@@ -29,6 +29,8 @@ struct ParticipantCardView: View {
     @State private var showQuitConfirmation = false
 
     var body: some View {
+        let challengeMedals = participant.userMedals.filter { $0.challengeId == viewModel.challenge.id }
+
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 16) {
                 ParticipantAvatarView(name: participant.userName, photoURL: participant.userProfilePhotoURL)
@@ -99,7 +101,7 @@ struct ParticipantCardView: View {
                 }
             }
 
-            MedalTriggerRow(medalCount: participant.userMedals.count,
+            MedalTriggerRow(medalCount: challengeMedals.count,
                             participantName: participant.userName,
                             progress: participant.progress,
                             challenge: viewModel.challenge,
@@ -159,7 +161,7 @@ struct ParticipantCardView: View {
             Text("Voulez-vous vraiment quitter le défi ? Vous apparaiterez encore dans la liste des participants, mais ne pourrez plus intéragir avec le défi.")
         }
         .popover(isPresented: $showingMedals, arrowEdge: .top) {
-            MedalBubbleView(medals: participant.userMedals,
+            MedalBubbleView(medals: challengeMedals,
                             progress: participant.progress,
                             challenge: viewModel.challenge)
         }

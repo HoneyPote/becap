@@ -114,7 +114,8 @@ struct PostPagerView: View {
 
             if !commentSectionIsShown {
                 if let participant = getParticipant(postVM.post.authorUid) {
-                    MedalsSection(medals: participant.userMedals)
+                    let challengeMedals = participant.userMedals.filter { $0.challengeId == viewModel.challenge.id }
+                    MedalsSection(medals: challengeMedals)
                         .padding(.bottom, 6)
                 }
 
