@@ -57,7 +57,7 @@ struct ParticipantMedalSection: View {
 
         return grouped.map { (name, items) in
             let definition = MedalCatalog.definition(named: name)
-            MedalDisplayItem(name: name,
+            return MedalDisplayItem(name: name,
                              description: items.first?.description ?? "",
                              iconName: items.first?.iconName ?? "star.fill",
                              count: items.count,
