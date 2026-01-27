@@ -37,6 +37,7 @@ struct ParticipantProgress: Identifiable, Codable {
     var currentStreak: Int
     var jokerProgress: ParticipantJokerProgress
     var medals: [UserMedal]
+    var notificationsConfig: [Int]
 
     let challengeId: String
     let joinedDate: Date
@@ -82,6 +83,39 @@ class CalendarDetailViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
 
     let challenge: Challenge
+
+    var currentParticipant: ParticipantUIModel? {
+        participants.first(where: { $0.userId == currentUserId })
+    }
+
+    var currentUserId: String? {
+        challengeManager.currentUser?.id
+    }
+
+    var currentUserJokerStatus: (total: Int, remaining: Int)? {
+        let total = challenge.jokerConfiguration
+
+        guard let progress = currentParticipant?.progress else {
+            guard total > 0 else { return nil }
+            return (total, total)
+        }
+
+        guard total > 0 else { return nil }
+        let remaining = progress.jokerProgress.remaining
+        return (total, remaining)
+    }
+
+    var canUseJokerToday: Bool {
+        guard let status = currentUserJokerStatus else { return false }
+        guard status.remaining > 0 else { return false }
+
+        guard let progress = currentParticipant?.progress else { return true }
+
+        let today = Calendar.current.startOfDay(for: Date())
+        let hasValidatedToday = progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: today) }
+
+        return !hasValidatedToday
+    }
 
     init(accountManager: AccountManager = AccountManager(),
          challengeManager: ChallengeManager = ChallengeManager.shared,
@@ -181,43 +215,8 @@ class CalendarDetailViewModel: ObservableObject {
         participants.first(where: { $0.userId == uid })
     }
 
-    var currentUserId: String? {
-        challengeManager.currentUser?.id
-    }
-
-    var currentUserProgress: ParticipantProgress? {
-        guard let currentUserId else { return nil }
-
-        return participantProgresses.first(where: { $0.userId == currentUserId })
-    }
-
-    var currentUserJokerStatus: (total: Int, remaining: Int)? {
-        let total = challenge.jokerConfiguration
-
-        guard let progress = currentUserProgress else {
-            guard total > 0 else { return nil }
-            return (total, total)
-        }
-
-        guard total > 0 else { return nil }
-        let remaining = progress.jokerProgress.remaining
-        return (total, remaining)
-    }
-
-    var canUseJokerToday: Bool {
-        guard let status = currentUserJokerStatus else { return false }
-        guard status.remaining > 0 else { return false }
-
-        guard let progress = currentUserProgress else { return true }
-
-        let today = Calendar.current.startOfDay(for: Date())
-        let hasValidatedToday = progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: today) }
-
-        return !hasValidatedToday
-    }
-
     func useJokerForToday() {
-        guard canUseJokerToday, let currentUserProgress else { return }
+        guard canUseJokerToday, let currentUserProgress = currentParticipant?.progress else { return }
 
         Task {
             do {

@@ -64,7 +64,7 @@ struct Challenge: Identifiable, Codable, Hashable {
     var adminUids: [String]
     var participantUids: [String]
     var category: ChallengeCategory? = nil
-    var notificationsConfig: [ChallengeNotification]?
+    var defaultNotificationsConfig: [Int]
     var code: String?
     var jokerConfiguration: Int
 
@@ -227,8 +227,6 @@ struct ChallengeNotification: Codable {
     var dayIndex: Int
     var times: [Date] // Format "HH:mm" ou utiliser Date si tu préfères
 }
-
-
 
 struct PostDeepLink: Equatable {
     let challengeId: String

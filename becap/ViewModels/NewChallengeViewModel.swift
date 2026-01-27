@@ -9,33 +9,35 @@ import SwiftUI
 import UserNotifications
 
 class NewChallengeViewModel: ObservableObject {
-    private static let defaultDuration = 30
-
-    @Published var nom: String = ""
-    @Published var duree: Int = defaultDuration {
+    @Published var name: String = ""
+    @Published var duration: Int = defaultDuration {
         didSet { updateSuggestedJokersIfNeeded() }
     }
-    @Published var heureNotification: Date = Date()
+    @Published var category: ChallengeCategory = .autre
+    @Published var notificationTimes: [NotificationTime] = []
     @Published var isLoading: Bool = false
-    @Published var nombreJokers: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {
+    @Published var jokersNumber: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {
         didSet {
             if shouldIgnoreJokerUpdate {
                 shouldIgnoreJokerUpdate = false
-            } else if nombreJokers != oldValue {
+            } else if jokersNumber != oldValue {
                 userCustomizedJokerCount = true
             }
         }
     }
-    @Published var categorie: ChallengeCategory = .autre
+
+    private var userCustomizedJokerCount = false
+    private var shouldIgnoreJokerUpdate = false
 
     private let currentUser: User?
-
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
     private let alertManager: GlobalAlertManager
+    private let notificationManager: NotificationManager
+    private static let defaultDuration = 30
 
     var trimmedNom: String {
-        nom.trimmingCharacters(in: .whitespacesAndNewlines)
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     var isFormValid: Bool {
@@ -45,11 +47,13 @@ class NewChallengeViewModel: ObservableObject {
     init(userManager: UserManagerProtocol = UserManager.shared,
          accountManager: AccountManager = AccountManager(),
          challengeManager: ChallengeManager = ChallengeManager.shared,
-         alertManager: GlobalAlertManager = GlobalAlertManager.shared) {
+         alertManager: GlobalAlertManager = GlobalAlertManager.shared,
+         notificationManager: NotificationManager = NotificationManager.shared) {
         self.currentUser = userManager.currentUser
         self.accountManager = accountManager
         self.challengeManager = challengeManager
         self.alertManager = alertManager
+        self.notificationManager = notificationManager
     }
 
     func createChallenge(completion: @escaping (Bool) -> Void) {
@@ -65,7 +69,8 @@ class NewChallengeViewModel: ObservableObject {
 
         Task {
             do {
-                guard let newChallenge = try await challengeManager.createChallenge(newChallenge) else { return }
+                guard let newChallenge = try await challengeManager.createChallenge(newChallenge)
+                else { return }
 
                 try await challengeManager.createNewParticipantProgress(userId: currentUserId,
                                                                         challenge: newChallenge)
@@ -75,7 +80,7 @@ class NewChallengeViewModel: ObservableObject {
                 try await refreshUserMedals(userId: currentUserId)
 
                 await MainActor.run {
-                    //self.challengeManager.participants[newChallengeId] = [userProgress] // 
+                    self.notificationManager.scheduleDailyNotifications(for: newChallenge, config: newChallenge.defaultNotificationsConfig)
                     self.isLoading = false
                     completion(true)
                 }
@@ -88,7 +93,51 @@ class NewChallengeViewModel: ObservableObject {
         }
     }
 
+    func addNotificationTime() {
+        guard notificationTimes.count < 3 else { return }
+
+        notificationTimes.append(NotificationTime(id: UUID(), minutes: Date().convertToMinutes))
+    }
+
+    func updateNotificationTime(index: Int, newDate: Date) {
+        guard notificationTimes.indices.contains(index) else { return }
+
+        notificationTimes[index].minutes = newDate.convertToMinutes
+        sortNotificationTimes()
+    }
+
+    func removeNotificationTime(at index: Int) {
+        guard notificationTimes.indices.contains(index) else { return }
+
+        notificationTimes.remove(at: index)
+    }
+
     // MARK: - Private functions
+
+    private func buildNewChallenge(userId: String) -> Challenge {
+        let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
+
+        return Challenge(title: name,
+                         duration: duration,
+                         startDate: Date(),
+                         creatorUID: userId,
+                         adminUids: [userId],
+                         participantUids: [userId],
+                         category: category,
+                         defaultNotificationsConfig: notificationTimes.map { $0.minutes },
+                         code: code,
+                         jokerConfiguration: jokersNumber)
+    }
+
+    private func sortNotificationTimes() {
+        let sortedTimes = Dictionary(grouping: notificationTimes, by: \.minutes)
+            .compactMap { $0.value.first }
+            .sorted { $0.minutes < $1.minutes }
+
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+            notificationTimes = sortedTimes
+        }
+    }
 
     private func refreshUserMedals(userId: String) async throws {
         Task {
@@ -105,29 +154,11 @@ class NewChallengeViewModel: ObservableObject {
         }
     }
 
-    private func buildNewChallenge(userId: String) -> Challenge {
-        let config: [ChallengeNotification] = (0..<duree).map {
-            ChallengeNotification(dayIndex: $0, times: [heureNotification])
-        }
-        let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
-
-        return Challenge(title: nom,
-                         duration: duree,
-                         startDate: Date(),
-                         creatorUID: userId,
-                         adminUids: [userId],
-                         participantUids: [userId],
-                         category: categorie,
-                         notificationsConfig: config,
-                         code: code,
-                         jokerConfiguration: nombreJokers)
-    }
-
     private func updateSuggestedJokersIfNeeded() {
         guard !userCustomizedJokerCount else { return }
 
         shouldIgnoreJokerUpdate = true
-        nombreJokers = NewChallengeViewModel.suggestedJokerCount(for: duree)
+        jokersNumber = NewChallengeViewModel.suggestedJokerCount(for: duration)
     }
 
     private static func suggestedJokerCount(for duration: Int) -> Int {
@@ -146,7 +177,4 @@ class NewChallengeViewModel: ObservableObject {
             return max(4, Int(round(Double(duration) / 7.0)))
         }
     }
-
-    private var userCustomizedJokerCount = false
-    private var shouldIgnoreJokerUpdate = false
 }

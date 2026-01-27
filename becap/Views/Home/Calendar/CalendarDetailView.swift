@@ -210,7 +210,8 @@ struct CalendarDetailView: View {
                 return []
             }
 
-            guard let usages = viewModel.currentUserProgress?.jokerProgress.confirmedUsages, !usages.isEmpty else {
+            guard let usages = viewModel.currentParticipant?.progress.jokerProgress.confirmedUsages,
+                  !usages.isEmpty else {
                 return []
             }
 
@@ -304,7 +305,9 @@ struct CalendarDetailView: View {
                         }
                 }
                 .sheet(isPresented: $showNotifSheet, onDismiss: { viewModel.fetchInfos() }) {
-                    NotificationSettingsView(challenge: viewModel.challenge)
+                    if let currentParticipant = viewModel.currentParticipant {
+                        NotificationSettingsView(challenge: viewModel.challenge, currentPartipicant: currentParticipant)
+                    }
                 }
                 .sheet(isPresented: $showParticipantsSheet) {
                     ParticipantsOverviewView(challenge: viewModel.challenge,

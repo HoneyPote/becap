@@ -70,7 +70,7 @@ struct ReportChallengeSelectorView: View {
                                creatorUID: "1",
                                adminUids: ["1"],
                                participantUids: ["1"],
-                               notificationsConfig: nil,
+                               defaultNotificationsConfig: [],
                                code: "ABC123",
                                jokerConfiguration: 1)],
         onSelect: { _ in }
