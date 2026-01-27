@@ -286,6 +286,7 @@ extension ChallengeManager {
         guard let messageId = message.documentId else { return }
 
         try await challengeService.addReaction(reaction, to: messageId, in: challengeId, userId: userId)
+        await awardSocialMedalIfNeeded(type: .firstReaction, challengeId: challengeId)
     }
 
     func removeChatReaction(_ reaction: String,
@@ -322,6 +323,7 @@ extension ChallengeManager {
         }
 
         _ = try await updateParticipantProgress(progress: newProgress)
+        await awardSocialMedalIfNeeded(type: .firstPost, challengeId: challenge.id)
 
         let externalIds = Array(Set(allParticipants.filter { $0 != currentUserId }))
         if !externalIds.isEmpty {
@@ -366,6 +368,7 @@ extension ChallengeManager {
                                                             from: currentUser.name,
                                                             challenge: challenge,
                                                             postId: post.id)
+        await awardSocialMedalIfNeeded(type: .firstLike, challengeId: post.challengeId)
     }
 
     func unlikePost(post: ChallengePost) async throws {
@@ -411,6 +414,7 @@ extension ChallengeManager {
                                                           challenge: challenge,
                                                           commentText: content,
                                                           postId: post.id)
+        await awardSocialMedalIfNeeded(type: .firstComment, challengeId: post.challengeId)
     }
 
     // Posts - Privates
@@ -460,10 +464,11 @@ extension ChallengeManager {
             let challengeId = progress.challengeId
 
             var newProgress = progress
+            let previousStreak = progress.currentStreak
 
             newProgress.currentStreak = calculateStreak(from: newProgress.validatedDays)
 
-            let newMedals = detectNewMedals(from: newProgress)
+            let newMedals = detectNewMedals(from: newProgress, previousStreak: previousStreak)
             newProgress.medals.append(contentsOf: newMedals)
 
             await rewardService.persistProgress(newProgress)
@@ -472,10 +477,12 @@ extension ChallengeManager {
             _ = try await accountManager.updateCurrentUser(with: userId)
 
             await MainActor.run {
-                for medal in newMedals {
-                    alertManager.show(medal: medal, challengeId: challengeId)
-                    triggerLocalNotification(for: medal)
-                }
+                alertManager.show(medals: newMedals)
+                triggerLocalNotification(for: newMedals)
+            }
+
+            if let challenge = challenges.first(where: { $0.id == challengeId }) {
+                notifyUpcomingMedalIfNeeded(progress: newProgress, challenge: challenge)
             }
 
             return newProgress
@@ -506,6 +513,7 @@ extension ChallengeManager {
         }
 
         await rewardService.persistProgress(newProgress)
+        await awardJokerMedalIfNeeded(progress: newProgress)
     }
 
     func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress? {
@@ -582,6 +590,7 @@ extension ChallengeManager {
                                                               declaredByAuthor: isAutoDeclared,
                                                               voters: state.voters)
             await rewardService.persistProgress(progress)
+            await awardJokerMedalIfNeeded(progress: progress)
 
             if !isAutoDeclared {
                 await notificationService.sendJokerConsumedNotification(to: post.authorUid,
@@ -614,101 +623,182 @@ extension ChallengeManager {
         progress.validatedDays.contains { Calendar.current.isDate($0, inSameDayAs: day) }
     }
 
-    private func detectNewMedals(from progress: ParticipantProgress) -> [UserMedal] {
+    private func detectNewMedals(from progress: ParticipantProgress, previousStreak: Int) -> [UserMedal] {
         let sortedCount = progress.validatedDays.count
         let challengeId = progress.challengeId
+        let streak = progress.currentStreak
         var medals: [UserMedal] = []
 
-        if sortedCount >= 1 && !progress.medals.contains(where: { $0.name == "🚀 Premier jour" }) {
-            print("🥇 Ajout médaille: Premier jour")
-            medals.append(UserMedal(name: "🚀 Premier jour",
-                                    description: "Première validation !",
-                                    iconName: "rocket-pencil",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 3 && !progress.medals.contains(where: { $0.name == "🔥 3 jours" }) {
-            print("🥈 Ajout médaille: 3 jours")
-            medals.append(UserMedal(name: "🔥 3 jours",
-                                    description: "3 jours validés d'affilée",
-                                    iconName: "apple",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 5 && !progress.medals.contains(where: { $0.name == "🥉 5 jours" }) {
-            medals.append(UserMedal(name: "🥉 5 jours",
-                                    description: "5 jours validés d'affilée",
-                                    iconName: "bronze",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 7 && !progress.medals.contains(where: { $0.name == "🎖️ 7 jours" }) {
-            medals.append(UserMedal(name: "🎖️ 7 jours",
-                                    description: "7 jours validés d'affilée",
-                                    iconName: "green",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 10 && !progress.medals.contains(where: { $0.name == "🧨 10 jours" }) {
-            medals.append(UserMedal(name: "🧨 10 jours",
-                                    description: "10 jours validés d'affilée",
-                                    iconName: "apple",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 14 && !progress.medals.contains(where: { $0.name == "🥈 14 jours" }) {
-            medals.append(UserMedal(name: "🥈 14 jours",
-                                    description: "14 jours de suite !",
-                                    iconName: "silver",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 21 && !progress.medals.contains(where: { $0.name == "🥇21 jours" }) {
-            medals.append(UserMedal(name: "🥇21 jours",
-                                    description: "21 jours de suite !",
-                                    iconName: "gold",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
-        }
-
-        if progress.currentStreak >= 25 && !progress.medals.contains(where: { $0.name == "25 jours" }) {
-            medals.append(UserMedal(name: "25 jours",
-                                    description: "25 jours de suite !",
-                                    iconName: "boxing",
-                                    achievedDate: Date(),
-                                    challengeId: challengeId))
+        let maxDays = challenges.first(where: { $0.id == challengeId })?.duration
+            ?? max(sortedCount, progress.currentStreak)
+        let streakDefinitions = MedalCatalog.streakDefinitions(maxDays: maxDays)
+        for definition in streakDefinitions where streak >= (definition.streakDays ?? 0) {
+            if !progress.medals.contains(where: { $0.name == definition.name }) {
+                medals.append(UserMedal(name: definition.name,
+                                        description: definition.description,
+                                        iconName: definition.iconName,
+                                        achievedDate: Date(),
+                                        challengeId: challengeId))
+            }
         }
 
         if let challenge = challenges.first(where: { $0.id == challengeId }),
            sortedCount >= challenge.duration,
-           !progress.medals.contains(where: { $0.name == "🏁 🥇Terminé" }) {
-            medals.append(UserMedal(name: "🏁 🥇Terminé",
-                                    description: "Défi complété",
-                                    iconName: "flag",
+           !progress.medals.contains(where: { $0.name == MedalCatalog.completionDefinition.name }) {
+            let completion = MedalCatalog.completionDefinition
+            medals.append(UserMedal(name: completion.name,
+                                    description: completion.description,
+                                    iconName: completion.iconName,
                                     achievedDate: Date(),
                                     challengeId: challengeId))
+        }
+
+        let recentValidations = countValidatedDays(inLast: 7, from: progress.validatedDays)
+        if recentValidations >= 5,
+           !progress.medals.contains(where: { $0.name == "📅 Semaine solide" }) {
+            let definition = MedalCatalog.consistencyDefinitions.first { $0.name == "📅 Semaine solide" }
+            if let definition {
+                medals.append(UserMedal(name: definition.name,
+                                        description: definition.description,
+                                        iconName: definition.iconName,
+                                        achievedDate: Date(),
+                                        challengeId: challengeId))
+            }
+        }
+
+        if streak == 1,
+           previousStreak >= 3,
+           hasBreakBetweenLastValidations(progress.validatedDays),
+           !progress.medals.contains(where: { $0.name == "💪 Reprise" }) {
+            let definition = MedalCatalog.consistencyDefinitions.first { $0.name == "💪 Reprise" }
+            if let definition {
+                medals.append(UserMedal(name: definition.name,
+                                        description: definition.description,
+                                        iconName: definition.iconName,
+                                        achievedDate: Date(),
+                                        challengeId: challengeId))
+            }
         }
 
         return medals
     }
 
-    private func triggerLocalNotification(for medal: UserMedal) {
+    private func triggerLocalNotification(for medals: [UserMedal]) {
+        guard !medals.isEmpty else { return }
         let content = UNMutableNotificationContent()
 
-        content.title = "🎖️ Nouvelle médaille débloquée!"
-        content.body = "\(medal.name): \(medal.description)"
+        if medals.count == 1, let medal = medals.first {
+            content.title = "🎖️ Nouvelle médaille débloquée!"
+            content.body = "\(medal.name): \(medal.description)"
+        } else {
+            content.title = "🎖️ Nouvelles médailles débloquées!"
+            let names = medals.map(\.name).joined(separator: ", ")
+            content.body = "Tu as débloqué \(medals.count) médailles: \(names)"
+        }
         content.sound = .default
 
         let request = UNNotificationRequest(identifier: UUID().uuidString,
                                             content: content,
                                             trigger: nil)
         UNUserNotificationCenter.current().add(request)
+    }
+
+    private func triggerLocalNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let request = UNNotificationRequest(identifier: UUID().uuidString,
+                                            content: content,
+                                            trigger: nil)
+        UNUserNotificationCenter.current().add(request)
+    }
+
+    private func notifyUpcomingMedalIfNeeded(progress: ParticipantProgress, challenge: Challenge) {
+        guard let userId = currentUser?.id else { return }
+        guard let nextDefinition = MedalCatalog.nextStreakDefinition(for: progress, challenge: challenge),
+              let target = nextDefinition.streakDays
+        else { return }
+
+        let remaining = target - progress.currentStreak
+        guard remaining > 0 else { return }
+
+        let key = "upcoming_medal_\(userId)_\(challenge.id)_\(nextDefinition.name)"
+        guard !defaults.bool(forKey: key) else { return }
+        defaults.set(true, forKey: key)
+
+        let dayWord = remaining == 1 ? "jour" : "jours"
+        triggerLocalNotification(title: "Plus que \(remaining) \(dayWord) avant \(nextDefinition.name) 🎯",
+                                 body: "Valide encore \(remaining) \(dayWord) pour débloquer ta prochaine médaille.")
+    }
+
+    private func countValidatedDays(inLast days: Int, from validatedDays: [Date]) -> Int {
+        let calendar = Calendar.current
+        let cutoff = calendar.date(byAdding: .day, value: -days + 1, to: calendar.startOfDay(for: Date())) ?? Date()
+        return validatedDays.filter { $0 >= cutoff }.count
+    }
+
+    private func hasBreakBetweenLastValidations(_ validatedDays: [Date]) -> Bool {
+        let sorted = validatedDays.sorted(by: >)
+        guard sorted.count >= 2 else { return false }
+
+        let calendar = Calendar.current
+        let mostRecent = calendar.startOfDay(for: sorted[0])
+        let previous = calendar.startOfDay(for: sorted[1])
+        let diff = calendar.dateComponents([.day], from: previous, to: mostRecent).day ?? 0
+        return diff > 1
+    }
+
+    private func awardJokerMedalIfNeeded(progress: ParticipantProgress) async {
+        guard progress.jokerProgress.confirmedUsages.count >= 1 else { return }
+        guard let definition = MedalCatalog.jokerDefinitions.first else { return }
+        let medal = UserMedal(name: definition.name,
+                              description: definition.description,
+                              iconName: definition.iconName,
+                              achievedDate: Date(),
+                              challengeId: progress.challengeId)
+        await awardUserMedalsIfNeeded([medal])
+    }
+
+    private func awardUserMedalsIfNeeded(_ medals: [UserMedal]) async {
+        guard let currentUserId = currentUser?.id else { return }
+        let existing = currentUser?.medals ?? []
+        let newMedals = medals.filter { medal in
+            !existing.contains(where: { $0.name == medal.name && $0.challengeId == medal.challengeId })
+        }
+        guard !newMedals.isEmpty else { return }
+
+        await rewardService.addMedals(to: currentUserId, medals: newMedals)
+        _ = try? await accountManager.updateCurrentUser(with: currentUserId)
+
+        await MainActor.run {
+            alertManager.show(medals: newMedals)
+            triggerLocalNotification(for: newMedals)
+        }
+    }
+
+    private func awardSocialMedalIfNeeded(type: SocialMedalType, challengeId: String) async {
+        let definition: MedalDefinition?
+
+        switch type {
+        case .firstPost:
+            definition = MedalCatalog.socialDefinitions.first { $0.name == "📸 Premier post" }
+        case .firstComment:
+            definition = MedalCatalog.socialDefinitions.first { $0.name == "💬 Premier commentaire" }
+        case .firstLike:
+            definition = MedalCatalog.socialDefinitions.first { $0.name == "👍 Premier like" }
+        case .firstReaction:
+            definition = MedalCatalog.socialDefinitions.first { $0.name == "🎉 Première réaction" }
+        }
+
+        guard let definition else { return }
+        let medal = UserMedal(name: definition.name,
+                              description: definition.description,
+                              iconName: definition.iconName,
+                              achievedDate: Date(),
+                              challengeId: challengeId)
+        await awardUserMedalsIfNeeded([medal])
     }
 
     private func calculateStreak(from dates: [Date]) -> Int {

@@ -146,11 +146,10 @@ class NewChallengeViewModel: ObservableObject {
             await MainActor.run {
                 // 🎖️ Affiche les médailles gagnées aujourd'hui
                 let today = Calendar.current.startOfDay(for: Date())
-                for medal in newUser.medals {
-                    if Calendar.current.isDate(medal.achievedDate, inSameDayAs: today) {
-                        alertManager.show(medal: medal, challengeId: medal.challengeId)
-                    }
+                let medalsToday = newUser.medals.filter {
+                    Calendar.current.isDate($0.achievedDate, inSameDayAs: today)
                 }
+                alertManager.show(medals: medalsToday)
             }
         }
     }

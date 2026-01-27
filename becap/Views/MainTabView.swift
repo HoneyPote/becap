@@ -43,8 +43,8 @@ struct MainTabView: View {
             viewModel.onChangeOfScenePhase(newPhase)
         }
         .overlay {
-            if let medal = viewModel.medal {
-                MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
+            if !viewModel.medals.isEmpty {
+                MedalPopupView(medals: viewModel.medals, onDismiss: viewModel.dismissMedalPopup)
                     .transition(.scale)
             }
         }
