@@ -61,7 +61,7 @@ struct HomeView: View {
             )
             .withTabBarInset()
             .navigationBarHidden(true)
-            .background(deepLinkNavigationLink) // lien de deep link caché
+            .background(deepLinkNavigationLink) // hidden deep link
         }
         .refreshable { viewModel.refreshChallenges() }
         .sheet(isPresented: $showShareChallengeView) {

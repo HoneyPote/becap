@@ -39,7 +39,8 @@ protocol ChallengeManagerProtocol {
     func declareJokerOnPost(for post: ChallengePost, jokerState: PostJokerState) async throws
 
     // Notifications
-    func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+    func updateChallengeNotifications(for challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
+    func updateUserNotifications(for userId: String, challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
 
     // Chat
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
@@ -440,6 +441,7 @@ extension ChallengeManager {
                                                   currentStreak: 0,
                                                   jokerProgress: ParticipantJokerProgress(total: challenge.jokerConfiguration),
                                                   medals: [],
+                                                  notificationsConfig: challenge.defaultNotificationsConfig,
                                                   challengeId: challenge.id,
                                                   joinedDate: Date(),
                                                   isCreator: challenge.creatorUID == userId,
@@ -732,17 +734,29 @@ extension ChallengeManager {
 
 // MARK: - Notifications
 extension ChallengeManager {
-    func updateNotifications(for challenge: Challenge,
-                             config: [ChallengeNotification],
-                             completion: ((Error?) -> Void)? = nil) {
-        // Mise à jour locale dans la liste
+    func updateChallengeNotifications(for challenge: Challenge,
+                                      config: [Int],
+                                      completion: ((Error?) -> Void)? = nil) {
+        // Mise à jour locale dans la liste -> On garde ?
         if let idx = self.challenges.firstIndex(where: { $0.id == challenge.id }) {
-            self.challenges[idx].notificationsConfig = config
+            self.challenges[idx].defaultNotificationsConfig = config
         }
 
+        challengeService.updateChallengeNotifications(for: challenge.id, config: config) { error in
+            if let error = error {
+                print("❌ Erreur lors de l’envoi vers Firestore : \(error)")
+            } else {
+                print("✅ Notifications mises à jour dans Firestore")
+            }
+            completion?(error)
+        }
+    }
 
-        // Mise à jour Firestore via service
-        challengeService.updateNotifications(for: challenge, config: config) { error in
+    func updateUserNotifications(for userId: String,
+                                 challenge: Challenge,
+                                 config: [Int],
+                                 completion: ((Error?) -> Void)? = nil) {
+        challengeService.updateUserNotifications(for: userId, challengeId: challenge.id, config: config) { error in
             if let error = error {
                 print("❌ Erreur lors de l’envoi vers Firestore : \(error)")
             } else {
@@ -751,20 +765,14 @@ extension ChallengeManager {
             completion?(error)
         }
 
-        // ✅ MAJ l’objet challenge pour l’appel à NotificationManager
-        var updatedChallenge = challenge
-        updatedChallenge.notificationsConfig = config
-
-        NotificationManager.shared.scheduleAllNotifications(for: updatedChallenge)
-
-        print("🛠 updateNotifications called with \(config.count) configs for challenge \(challenge.title)")
+        NotificationManager.shared.scheduleDailyNotifications(for: challenge, config: config)
     }
 }
 
 // MARK: - Observers
 extension ChallengeManager {
     private func observeCurrentUser() {
-             userManager.$currentUser
+        userManager.$currentUser
             .receive(on: DispatchQueue.main)
             .sink { [weak self] currentUser in
                 self?.currentUser = currentUser

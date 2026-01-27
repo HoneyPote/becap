@@ -39,7 +39,8 @@ protocol ChallengeServiceProtocol {
     func fetchProgress(challengeId: String, userId: String) async throws -> ParticipantProgress?
 
     // Notifications
-    func updateNotifications(for challenge: Challenge, config: [ChallengeNotification], completion: ((Error?) -> Void)?)
+    func updateChallengeNotifications(for challengeId: String, config: [Int], completion: ((Error?) -> Void)?)
+    func updateUserNotifications(for userId: String, challengeId: String, config: [Int], completion: ((Error?) -> Void)?)
 
     // Chat
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
@@ -606,19 +607,32 @@ extension ChallengeService {
 
 // MARK: - Notifications
 extension ChallengeService {
-    func updateNotifications(for challenge: Challenge,
-                             config: [ChallengeNotification],
-                             completion: ((Error?) -> Void)? = nil) {
-        // Convertir explicitement les dates en timestamps
-        let firestoreConfig = config.map { notif in
-            return ["dayIndex": notif.dayIndex,
-                    "times": notif.times.map { Timestamp(date: $0) }] as [String : Any]
-        }
-
-        let ref = firestoreDB.collection(collecChallenges).document(challenge.id)
+    func updateChallengeNotifications(for challengeId: String,
+                                      config: [Int],
+                                      completion: ((Error?) -> Void)? = nil) {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
 
         ref.updateData([
-            "notificationsConfig": firestoreConfig
+            "defaultNotificationsConfig": config
+        ]) { error in
+            completion?(error)
+        }
+    }
+
+    func updateUserNotifications(for userId: String,
+                                 challengeId: String,
+                                 config: [Int],
+                                 completion: ((Error?) -> Void)? = nil) {
+        let ref = firestoreDB
+            .collection(collecChallenges)
+            .document(challengeId)
+            .collection(collecParticipants)
+            .document(userId)
+
+        ref.updateData([
+            "notificationsConfig": config
         ]) { error in
             completion?(error)
         }

@@ -11,25 +11,27 @@ struct NotificationSettingsView: View {
     @Environment(\.dismiss) var dismiss
     @StateObject private var viewModel: NotificationSettingsViewModel
 
-    init(challenge: Challenge) {
-        _viewModel = StateObject(wrappedValue: NotificationSettingsViewModel(currentChallenge: challenge))
+    @State private var isEditTimeSheetOpen = false
+    @State private var editedNotificationTime = Date()
+    @State private var editedNotificationIndex: Int?
+    @State private var editedNotificationScope: NotificationConfigScope?
+
+    private let notificationColumns = [GridItem(.flexible(), spacing: 12),
+                                       GridItem(.flexible(), spacing: 12)]
+
+    init(challenge: Challenge, currentPartipicant: ParticipantUIModel) {
+        _viewModel = StateObject(wrappedValue: NotificationSettingsViewModel(currentChallenge: challenge, currentParticipant: currentPartipicant))
     }
 
     var body: some View {
         ZStack {
-            // Fond dégradé plus profond
-            LinearGradient(
-                colors: [
-                    Color(red: 27/255, green: 40/255, blue: 74/255),
-                    Color(red: 21/255, green: 73/255, blue: 114/255)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+            LinearGradient(colors: [Color(red: 27/255, green: 40/255, blue: 74/255),
+                                    Color(red: 21/255, green: 73/255, blue: 114/255)],
+                           startPoint: .top,
+                           endPoint: .bottom)
             .ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // HEADER
                 HStack {
                     Button(action: { DispatchQueue.main.async { dismiss() } }) {
                         Image(systemName: "xmark")
@@ -54,45 +56,21 @@ struct NotificationSettingsView: View {
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 22) {
-                        ForEach(0..<viewModel.duration, id: \.self) { day in
-                            notificationDayCard(for: day)
-                        }
+                        notificationSection(title: "Notifications du défi",
+                                            subtitle: "Heures définies par le créateur du défi",
+                                            scope: .challenge,
+                                            isEditable: viewModel.currentParticipant.isAdmin)
 
-                        // Bouton "Réinitialiser tout"
-                        Button(action: viewModel.resetAll) {
-                            HStack(spacing: 8) {
-                                Image(systemName: "arrow.counterclockwise")
-                                Text("Réinitialiser tout")
-                            }
-                            .font(.system(.body, design: .rounded).bold())
-                            .foregroundColor(.white)
-                            .padding(.vertical, 10)
-                            .padding(.horizontal, 28)
-                            .background(
-                                Capsule().fill(
-                                    LinearGradient(
-                                        colors: [
-                                            Color.purple.opacity(0.85),
-                                            Color.accentColor.opacity(0.85)
-                                        ],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                            )
-                            .overlay(
-                                Capsule().stroke(Color.white.opacity(0.2), lineWidth: 1)
-                            )
-                            .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 8)
-                        }
-                        .padding(.top, 8)
+                        notificationSection(title: "Mes notifications",
+                                            subtitle: "Personnalise tes rappels quotidiens",
+                                            scope: .user,
+                                            isEditable: true)
                     }
                     .padding()
                 }
 
-                // CTA Enregistrer
                 Button(action: {
-                    viewModel.updateNotificationConfig()
+                    viewModel.saveConfigs()
                     dismiss()
                 }) {
                     Text("Enregistrer")
@@ -100,10 +78,8 @@ struct NotificationSettingsView: View {
                         .frame(maxWidth: .infinity, minHeight: 56)
                         .background(
                             LinearGradient(
-                                colors: [
-                                    Color(red: 82/255, green: 207/255, blue: 144/255),
-                                    Color(red: 27/255, green: 188/255, blue: 155/255)
-                                ],
+                                colors: [Color(red: 82/255, green: 207/255, blue: 144/255),
+                                         Color(red: 27/255, green: 188/255, blue: 155/255)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -117,145 +93,170 @@ struct NotificationSettingsView: View {
                 .padding(.top, 2)
             }
         }
+        .interactiveDismissDisabled()
         .navigationBarHidden(true)
+        .sheet(isPresented: $isEditTimeSheetOpen, onDismiss: {
+            guard let scope = editedNotificationScope, let index = editedNotificationIndex else { return }
+
+            viewModel.updateNotificationTime(scope: scope, index: index, newDate: editedNotificationTime)
+        }) {
+            VStack {
+                DatePicker(
+                    "Choisir une heure",
+                    selection: Binding(
+                        get: { editedNotificationTime },
+                        set: { newValue in
+                            editedNotificationTime = newValue
+                        }
+                    ),
+                    displayedComponents: .hourAndMinute
+                )
+                .datePickerStyle(.wheel)
+                .labelsHidden()
+                .frame(height: 150)
+                .background(Color.clear)
+            }
+            .presentationDetents([.height(150)])
+            .presentationDragIndicator(.hidden)
+        }
     }
 
-    // MARK: - CARD PAR JOUR
-    private func notificationDayCard(for day: Int) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // En-tête de carte
-            HStack(spacing: 14) {
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.2))
-                        .frame(width: 46, height: 46)
-                    Image(systemName: "bell.badge.fill")
-                        .symbolRenderingMode(.palette)
-                        .foregroundStyle(Color.white, Color.orange)
-                        .font(.system(size: 22, weight: .semibold))
+    private func notificationSection(title: String, subtitle: String, scope: NotificationConfigScope, isEditable: Bool) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(.title3, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+
+                Text(subtitle)
+                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                    .foregroundColor(.white.opacity(0.7))
+            }
+
+            if isEditable {
+                actionButtons(scope: scope)
+            }
+
+            LazyVGrid(columns: notificationColumns, spacing: 12) {
+                let notifs = viewModel.getNotifications(for: scope)
+
+                ForEach(Array(notifs.enumerated()), id: \.element.id) { index, item in
+                    notificationTimeCell(date: item.fullDate, scope: scope, index: index, isEditable: isEditable)
                 }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Jour \(day + 1)")
-                        .foregroundColor(.white)
-                        .font(.system(.title3, design: .rounded).weight(.heavy))
-                    Text("Rappels motivants pour rester sur votre lancée")
-                        .foregroundColor(Color.white.opacity(0.72))
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                if isEditable, notifs.count < 3 {
+                    addNotificationCell(scope: scope)
                 }
+            }
+        }
+        .padding()
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 22)
+                .stroke(Color.white.opacity(0.15), lineWidth: 1)
+        )
+        .allowsHitTesting(isEditable)
+    }
 
-                Spacer()
+    private func actionButtons(scope: NotificationConfigScope) -> some View {
+        HStack(spacing: 12) {
+            Button {
+                viewModel.resetNotificationTime(scope: scope)
+            } label: {
+                Label("Tout supprimer", systemImage: "arrow.counterclockwise")
+            }
+            .buttonStyle(.plain)
+            .font(.system(.footnote, design: .rounded).weight(.semibold))
+            .foregroundColor(.white.opacity(0.85))
 
-                Button(action: { viewModel.duplicateDay(day) }) {
-                    Label("Dupliquer les rappels de ce jour", systemImage: "arrow.triangle.2.circlepath")
-                        .labelStyle(.iconOnly)
-                        .font(.system(size: 16, weight: .semibold, design: .rounded))
-                        .foregroundColor(Color(red: 250/255, green: 223/255, blue: 86/255))
-                        .padding(10)
-                        .background(Color.white.opacity(0.18))
-                        .clipShape(Circle())
-                        .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
-                        .shadow(color: Color.black.opacity(0.28), radius: 8, x: 0, y: 6)
+            Spacer()
+
+            if scope == .user {
+                Button {
+                    viewModel.copyChallengeNotifToUser()
+                } label: {
+                    Label("Copier les heures par défaut du défi", systemImage: "arrow.down.circle")
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Dupliquer les rappels de ce jour")
+                .font(.system(.footnote, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(0.9))
             }
+        }
+    }
 
-            // Liste des heures
-            VStack(alignment: .leading, spacing: 12) {
-                ForEach(viewModel.notificationConfig[day].times, id: \.self) { time in
-                    HStack(spacing: 12) {
-                        Image(systemName: "clock.fill")
-                            .font(.system(size: 18, weight: .semibold))
-                            .foregroundColor(Color(red: 252/255, green: 250/255, blue: 240/255))
-
-                        DatePicker(
-                            "",
-                            selection: Binding(
-                                get: { time },
-                                set: { newValue in
-                                    viewModel.updateTime(for: day, oldTime: time, newTime: newValue)
-                                }
-                            ),
-                            displayedComponents: .hourAndMinute
-                        )
-                        .labelsHidden()
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .colorScheme(.dark)
-
+    private func notificationTimeCell(date: Date, scope: NotificationConfigScope, index: Int, isEditable: Bool) -> some View {
+        HStack(spacing: 8) {
+            Button {
+                editedNotificationTime = date
+                editedNotificationScope = scope
+                editedNotificationIndex = index
+                isEditTimeSheetOpen = true
+            } label: {
+                if isEditable {
+                    HStack(spacing: .zero) {
+                        Text(date, style: .time)
+                            .foregroundColor(.white)
+                            .font(.system(.body, design: .rounded).weight(.semibold))
                         Spacer()
-
-                        Button(action: {
-                            viewModel.removeTime(for: day, time: time)
-                        }) {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundColor(Color(red: 255/255, green: 112/255, blue: 112/255))
-                                .font(.system(size: 20, weight: .semibold))
-                                .shadow(color: Color.black.opacity(0.25), radius: 4, x: 0, y: 2)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Supprimer le rappel")
+                        Image(systemName: "pencil.circle.fill")
+                            .foregroundColor(.white.opacity(0.85))
+                            .font(.system(size: 16, weight: .semibold))
                     }
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 14)
-                    .background(Color.white.opacity(0.16))
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
-                    )
+                    .padding(10)
+                    .background(.ultraThinMaterial)
+                    .cornerRadius(12)
+                } else {
+                    Spacer()
+                    Text(date, style: .time)
+                        .foregroundColor(.white)
+                        .font(.system(.body, design: .rounded).weight(.semibold))
+                    Spacer()
                 }
             }
+            .buttonStyle(.plain)
 
-            // Ajouter une heure
-            if viewModel.notificationConfig[day].times.count < 3 {
-                Button(action: {
-                    viewModel.addTime(for: day, date: Date())
-                }) {
-                    HStack(spacing: 8) {
-                        Image(systemName: "plus.circle.fill")
-                            .foregroundColor(Color(red: 247/255, green: 255/255, blue: 143/255))
-                            .font(.system(size: 20, weight: .semibold))
-                        Text("Ajouter un rappel")
-                            .font(.system(size: 15, weight: .semibold, design: .rounded))
-                    }
-                    .foregroundColor(Color.white)
-                    .padding(.vertical, 10)
-                    .padding(.horizontal, 14)
-                    .background(Color.white.opacity(0.14))
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().stroke(Color.white.opacity(0.22), lineWidth: 1)
-                    )
+            if isEditable {
+                Button {
+                    viewModel.removeNotificationTime(scope: scope, index: index)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundColor(.red.opacity(0.9))
+                        .font(.system(size: 16, weight: .semibold))
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(.vertical, 22)
-        .padding(.horizontal, 20)
-        .background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 58/255, green: 107/255, blue: 173/255).opacity(0.88),
-                            Color(red: 47/255, green: 146/255, blue: 200/255).opacity(0.76)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(0.18), lineWidth: 1)
-        )
-        .shadow(color: Color.black.opacity(0.35), radius: 18, x: 0, y: 16)
+        .padding(10)
+        .background(.ultraThinMaterial)
+        .cornerRadius(12)
     }
-}
 
-extension Date: @retroactive Identifiable {
-    public var id: String {
-        ISO8601DateFormatter().string(from: self)
+    private func addNotificationCell(scope: NotificationConfigScope) -> some View {
+        Button {
+            viewModel.addNotificationTime(scope: scope)
+            editedNotificationTime = Date()
+            editedNotificationScope = scope
+            editedNotificationIndex = viewModel.getNotifications(for: scope).count - 1
+            isEditTimeSheetOpen = true
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 20, weight: .semibold))
+
+                Text("Ajouter")
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+            }
+            .foregroundColor(.white.opacity(0.9))
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .padding(10)
+            .background(Color.white.opacity(0.12))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 }

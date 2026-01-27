@@ -104,7 +104,7 @@ private extension ContentReportReason {
                              creatorUID: "1",
                              adminUids: [],
                              participantUids: [],
-                             notificationsConfig: nil,
+                             defaultNotificationsConfig: [],
                              code: nil,
                              jokerConfiguration: 1),
         isSubmitting: .constant(false),
