@@ -23,7 +23,7 @@ struct CustomVideoPlayer: UIViewRepresentable {
     func makeUIView(context: Context) -> PlayerContainerView {
         let container = PlayerContainerView(frame: UIScreen.main.bounds)
         container.configure(with: videoURL, thumbnailURL: thumbnailURL, configuration: configuration)
-        enablePlayingWhileRingerIsSetToSilent()
+        configureAudioSession()
         return container
     }
 
@@ -31,10 +31,13 @@ struct CustomVideoPlayer: UIViewRepresentable {
         uiView.applyConfiguration(configuration)
     }
 
-    func enablePlayingWhileRingerIsSetToSilent() {
-        guard let _ = try? AVAudioSession.sharedInstance().setCategory(AVAudioSession.Category.playback,
-                                                                       mode: AVAudioSession.Mode.default,
-                                                                       options: []) else { return }
+    func configureAudioSession() {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            try session.setCategory(.playback, mode: .default, options: [.mixWithOthers])
+        } catch {
+            try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
+        }
     }
 }
 
@@ -43,6 +46,8 @@ final class PlayerContainerView: UIView {
     private var playerLayer: AVPlayerLayer?
     private var playerObserver: NSKeyValueObservation?
     private var playerItemObserver: NSKeyValueObservation?
+    private var endObserver: NSObjectProtocol?
+    private var audioSessionObserver: NSObjectProtocol?
 
     // Subviews
     private var hostingThumbnail: UIHostingController<AnyView>?
@@ -143,11 +148,17 @@ final class PlayerContainerView: UIView {
         }
 
         // Reset video to beginning on ended
-        NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
-                                               object: player.currentItem,
-                                               queue: .main) { [weak self] _ in
+        endObserver = NotificationCenter.default.addObserver(forName: .AVPlayerItemDidPlayToEndTime,
+                                                             object: player.currentItem,
+                                                             queue: .main) { [weak self] _ in
             self?.player?.seek(to: .zero)
             self?.player?.pause()
+        }
+
+        audioSessionObserver = NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification,
+                                                                      object: AVAudioSession.sharedInstance(),
+                                                                      queue: .main) { [weak self] notification in
+            self?.handleAudioSessionInterruption(notification)
         }
 
         let tap = UITapGestureRecognizer(target: self, action: #selector(togglePlayPause))
@@ -180,6 +191,36 @@ final class PlayerContainerView: UIView {
         hostingThumbnail?.view.frame = bounds
 
         muteButton.frame.origin = CGPoint(x: bounds.width - muteButton.frame.width - 20, y: 20)
+    }
+
+    deinit {
+        if let endObserver {
+            NotificationCenter.default.removeObserver(endObserver)
+        }
+        if let audioSessionObserver {
+            NotificationCenter.default.removeObserver(audioSessionObserver)
+        }
+    }
+
+    private func handleAudioSessionInterruption(_ notification: Notification) {
+        guard let typeValue = notification.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+              let type = AVAudioSession.InterruptionType(rawValue: typeValue) else { return }
+
+        switch type {
+        case .began:
+            player?.pause()
+            isPlaying = false
+            playIcon.isHidden = false
+
+        case .ended:
+            let optionsValue = notification.userInfo?[AVAudioSessionInterruptionOptionKey] as? UInt ?? 0
+            let options = AVAudioSession.InterruptionOptions(rawValue: optionsValue)
+            if options.contains(.shouldResume), playWhenReady {
+                player?.play()
+            }
+        @unknown default:
+            break
+        }
     }
 }
 
