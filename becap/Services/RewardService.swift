@@ -25,10 +25,11 @@ class RewardService {
             var newMedals: [UserMedal] = []
 
             if medals.first(where: { $0.name == "🛠 Premier défi" }) == nil {
+                let definition = MedalCatalog.creationDefinitions.first { $0.name == "🛠 Premier défi" }
                 newMedals.append(UserMedal(
-                    name: "🛠 Premier défi",
-                    description: "Tu as créé ton premier défi !",
-                    iconName: "hammer",
+                    name: definition?.name ?? "🛠 Premier défi",
+                    description: definition?.description ?? "Tu as créé ton premier défi !",
+                    iconName: definition?.iconName ?? "hammer",
                     achievedDate: Date(),
                     challengeId: "creation"
                 ))
@@ -36,10 +37,11 @@ class RewardService {
 
             if createdCount >= 3,
                medals.first(where: { $0.name == "👷‍♂️ Builder" }) == nil {
+                let definition = MedalCatalog.creationDefinitions.first { $0.name == "👷‍♂️ Builder" }
                 newMedals.append(UserMedal(
-                    name: "👷‍♂️ Builder",
-                    description: "3 défis créés",
-                    iconName: "person.3",
+                    name: definition?.name ?? "👷‍♂️ Builder",
+                    description: definition?.description ?? "3 défis créés",
+                    iconName: definition?.iconName ?? "person.3",
                     achievedDate: Date(),
                     challengeId: "builder"
                 ))
