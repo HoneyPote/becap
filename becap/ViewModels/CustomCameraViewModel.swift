@@ -144,7 +144,8 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
             self.captureSession.addInput(videoInput)
 
 
-            if let audioDevice = AVCaptureDevice.default(for: .audio),
+            if self.shouldCaptureAudio(),
+               let audioDevice = AVCaptureDevice.default(for: .audio),
                let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
                self.captureSession.canAddInput(audioInput) {
                 self.captureSession.addInput(audioInput)
@@ -190,6 +191,14 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
             self.captureSession.commitConfiguration()
             self.currentCameraPosition = newCameraPosition
         }
+    }
+
+    private func shouldCaptureAudio() -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        if session.category == .playAndRecord || session.mode == .voiceChat || session.mode == .videoChat {
+            return false
+        }
+        return true
     }
 
     private func capturePhoto() {
