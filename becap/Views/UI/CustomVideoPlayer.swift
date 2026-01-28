@@ -33,6 +33,9 @@ struct CustomVideoPlayer: UIViewRepresentable {
 
     func configureAudioSession() {
         let session = AVAudioSession.sharedInstance()
+        if session.category == .playAndRecord || session.mode == .voiceChat || session.mode == .videoChat {
+            return
+        }
         if session.isOtherAudioPlaying || session.secondaryAudioShouldBeSilencedHint {
             try? session.setCategory(.ambient, mode: .default, options: [.mixWithOthers])
             return
