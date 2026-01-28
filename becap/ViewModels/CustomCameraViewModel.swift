@@ -262,17 +262,34 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
             return
         }
 
+        DispatchQueue.main.async {
+            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
+        }
+
+        generateThumbnailAsync(for: outputFileURL) { [weak self] thumbnail in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                if case .video(let data) = self.capturedMedia, data.url == outputFileURL {
+                    self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL,
+                                                                               thumbnailImage: thumbnail))
+                }
+            }
+        }
+
         createTimelapse(from: outputFileURL, speedMultiplier: timeLapseSpeedMultiplier) { [weak self] timelapseURL in
             guard let self else { return }
             let finalURL = timelapseURL ?? outputFileURL
-            let thumbnail = self.generateThumbnail(for: finalURL)
 
-            if let timelapseURL, timelapseURL != outputFileURL {
-                self.removeTemporaryFile(at: outputFileURL)
-            }
+            self.generateThumbnailAsync(for: finalURL) { [weak self] thumbnail in
+                guard let self else { return }
+                if let timelapseURL, timelapseURL != outputFileURL {
+                    self.removeTemporaryFile(at: outputFileURL)
+                }
 
-            DispatchQueue.main.async {
-                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: thumbnail))
+                DispatchQueue.main.async {
+                    self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL,
+                                                                               thumbnailImage: thumbnail))
+                }
             }
         }
     }
@@ -292,6 +309,13 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         } catch {
             print("❌ Impossible de générer la miniature vidéo :", error)
             return nil
+        }
+    }
+
+    private func generateThumbnailAsync(for url: URL, completion: @escaping (UIImage?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let thumbnail = self.generateThumbnail(for: url)
+            completion(thumbnail)
         }
     }
 
