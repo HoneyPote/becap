@@ -6,6 +6,8 @@
 //
 
 import SwiftUI
+import AVFoundation
+import UIKit
 
 struct MedalTriggerRow: View {
     let medalCount: Int
@@ -64,6 +66,8 @@ struct MedalBubbleView: View {
     var progress: ParticipantProgress? = nil
     var challenge: Challenge? = nil
 
+    @State private var player: AVAudioPlayer?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Médailles")
@@ -95,9 +99,40 @@ struct MedalBubbleView: View {
             }
         }
         .padding(20)
-        .background(.ultraThinMaterial)
+        .background(
+            LinearGradient(colors: [Color(red: 20/255, green: 52/255, blue: 96/255),
+                                    Color(red: 80/255, green: 40/255, blue: 124/255),
+                                    Color(red: 36/255, green: 118/255, blue: 170/255)],
+                           startPoint: .topLeading,
+                           endPoint: .bottomTrailing)
+        )
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 12)
+        .onAppear {
+            guard hasNewMedal else { return }
+            playCelebrationSound()
+            vibrate()
+        }
+    }
+
+    private var hasNewMedal: Bool {
+        let today = Calendar.current.startOfDay(for: Date())
+        return medals.contains { Calendar.current.isDate($0.achievedDate, inSameDayAs: today) }
+    }
+
+    private func playCelebrationSound() {
+        guard let url = Bundle.main.url(forResource: "success", withExtension: "mp3") else { return }
+        do {
+            player = try AVAudioPlayer(contentsOf: url)
+            player?.play()
+        } catch {
+            print("❌ Erreur son: \(error.localizedDescription)")
+        }
+    }
+
+    private func vibrate() {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
     }
 }
 
