@@ -60,7 +60,7 @@ class MainTabViewModel: ObservableObject {
 }
 
 // MARK: - Observers
-extension MainTabViewModel {
+extension MainViewModel {
     private func observeMedals() {
         alertManager.$currentMedals
             .receive(on: DispatchQueue.main)
