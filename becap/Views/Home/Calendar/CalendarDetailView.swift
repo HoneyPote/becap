@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import Combine
 
 // MARK: - Day helpers (normalize to day precision everywhere)
 private let CAL = Calendar.current
@@ -38,6 +37,7 @@ struct CalendarDetailView: View {
     @State private var showJokerBubble = false
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
+    @State private var navigateToCamera = false
 
     init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -81,6 +81,10 @@ struct CalendarDetailView: View {
                 }
 
                 Spacer(minLength: 0)
+
+                if viewModel.challenge.status == .active {
+                    cameraCTAButton
+                }
             }
         }
         .background(
@@ -119,15 +123,6 @@ struct CalendarDetailView: View {
         .onAppear { viewModel.fetchInfos() }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
-        .onReceive(NotificationCenter.default.publisher(for: .tabBarItemReselected)) { notification in
-            guard let tab = notification.object as? TabType, tab == .home else { return }
-            dismiss()
-        }
-        .onAppear {
-            if viewModel.doneLoadingPosts {
-                openInitialPostIfNeeded()
-            }
-        }
         .onChange(of: viewModel.doneLoadingPosts) { isDone in
             if isDone {
                 openInitialPostIfNeeded()
@@ -139,7 +134,9 @@ struct CalendarDetailView: View {
         .onChange(of: selectedParticipant) { _ in
             showJokerBubble = false
         }
-        .withTabBarInset()
+        .navigationDestination(isPresented: $navigateToCamera) {
+            ChallengeCameraContainerView(challenge: viewModel.challenge)
+        }
     }
 
     @ViewBuilder
@@ -351,6 +348,41 @@ struct CalendarDetailView: View {
         guard let items = ChallengeShareBuilder.makeShareItems(for: viewModel.challenge) else { return }
         shareItems = items
         isShareSheetPresented = true
+    }
+
+    private var cameraCTAButton: some View {
+        Button {
+            navigateToCamera = true
+        } label: {
+            cameraButtonContent
+        }
+    }
+
+    private var cameraButtonContent: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "camera.fill")
+                .font(.system(size: 20, weight: .bold))
+
+            Text("Créer un nouveau post")
+                .font(.system(.headline, design: .rounded).weight(.heavy))
+        }
+        .foregroundColor(.black)
+        .frame(maxWidth: .infinity)
+        .frame(height: 58)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color(red: 1.0, green: 0.86, blue: 0.33),
+                    Color(red: 1.0, green: 0.75, blue: 0.18)
+                ],
+                startPoint: .leading,
+                endPoint: .trailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 8)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
     }
 }
 

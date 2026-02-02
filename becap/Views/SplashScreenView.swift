@@ -21,8 +21,8 @@ struct SplashScreenView: View {
             if viewModel.isReadyToProceed {
                 if appState.hasAcceptedLegal {
                     if appState.isLoggedIn {
-                        MainTabView()
-                            .id(appState.sessionID) // 💥 Vue root recréée à chaque changement
+                        MainView()
+                            .id(appState.sessionID) // Reloading root view after every login
                     } else {
                         LoginView()
                     }

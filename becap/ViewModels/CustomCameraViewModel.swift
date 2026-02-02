@@ -68,6 +68,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         DispatchQueue(label: captureSessionQueueLabel).async {
             guard self.captureSession.isRunning else { return }
             self.captureSession.stopRunning()
+            self.capturedMedia = nil
         }
     }
 
@@ -103,10 +104,6 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         }
     }
 
-    func retakeMedia() {
-        capturedMedia = nil
-    }
-
     func switchCamera() {
         guard !isRecordingVideo else { return }
         updateCameraCaptureSession()
@@ -128,6 +125,10 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         let zoom = max(1.0, min(scale, device.activeFormat.videoMaxZoomFactor))
         device.videoZoomFactor = zoom
         device.unlockForConfiguration()
+    }
+
+    func resetCamera() {
+        capturedMedia = nil
     }
 
     // Privates

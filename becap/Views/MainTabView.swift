@@ -1,5 +1,5 @@
 //
-//  MainTabView.swift
+//  MainView.swift
 //  becap
 //
 //  Created by Adam Mabrouki on 15/07/2025.
@@ -8,52 +8,42 @@
 import SwiftUI
 import Combine
 
-struct MainTabView: View {
-    @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
+struct MainView: View {
+    @StateObject private var viewModel: MainViewModel = MainViewModel()
 
     @Environment(\.scenePhase) private var scenePhase
 
-    // ⬇️ AJOUT: on récupère le router de deep link injecté par l'app
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
 
     @State private var selectedIndex: Int = 0
 
     var body: some View {
-        CustomTabView(tabs: TabType.allTabItems, selectedIndex: $selectedIndex) { index in
-            if viewModel.infosDoneFetching {
-                switch TabType(rawValue: index) ?? .home {
-                case .home:
-                    HomeView()
-                case .camera:
-                    NewPostView()
-                case .settings:
-                    SettingsView()
+        HomeView()
+            .onAppear {
+                NotificationManager.shared.requestAuthorization()
+            }
+            .task {
+                viewModel.fetchInfos()
+            }
+            .onChange(of: scenePhase) { newPhase in
+                viewModel.onChangeOfScenePhase(newPhase)
+            }
+            .overlay {
+                if !viewModel.infosDoneFetching {
+                    ProgressView()
                 }
-            } else {
-                ProgressView()
             }
-        }
-        .onAppear {
-            NotificationManager.shared.requestAuthorization()
-        }
-        .task {
-            viewModel.fetchInfos()
-        }
-        .onChange(of: scenePhase) { newPhase in
-            viewModel.onChangeOfScenePhase(newPhase)
-        }
-        .overlay {
-            if let medal = viewModel.medal {
-                MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
-                    .transition(.scale)
+            .overlay {
+                if let medal = viewModel.medal {
+                    MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
+                        .transition(.scale)
+                }
             }
-        }
-        .navigationBarBackButtonHidden(true)
-
-        .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
-            guard id != nil else { return }
-            selectedIndex = 0
-        }
+            .navigationBarBackButtonHidden(true)
+            .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
+                guard id != nil else { return }
+                selectedIndex = 0
+            }
     }
 }
 
@@ -105,7 +95,7 @@ extension UIImage {
         let aspectRatio = size.height / size.width
         let newSize = CGSize(width: width, height: width * aspectRatio)
         let renderer = UIGraphicsImageRenderer(size: newSize)
-        
+
         return renderer.image { _ in
             self.draw(in: CGRect(origin: .zero, size: newSize))
         }

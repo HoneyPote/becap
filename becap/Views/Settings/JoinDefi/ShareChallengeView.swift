@@ -163,11 +163,9 @@ struct ShareChallengeView: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
                         ForEach(viewModel.challenges) { challenge in
-                            ChallengeChip(
-                                title: challenge.title,
-                                subtitle: challenge.category?.displayName,
-                                isSelected: viewModel.selectedChallenge == challenge
-                            )
+                            ChallengeChip(title: challenge.title,
+                                          subtitle: challenge.category?.displayName,
+                                          isSelected: viewModel.selectedChallenge == challenge)
                             .onTapGesture {
                                 withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
                                     viewModel.selectedChallenge = challenge

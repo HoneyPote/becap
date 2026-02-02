@@ -1,5 +1,5 @@
 //
-//  MainTabViewModel.swift
+//  MainViewModel.swift
 //  becap
 //
 //  Created by Victor Derveaux on 28/07/2025.
@@ -8,7 +8,7 @@
 import SwiftUI
 import Combine
 
-class MainTabViewModel: ObservableObject {
+class MainViewModel: ObservableObject {
     @Published var medal: UserMedal?
     @Published var infosDoneFetching: Bool = false
 
@@ -60,7 +60,7 @@ class MainTabViewModel: ObservableObject {
 }
 
 // MARK: - Observers
-extension MainTabViewModel {
+extension MainViewModel {
     private func observeMedals() {
         alertManager.$currentMedal
             .receive(on: DispatchQueue.main)
