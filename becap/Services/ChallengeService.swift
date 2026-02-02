@@ -54,7 +54,7 @@ final class ChallengeService: ChallengeServiceProtocol {
 
     private let firestoreDB = Firestore.firestore()
     private let firebaseStorage = Storage.storage()
-    private let collecChallenges = "challengesTesting"
+    private let collecChallenges = "challenges"
     private let collecPhotos = "photos"
     private let collecParticipants = "participants"
     private let collecComments = "comments"

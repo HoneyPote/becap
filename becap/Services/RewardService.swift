@@ -81,7 +81,7 @@ class RewardService {
 
     func persistProgress(_ progress: ParticipantProgress) async {
         do {
-            try db.collection("challengesTesting")
+            try db.collection("challenges")
                 .document(progress.challengeId)
                 .collection("participants")
                 .document(progress.id)
