@@ -73,7 +73,7 @@ struct CustomCameraView: View {
                     .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
                     .onTapGesture {
                         withAnimation(.easeInOut(duration: 0.25)) {
-                            viewModel.retakeMedia()
+                            viewModel.resetCamera()
                         }
                     }
 
@@ -96,7 +96,10 @@ struct CustomCameraView: View {
                     .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
                     .onTapGesture {
                         onCapture(media)
-                        dismiss()
+
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            viewModel.resetCamera()
+                        }
                     }
             }
         }

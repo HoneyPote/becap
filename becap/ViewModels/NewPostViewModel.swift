@@ -6,14 +6,9 @@
 //
 
 import SwiftUI
-import Combine
 import AVFoundation
-#if canImport(UIKit)
-import UIKit
-#endif
 
 class NewPostViewModel: ObservableObject {
-    @Published var selectedChallenge: Challenge?
     @Published var selectedMedia: ChallengeRawMedia?
     @Published var descriptionText: String = ""
     @Published var shakeChallenge: Bool = false
@@ -22,29 +17,30 @@ class NewPostViewModel: ObservableObject {
     @Published var isUploadingPost: Bool = false
     @Published var videoThubmnail: UIImage?
 
-    let currentUser: User?
     private let challengeManager: ChallengeManager
+    let currentUser: User?
+    let currentChallenge: Challenge
 
     var challenges: [Challenge] = []
     var captureMediaButtonLabel: String {
         selectedMedia == nil ? "Prendre une photo ou une vidéo" : "Reprendre une photo ou une vidéo"
     }
 
-    private var cancellables = Set<AnyCancellable>()
-
-    init(userManager: UserManager = UserManager.shared,
+    init(challenge: Challenge,
+         rawMedia: ChallengeRawMedia?,
+         userManager: UserManager = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.currentChallenge = challenge
+        self.selectedMedia = rawMedia
         self.currentUser = userManager.currentUser
         self.challengeManager = challengeManager
-
-        observeChallengesChanges()
     }
 
-    func uploadMedia() {
+    func uploadMedia(hasUploaded: @escaping (Bool) -> Void) {
         isUploadingPost = true
 
-        guard let media = selectedMedia, let challenge = selectedChallenge else {
-            updateToast("Veuillez sélectionner un média et défi.", type: .error)
+        guard let media = selectedMedia else {
+            updateToast("Veuillez capturer une photo ou une vidéo.", type: .error)
             withAnimation(.default) { shakeChallenge.toggle() }
             isUploadingPost = false
             return
@@ -52,7 +48,7 @@ class NewPostViewModel: ObservableObject {
 
         Task {
             do {
-                try await challengeManager.sendPostAndNotify(media: media, challenge: challenge, descriptionText: descriptionText)
+                try await challengeManager.sendPostAndNotify(media: media, challenge: currentChallenge, descriptionText: descriptionText)
 
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
@@ -60,11 +56,16 @@ class NewPostViewModel: ObservableObject {
                     self.descriptionText = ""
                     self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
+
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        hasUploaded(true)
+                    }
                 }
             } catch let error {
                 await MainActor.run {
                     self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
                     self.isUploadingPost = false
+                    hasUploaded(false)
                 }
             }
         }
@@ -72,11 +73,6 @@ class NewPostViewModel: ObservableObject {
 
     func updateSelectedMedia(_ media: ChallengeRawMedia) {
         selectedMedia = media
-    }
-
-    func selectChallenge(_ challenge: Challenge) {
-        selectedChallenge = challenge
-        playSelectionHaptic()
     }
 
     func closeToast() {
@@ -104,34 +100,5 @@ class NewPostViewModel: ObservableObject {
         AudioServicesPlaySystemSound(1057)
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-    }
-
-    private func playSelectionHaptic() {
-        #if canImport(UIKit)
-        let generator = UISelectionFeedbackGenerator()
-        generator.prepare()
-        generator.selectionChanged()
-        #endif
-    }
-}
-
-// MARK: - Observers
-extension NewPostViewModel {
-    private func observeChallengesChanges() {
-        challengeManager.$challenges
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] challenges in
-                guard let self else { return }
-
-                self.challenges = challenges.filter { $0.status == .active }
-
-                if let currentSelection = self.selectedChallenge,
-                   self.challenges.contains(currentSelection) {
-                    self.selectedChallenge = currentSelection
-                } else {
-                    self.selectedChallenge = nil
-                }
-            }
-            .store(in: &cancellables)
     }
 }

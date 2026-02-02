@@ -24,12 +24,27 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .center) {
+            VStack(alignment: .center, spacing: .zero) {
+                HStack {
+                    Spacer()
+
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Image(systemName: "person.crop.circle.fill")
+                            .resizable()
+                            .scaledToFit()
+                            .frame(width: 32, height: 32)
+                            .foregroundColor(.white)
+                            .padding(10)
+                    }
+                }
+                .padding(.horizontal, 24)
+
                 Text("⛿ BE CAP ⛿")
                     .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
                     .foregroundColor(.white)
-                    .padding(.top, 42)
                     .padding(.bottom, 12)
                     .padding(.horizontal, 24)
 
@@ -59,7 +74,6 @@ struct HomeView: View {
                     .overlay(Color.black.opacity(0.15))
                     .ignoresSafeArea()
             )
-            .withTabBarInset()
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // hidden deep link
         }

@@ -95,7 +95,6 @@ struct SettingsView: View {
                         .transition(.opacity)
                     }
                 }
-                .withTabBarInset()
             }
             .background(
                 Image("iphone_wallpaper_lake")
@@ -295,12 +294,10 @@ private struct ProfileHeader: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            AvatarEditor(
-                avatarUrl: user.photoURL,
-                isUploading: isUploading,
-                avatarItem: $avatarItem,
-                onPicked: onAvatarPicked
-            )
+            AvatarEditor(avatarUrl: user.photoURL,
+                         isUploading: isUploading,
+                         avatarItem: $avatarItem,
+                         onPicked: onAvatarPicked)
             .frame(width: 88, height: 88)
 
             Text(user.name)

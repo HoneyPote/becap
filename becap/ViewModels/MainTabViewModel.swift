@@ -1,5 +1,5 @@
 //
-//  MainTabViewModel.swift
+//  MainViewModel.swift
 //  becap
 //
 //  Created by Victor Derveaux on 28/07/2025.
@@ -60,7 +60,7 @@ class MainTabViewModel: ObservableObject {
 }
 
 // MARK: - Observers
-extension MainTabViewModel {
+extension MainViewModel {
     private func observeMedals() {
         alertManager.$currentMedals
             .receive(on: DispatchQueue.main)
