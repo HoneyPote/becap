@@ -31,6 +31,8 @@ struct ParticipantCardView: View {
     var body: some View {
         let challengeMedals = participant.userMedals.filter { $0.challengeId == viewModel.challenge.id }
 
+        let latestMedal = challengeMedals.sorted { $0.achievedDate > $1.achievedDate }.first
+
         VStack(alignment: .leading, spacing: 18) {
             HStack(alignment: .center, spacing: 16) {
                 ParticipantAvatarView(name: participant.userName, photoURL: participant.userProfilePhotoURL)
@@ -44,6 +46,19 @@ struct ParticipantCardView: View {
                     Text(participant.userName)
                         .font(.system(.title3, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
+                    if let latestMedal {
+                        HStack(spacing: 6) {
+                            MedalIconView(iconName: latestMedal.iconName)
+                                .frame(width: 16, height: 16)
+                            Text(latestMedal.name)
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white.opacity(0.8))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(Capsule())
+                    }
                     Text(participant.progress.isBlocked
                          ? "Ne fait plus partie du défi"
                          : "Fait partie du défi")

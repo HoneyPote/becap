@@ -15,6 +15,7 @@ struct MedalDisplayItem: Identifiable {
     let count: Int
     let latestDate: Date
     let category: MedalCategory
+    let tier: MedalTier
 }
 
 // TODO: Trop de calculs
@@ -62,9 +63,15 @@ struct ParticipantMedalSection: View {
                              iconName: items.first?.iconName ?? "star.fill",
                              count: items.count,
                              latestDate: items.map(\.achievedDate).max() ?? Date(),
-                             category: definition?.category ?? .milestone)
+                             category: definition?.category ?? .milestone,
+                             tier: definition?.tier ?? .bronze)
         }
-        .sorted { $0.latestDate > $1.latestDate }
+        .sorted {
+            if $0.tier.rank == $1.tier.rank {
+                return $0.latestDate > $1.latestDate
+            }
+            return $0.tier.rank > $1.tier.rank
+        }
     }
 
     private var groupedByCategory: [(category: MedalCategory, medals: [MedalDisplayItem])] {
@@ -112,5 +119,20 @@ struct MedalCategoryBadge: View {
             .padding(.vertical, 4)
             .background(Color.white.opacity(0.12))
             .clipShape(Capsule())
+    }
+}
+
+private extension MedalTier {
+    var rank: Int {
+        switch self {
+        case .platinum:
+            return 4
+        case .gold:
+            return 3
+        case .silver:
+            return 2
+        case .bronze:
+            return 1
+        }
     }
 }

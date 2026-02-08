@@ -144,6 +144,8 @@ struct MedalProgressCard: View {
         MedalCatalog.nextStreakDefinition(for: progress, challenge: challenge)
     }
 
+    @State private var animatedProgress: Double = 0
+
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Progression")
@@ -164,8 +166,13 @@ struct MedalProgressCard: View {
                             .foregroundColor(.white)
                     }
 
-                    ProgressView(value: Double(progress.currentStreak), total: Double(target))
+                    ProgressView(value: animatedProgress, total: Double(target))
                         .tint(.yellow)
+                        .onAppear {
+                            withAnimation(.easeOut(duration: 0.6)) {
+                                animatedProgress = Double(progress.currentStreak)
+                            }
+                        }
 
                     Text("Plus que \(max(target - progress.currentStreak, 0)) jour\(target - progress.currentStreak > 1 ? "s" : "")")
                         .font(.system(.caption, design: .rounded))
@@ -189,6 +196,7 @@ struct MedalCollectionGrid: View {
     var animateProgress: Bool = false
 
     @State private var animatedIndex: Int = -1
+    @State private var pulse = false
 
     private var earnedNames: Set<String> {
         Set(earnedMedals.map(\.name))
@@ -210,17 +218,36 @@ struct MedalCollectionGrid: View {
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 12) {
                 ForEach(Array(definitions.enumerated()), id: \.element.id) { index, definition in
                     let unlocked = earnedNames.contains(definition.name)
+                    let isLatestUnlocked = unlocked && index == lastUnlockedIndex
                     VStack(spacing: 6) {
-                        MedalIconView(iconName: definition.iconName)
-                            .frame(width: 24, height: 24)
-                            .padding(10)
-                            .background(Color.white.opacity(unlocked ? 0.18 : 0.08))
-                            .clipShape(Circle())
-                            .overlay(
+                        ZStack {
+                            if isLatestUnlocked {
                                 Circle()
-                                    .stroke(definition.tier.tintColor.opacity(unlocked ? 0.7 : 0.2), lineWidth: 1)
-                            )
-                            .opacity(unlocked ? 1 : 0.35)
+                                    .fill(definition.tier.tintColor.opacity(0.25))
+                                    .frame(width: 46, height: 46)
+                                    .scaleEffect(pulse ? 1.2 : 0.95)
+                                    .opacity(pulse ? 0.2 : 0.6)
+                                    .animation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true), value: pulse)
+
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 14))
+                                    .foregroundColor(.white.opacity(0.8))
+                                    .offset(x: 12, y: -14)
+                                    .opacity(pulse ? 0.2 : 1)
+                                    .animation(.easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: pulse)
+                            }
+
+                            MedalIconView(iconName: definition.iconName)
+                                .frame(width: 24, height: 24)
+                                .padding(10)
+                                .background(Color.white.opacity(unlocked ? 0.18 : 0.08))
+                                .clipShape(Circle())
+                                .overlay(
+                                    Circle()
+                                        .stroke(definition.tier.tintColor.opacity(unlocked ? 0.7 : 0.2), lineWidth: 1)
+                                )
+                                .opacity(unlocked ? 1 : 0.35)
+                        }
 
                         Text(definition.name)
                             .font(.system(.caption2, design: .rounded))
@@ -243,6 +270,7 @@ struct MedalCollectionGrid: View {
             }
 
             animatedIndex = -1
+            pulse = true
             for index in 0...lastUnlockedIndex {
                 DispatchQueue.main.asyncAfter(deadline: .now() + Double(index) * 0.12) {
                     withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
