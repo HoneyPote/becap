@@ -269,6 +269,8 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
                 let prepRemaining = max(self.videoRecordingRemainingTime - self.plankDuration, 0)
                 if prepRemaining > 0 {
                     AudioServicesPlaySystemSound(1057)
+                } else if self.videoRecordingRemainingTime > 0, self.videoRecordingRemainingTime <= 5 {
+                    AudioServicesPlaySystemSound(1057)
                 } else if self.videoRecordingRemainingTime <= 0 {
                     self.stopVideoRecording()
                 }
@@ -313,10 +315,6 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         let processId = UUID()
         currentProcessId = processId
 
-        DispatchQueue.main.async {
-            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
-        }
-
         if mode == .plank {
             DispatchQueue.main.async {
                 self.isProcessingTimelapse = true
@@ -329,6 +327,9 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                                          processId: processId)
             }
         } else {
+            DispatchQueue.main.async {
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
+            }
             finalizeVideoOutput(originalURL: outputFileURL,
                                 timelapseURL: nil,
                                 processId: processId)
