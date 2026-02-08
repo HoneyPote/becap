@@ -395,22 +395,194 @@ extension ChallengeService {
 
     private func compressVideo(inputURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
-
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else {
-            throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            throw NSError(domain: "CompressionError",
+                          code: -2,
+                          userInfo: [NSLocalizedDescriptionKey: "Piste vidéo introuvable"])
         }
 
-        exportSession.shouldOptimizeForNetworkUse = true
-        let supportedTypes = exportSession.supportedFileTypes
-        let outputFileType: AVFileType = supportedTypes.contains(.mp4) ? .mp4 : .mov
-        exportSession.outputFileType = outputFileType
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("\(UUID().uuidString).mp4")
+        if FileManager.default.fileExists(atPath: outputURL.path) {
+            try FileManager.default.removeItem(at: outputURL)
+        }
 
-        let outputExtension = outputFileType == .mp4 ? "mp4" : "mov"
-        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).\(outputExtension)")
+        let reader = try AVAssetReader(asset: asset)
+        let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
 
-        try await exportSession.export(to: outputURL, as: outputFileType)
+        let targetSize = targetVideoSize(for: videoTrack)
+        let videoBitrate = targetVideoBitrate(for: targetSize)
 
-        return outputURL
+        let videoOutputSettings: [String: Any] = [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: targetSize.width,
+            AVVideoHeightKey: targetSize.height,
+            AVVideoCompressionPropertiesKey: [
+                AVVideoAverageBitRateKey: videoBitrate,
+                AVVideoProfileLevelKey: AVVideoProfileLevelH264MainAutoLevel
+            ]
+        ]
+
+        let readerVideoOutput = AVAssetReaderTrackOutput(track: videoTrack,
+                                                         outputSettings: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_420YpCbCr8BiPlanarFullRange])
+        readerVideoOutput.alwaysCopiesSampleData = false
+
+        guard reader.canAdd(readerVideoOutput) else {
+            throw NSError(domain: "CompressionError",
+                          code: -3,
+                          userInfo: [NSLocalizedDescriptionKey: "Impossible d'ajouter la sortie vidéo"])
+        }
+        reader.add(readerVideoOutput)
+
+        let writerVideoInput = AVAssetWriterInput(mediaType: .video, outputSettings: videoOutputSettings)
+        writerVideoInput.expectsMediaDataInRealTime = false
+        writerVideoInput.transform = videoTrack.preferredTransform
+
+        guard writer.canAdd(writerVideoInput) else {
+            throw NSError(domain: "CompressionError",
+                          code: -4,
+                          userInfo: [NSLocalizedDescriptionKey: "Impossible d'ajouter l'entrée vidéo"])
+        }
+        writer.add(writerVideoInput)
+
+        if let audioTrack = asset.tracks(withMediaType: .audio).first {
+            let readerAudioOutput = AVAssetReaderTrackOutput(track: audioTrack, outputSettings: nil)
+            guard reader.canAdd(readerAudioOutput) else {
+                throw NSError(domain: "CompressionError",
+                              code: -5,
+                              userInfo: [NSLocalizedDescriptionKey: "Impossible d'ajouter la sortie audio"])
+            }
+            reader.add(readerAudioOutput)
+
+            let audioOutputSettings: [String: Any] = [
+                AVFormatIDKey: kAudioFormatMPEG4AAC,
+                AVNumberOfChannelsKey: 1,
+                AVSampleRateKey: 44100,
+                AVEncoderBitRateKey: 64000
+            ]
+            let writerAudioInput = AVAssetWriterInput(mediaType: .audio, outputSettings: audioOutputSettings)
+            writerAudioInput.expectsMediaDataInRealTime = false
+            guard writer.canAdd(writerAudioInput) else {
+                throw NSError(domain: "CompressionError",
+                              code: -6,
+                              userInfo: [NSLocalizedDescriptionKey: "Impossible d'ajouter l'entrée audio"])
+            }
+            writer.add(writerAudioInput)
+
+            return try await transcodeAsset(reader: reader,
+                                            writer: writer,
+                                            videoInput: writerVideoInput,
+                                            videoOutput: readerVideoOutput,
+                                            audioInput: writerAudioInput,
+                                            audioOutput: readerAudioOutput,
+                                            outputURL: outputURL)
+        }
+
+        return try await transcodeAsset(reader: reader,
+                                        writer: writer,
+                                        videoInput: writerVideoInput,
+                                        videoOutput: readerVideoOutput,
+                                        audioInput: nil,
+                                        audioOutput: nil,
+                                        outputURL: outputURL)
+    }
+
+    private func targetVideoSize(for track: AVAssetTrack) -> CGSize {
+        let transformedSize = track.naturalSize.applying(track.preferredTransform)
+        let width = abs(transformedSize.width)
+        let height = abs(transformedSize.height)
+        let maxDimension: CGFloat = 720
+        let maxInput = max(width, height)
+        if maxInput <= maxDimension {
+            return CGSize(width: width, height: height)
+        }
+        let ratio = maxDimension / maxInput
+        return CGSize(width: (width * ratio).rounded(),
+                      height: (height * ratio).rounded())
+    }
+
+    private func targetVideoBitrate(for size: CGSize) -> Int {
+        let pixels = size.width * size.height
+        let bitsPerPixel: CGFloat = 0.12
+        let fps: CGFloat = 30
+        return Int(pixels * fps * bitsPerPixel)
+    }
+
+    private func transcodeAsset(reader: AVAssetReader,
+                                writer: AVAssetWriter,
+                                videoInput: AVAssetWriterInput,
+                                videoOutput: AVAssetReaderTrackOutput,
+                                audioInput: AVAssetWriterInput?,
+                                audioOutput: AVAssetReaderTrackOutput?,
+                                outputURL: URL) async throws -> URL {
+        return try await withCheckedThrowingContinuation { continuation in
+            let queue = DispatchQueue(label: "video.transcode.queue")
+
+            guard writer.startWriting() else {
+                continuation.resume(throwing: writer.error ?? NSError(domain: "CompressionError",
+                                                                      code: -7,
+                                                                      userInfo: [NSLocalizedDescriptionKey: "Échec startWriting"]))
+                return
+            }
+            reader.startReading()
+            writer.startSession(atSourceTime: .zero)
+
+            let group = DispatchGroup()
+
+            group.enter()
+            videoInput.requestMediaDataWhenReady(on: queue) {
+                while videoInput.isReadyForMoreMediaData {
+                    if let sample = videoOutput.copyNextSampleBuffer() {
+                        if !videoInput.append(sample) {
+                            reader.cancelReading()
+                            videoInput.markAsFinished()
+                            group.leave()
+                            return
+                        }
+                    } else {
+                        videoInput.markAsFinished()
+                        group.leave()
+                        break
+                    }
+                }
+            }
+
+            if let audioInput, let audioOutput {
+                group.enter()
+                audioInput.requestMediaDataWhenReady(on: queue) {
+                    while audioInput.isReadyForMoreMediaData {
+                        if let sample = audioOutput.copyNextSampleBuffer() {
+                            if !audioInput.append(sample) {
+                                reader.cancelReading()
+                                audioInput.markAsFinished()
+                                group.leave()
+                                return
+                            }
+                        } else {
+                            audioInput.markAsFinished()
+                            group.leave()
+                            break
+                        }
+                    }
+                }
+            }
+
+            group.notify(queue: queue) {
+                writer.finishWriting {
+                    if let error = writer.error {
+                        continuation.resume(throwing: error)
+                    } else if reader.status == .failed, let error = reader.error {
+                        continuation.resume(throwing: error)
+                    } else if reader.status == .cancelled {
+                        continuation.resume(throwing: NSError(domain: "CompressionError",
+                                                              code: -8,
+                                                              userInfo: [NSLocalizedDescriptionKey: "Compression annulée"]))
+                    } else {
+                        continuation.resume(returning: outputURL)
+                    }
+                }
+            }
+        }
     }
 
     private func saveImageToStorage(image: UIImage, challengeId: String, authorId: String) async throws -> URL {
