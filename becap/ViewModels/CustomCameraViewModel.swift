@@ -432,6 +432,12 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                                      timelapseURL: URL?,
                                      processId: UUID) {
         let finalURL = timelapseURL ?? originalURL
+        DispatchQueue.main.async {
+            if self.currentProcessId == processId {
+                self.isProcessingTimelapse = false
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: nil))
+            }
+        }
 
         generateThumbnailAsync(for: finalURL) { [weak self] thumbnail in
             guard let self else { return }
@@ -445,7 +451,6 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
             }
 
             DispatchQueue.main.async {
-                self.isProcessingTimelapse = false
                 self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL,
                                                                            thumbnailImage: thumbnail))
             }
