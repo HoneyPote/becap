@@ -13,6 +13,7 @@ struct CustomCameraView: View {
     @Environment(\.dismiss) private var dismiss
 
     @State private var isCaptureButtonPressed: Bool = false
+    @State private var isTimelapseRingAnimating = false
 
     var onCapture: (ChallengeRawMedia) -> Void
     private let mode: CameraMode
@@ -42,6 +43,11 @@ struct CustomCameraView: View {
                     .frame(maxHeight: .infinity)
                     .background(Color.black)
                     .transition(.opacity)
+            }
+        }
+        .overlay {
+            if mode == .plank, viewModel.isProcessingTimelapse {
+                timelapseProcessingOverlay
             }
         }
         .overlay(alignment: .topLeading) {
@@ -162,6 +168,17 @@ struct CustomCameraView: View {
                 Spacer()
 
                 ZStack {
+                    if mode == .plank, viewModel.isRecordingVideo {
+                        Circle()
+                            .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
+                            .frame(width: 112, height: 112)
+                            .rotationEffect(.degrees(isTimelapseRingAnimating ? 360 : 0))
+                            .animation(.linear(duration: 1.6).repeatForever(autoreverses: false),
+                                       value: isTimelapseRingAnimating)
+                            .onAppear { isTimelapseRingAnimating = true }
+                            .onDisappear { isTimelapseRingAnimating = false }
+                    }
+
                     if viewModel.isRecordingVideo {
                         Circle()
                             .stroke(Color.white.opacity(0.8), lineWidth: 30)
@@ -241,10 +258,27 @@ struct CustomCameraView: View {
                 default:
                     break
                 }
-             }
+            }
     }
 
-    
+    private var timelapseProcessingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.2)
+                Text("⏳ Création du timelapse…")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            .padding(20)
+            .background(Color.black.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
 }
 
 struct PulsatingEffect: ViewModifier {
@@ -260,4 +294,5 @@ struct PulsatingEffect: ViewModifier {
             .onAppear { animate = true }
             .onDisappear { animate = false }
     }
+
 }
