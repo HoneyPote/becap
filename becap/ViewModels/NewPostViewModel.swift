@@ -25,6 +25,17 @@ class NewPostViewModel: ObservableObject {
     var captureMediaButtonLabel: String {
         selectedMedia == nil ? "Prendre une photo ou une vidéo" : "Reprendre une photo ou une vidéo"
     }
+    var uploadButtonLabel: String {
+        if isUploadingPost {
+            return "Publication en cours..."
+        }
+
+        if let durationLabel = uploadDurationLabel {
+            return "Partager le post • \(durationLabel)"
+        }
+
+        return "Partager le post"
+    }
 
     init(challenge: Challenge,
          rawMedia: ChallengeRawMedia?,
@@ -101,4 +112,15 @@ class NewPostViewModel: ObservableObject {
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
     }
+
+    private var uploadDurationLabel: String? {
+        guard case .video(let data) = selectedMedia else { return nil }
+        let asset = AVAsset(url: data.url)
+        let durationSeconds = asset.duration.seconds
+        guard durationSeconds.isFinite else { return nil }
+        let minutes = Int(durationSeconds) / 60
+        let seconds = Int(durationSeconds) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
+    }
+}
 }

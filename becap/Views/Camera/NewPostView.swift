@@ -149,7 +149,7 @@ struct NewPostView: View {
                             .font(.system(size: 20, weight: .semibold))
                     }
 
-                    Text(viewModel.isUploadingPost ? "Publication en cours..." : "Partager le post")
+                    Text(viewModel.uploadButtonLabel)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .textCase(.uppercase)
                         .foregroundColor(.white)
