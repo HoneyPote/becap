@@ -269,6 +269,17 @@ extension ChallengeService {
     }
 }
 
+private extension AVFileType {
+    var fileExtension: String {
+        switch self {
+        case .mp4:
+            return "mp4"
+        default:
+            return "mov"
+        }
+    }
+}
+
 // MARK: - Posts
 extension ChallengeService {
     func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost {
@@ -383,16 +394,26 @@ extension ChallengeService {
     private func compressVideo(inputURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
+        let presetName: String
+        let outputType: AVFileType
+        if inputURL.pathExtension.lowercased() == "mp4" {
+            presetName = AVAssetExportPresetPassthrough
+            outputType = .mp4
+        } else {
+            presetName = AVAssetExportPresetHEVCHighestQuality
+            outputType = .mov
+        }
+
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: presetName) else {
             throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
         }
 
         exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.outputFileType = .mov
+        exportSession.outputFileType = outputType
 
-        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mov")
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).\(outputType.fileExtension)")
 
-        try await exportSession.export(to: outputURL, as: .mov)
+        try await exportSession.export(to: outputURL, as: outputType)
 
         return outputURL
     }

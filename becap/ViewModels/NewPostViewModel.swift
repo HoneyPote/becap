@@ -34,10 +34,6 @@ class NewPostViewModel: ObservableObject {
             return "Publication en cours..."
         }
 
-        if let durationLabel = uploadDurationLabel {
-            return "Partager le post • \(durationLabel)"
-        }
-
         return "Partager le post"
     }
 
@@ -125,7 +121,7 @@ class NewPostViewModel: ObservableObject {
         #endif
     }
 
-    private var uploadDurationLabel: String? {
+    var uploadDurationLabel: String? {
         guard case .video(let data) = selectedMedia else { return nil }
         let asset = AVAsset(url: data.url)
         let durationSeconds = asset.duration.seconds
