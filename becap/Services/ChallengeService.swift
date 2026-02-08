@@ -27,7 +27,11 @@ protocol ChallengeServiceProtocol {
     // Posts
     func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost?
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost]
-    func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost
+    func uploadPost(rawMedia: ChallengeRawMedia,
+                    challengeId: String,
+                    author: User,
+                    description: String?,
+                    progressHandler: ((Double) -> Void)?) async throws -> ChallengePost
     func deletePost(_ post: ChallengePost) async throws
     func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void)
     func listenToComments(challengeId: String, postId: String, onUpdate: @escaping ([PostCommentModel]) -> Void)
@@ -325,7 +329,11 @@ private extension AVFileType {
 
 // MARK: - Posts
 extension ChallengeService {
-    func uploadPost(rawMedia: ChallengeRawMedia, challengeId: String, author: User, description: String?) async throws -> ChallengePost {
+    func uploadPost(rawMedia: ChallengeRawMedia,
+                    challengeId: String,
+                    author: User,
+                    description: String?,
+                    progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         guard let authorId = author.id else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
 
         var challengeMedia: ChallengeMedia?
@@ -335,7 +343,10 @@ extension ChallengeService {
             let firestoreImageUrl = try await saveImageToStorage(image: uiImage, challengeId: challengeId, authorId: authorId)
             challengeMedia = .image(url: firestoreImageUrl.absoluteString)
         case .video(let data):
-            let firestoreVideoUrls = try await saveVideoToStorage(data: data, challengeId: challengeId, authorId: authorId)
+            let firestoreVideoUrls = try await saveVideoToStorage(data: data,
+                                                                  challengeId: challengeId,
+                                                                  authorId: authorId,
+                                                                  progressHandler: progressHandler)
             let videoData = ChallengeMedia.VideoData(videoURL: firestoreVideoUrls.videoUrl.absoluteString,
                                                      thumbnailURL: firestoreVideoUrls.thmbnailUrl?.absoluteString)
             challengeMedia = .video(videoData)
@@ -395,7 +406,8 @@ extension ChallengeService {
 
     private func saveVideoToStorage(data: ChallengeRawMedia.VideoRawData,
                                     challengeId: String,
-                                    authorId: String) async throws -> (videoUrl: URL, thmbnailUrl: URL?) {
+                                    authorId: String,
+                                    progressHandler: ((Double) -> Void)?) async throws -> (videoUrl: URL, thmbnailUrl: URL?) {
         let mediaUuid = UUID().uuidString
         let folder = "\(mediaUuid)"
 
@@ -408,7 +420,7 @@ extension ChallengeService {
         let videoMetadata = StorageMetadata()
         videoMetadata.contentType = "video/mov"
 
-        _ = try await videoRef.putDataAsync(compressedVideoURLData, metadata: videoMetadata)
+        _ = try await uploadData(compressedVideoURLData, to: videoRef, metadata: videoMetadata, progressHandler: progressHandler)
 
         let downloadedVideoUrl = try await videoRef.downloadURL()
 
@@ -432,6 +444,34 @@ extension ChallengeService {
         }
 
         return (downloadedVideoUrl, downloadedThumbnailUrl)
+    }
+
+    private func uploadData(_ data: Data,
+                            to reference: StorageReference,
+                            metadata: StorageMetadata?,
+                            progressHandler: ((Double) -> Void)?) async throws -> StorageMetadata? {
+        let uploadTask = reference.putData(data, metadata: metadata)
+
+        let progressHandle = uploadTask.observe(.progress) { snapshot in
+            guard let progress = snapshot.progress else { return }
+            guard progress.totalUnitCount > 0 else { return }
+            let percent = Double(progress.completedUnitCount) / Double(progress.totalUnitCount)
+            progressHandler?(percent)
+        }
+
+        return try await withCheckedThrowingContinuation { continuation in
+            uploadTask.observe(.success) { snapshot in
+                uploadTask.removeObserver(withHandle: progressHandle)
+                continuation.resume(returning: snapshot.metadata)
+            }
+            uploadTask.observe(.failure) { snapshot in
+                uploadTask.removeObserver(withHandle: progressHandle)
+                let error = snapshot.error ?? NSError(domain: "UploadError",
+                                                      code: -1,
+                                                      userInfo: [NSLocalizedDescriptionKey: "Échec de l'upload"])
+                continuation.resume(throwing: error)
+            }
+        }
     }
 
     private func compressVideo(inputURL: URL) async throws -> URL {

@@ -15,6 +15,7 @@ class NewPostViewModel: ObservableObject {
     @Published var shakeImage: Bool = false
     @Published var toast: Toast = Toast(isShown: false, type: .error, message: "")
     @Published var isUploadingPost: Bool = false
+    @Published var uploadProgress: Double = 0
     @Published var videoThubmnail: UIImage?
 
     private let challengeManager: ChallengeManager
@@ -45,6 +46,7 @@ class NewPostViewModel: ObservableObject {
 
     func uploadMedia(hasUploaded: @escaping (Bool) -> Void) {
         isUploadingPost = true
+        uploadProgress = 0
 
         guard let media = selectedMedia else {
             updateToast("Veuillez capturer une photo ou une vidéo.", type: .error)
@@ -55,7 +57,14 @@ class NewPostViewModel: ObservableObject {
 
         Task {
             do {
-                try await challengeManager.sendPostAndNotify(media: media, challenge: currentChallenge, descriptionText: descriptionText)
+                try await challengeManager.sendPostAndNotify(media: media,
+                                                             challenge: challenge,
+                                                             descriptionText: descriptionText,
+                                                             progressHandler: { [weak self] progress in
+                                                                 DispatchQueue.main.async {
+                                                                     self?.uploadProgress = progress
+                                                                 }
+                                                             })
 
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
@@ -63,6 +72,7 @@ class NewPostViewModel: ObservableObject {
                     self.descriptionText = ""
                     self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
+					self.uploadProgress = 0
 
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                         hasUploaded(true)
@@ -72,6 +82,7 @@ class NewPostViewModel: ObservableObject {
                 await MainActor.run {
                     self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
                     self.isUploadingPost = false
+					self.uploadProgress = 0
                     hasUploaded(false)
                 }
             }
