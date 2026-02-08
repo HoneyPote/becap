@@ -9,12 +9,25 @@ import SwiftUI
 import AVFoundation
 
 struct CustomCameraView: View {
-    @StateObject private var viewModel = CustomCameraViewModel()
+    @StateObject private var viewModel: CustomCameraViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var isCaptureButtonPressed: Bool = false
+    @State private var isTimelapseRingAnimating = false
 
     var onCapture: (ChallengeRawMedia) -> Void
+    private let mode: CameraMode
+    private let plankDuration: TimeInterval
+
+    init(mode: CameraMode = .normal,
+         plankDuration: TimeInterval = 120,
+         onCapture: @escaping (ChallengeRawMedia) -> Void) {
+        self.mode = mode
+        self.plankDuration = plankDuration
+        self.onCapture = onCapture
+        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode,
+                                                                     plankDuration: plankDuration))
+    }
 
     var body: some View {
         ZStack {
@@ -30,6 +43,11 @@ struct CustomCameraView: View {
                     .frame(maxHeight: .infinity)
                     .background(Color.black)
                     .transition(.opacity)
+            }
+        }
+        .overlay {
+            if mode == .plank, viewModel.isProcessingTimelapse {
+                timelapseProcessingOverlay
             }
         }
         .overlay(alignment: .topLeading) {
@@ -108,15 +126,23 @@ struct CustomCameraView: View {
                 Spacer()
 
                 if viewModel.isRecordingVideo {
-                    Text(viewModel.videoRecordingTimer)
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 14)
-                        .background(Color.black.opacity(0.5))
-                        .clipShape(Capsule())
-                        .padding(.top, 20)
-                        .transition(.opacity)
+                    VStack(spacing: 6) {
+                        if mode == .plank {
+                            Text(viewModel.videoRecordingTimer)
+                                .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white)
+                        } else {
+                            Text(viewModel.videoRecordingTimer)
+                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .background(Color.black.opacity(0.5))
+                    .clipShape(Capsule())
+                    .padding(.top, 20)
+                    .transition(.opacity)
                 }
 
                 Spacer()
@@ -139,6 +165,17 @@ struct CustomCameraView: View {
                 Spacer()
 
                 ZStack {
+                    if mode == .plank, viewModel.isRecordingVideo {
+                        Circle()
+                            .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
+                            .frame(width: 112, height: 112)
+                            .rotationEffect(.degrees(isTimelapseRingAnimating ? 360 : 0))
+                            .animation(.linear(duration: 1.6).repeatForever(autoreverses: false),
+                                       value: isTimelapseRingAnimating)
+                            .onAppear { isTimelapseRingAnimating = true }
+                            .onDisappear { isTimelapseRingAnimating = false }
+                    }
+
                     if viewModel.isRecordingVideo {
                         Circle()
                             .stroke(Color.white.opacity(0.8), lineWidth: 30)
@@ -173,6 +210,25 @@ struct CustomCameraView: View {
 
                 Spacer()
             }
+
+            if mode == .plank, viewModel.isRecordingVideo {
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                        Text("REC")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+
+                    Text("Tiens jusqu’à la fin 💪")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.9))
+                }
+                .padding(.bottom, 20)
+                .transition(.opacity)
+            }
         }
     }
 
@@ -199,7 +255,26 @@ struct CustomCameraView: View {
                 default:
                     break
                 }
-             }
+            }
+    }
+
+    private var timelapseProcessingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.2)
+                Text("⏳ Création du timelapse…")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            .padding(20)
+            .background(Color.black.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
     }
 }
 
@@ -216,4 +291,5 @@ struct PulsatingEffect: ViewModifier {
             .onAppear { animate = true }
             .onDisappear { animate = false }
     }
+
 }
