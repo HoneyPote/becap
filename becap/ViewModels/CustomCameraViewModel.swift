@@ -196,6 +196,10 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
                 self.captureSession.addOutput(self.outputVideoData)
             }
 
+            if let connection = self.outputVideoData.connection(with: .video) {
+                connection.videoOrientation = .portrait
+            }
+
             if let device = AVCaptureDevice.default(for: .video) {
                 try? device.lockForConfiguration()
                 device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
@@ -387,6 +391,7 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                 let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
                 let input = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
                 input.expectsMediaDataInRealTime = true
+                input.transform = timelapseTransform(for: dimensions)
                 let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: nil)
 
                 guard writer.canAdd(input) else {
@@ -586,6 +591,12 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                                                                            thumbnailImage: thumbnail))
             }
         }
+    }
+
+    private func timelapseTransform(for dimensions: CMVideoDimensions) -> CGAffineTransform {
+        let width = CGFloat(dimensions.width)
+        return CGAffineTransform(rotationAngle: .pi / 2)
+            .translatedBy(x: 0, y: -width)
     }
 
     private func clampedSpeedMultiplier(for durationSeconds: Double) -> Double {

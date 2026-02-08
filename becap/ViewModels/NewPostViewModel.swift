@@ -30,10 +30,6 @@ class NewPostViewModel: ObservableObject {
             return "Publication en cours..."
         }
 
-        if let durationLabel = uploadDurationLabel {
-            return "Partager le post • \(durationLabel)"
-        }
-
         return "Partager le post"
     }
 

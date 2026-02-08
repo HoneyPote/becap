@@ -149,6 +149,12 @@ struct NewPostView: View {
                             .font(.system(size: 20, weight: .semibold))
                     }
 
+                    if let durationLabel = viewModel.uploadDurationLabel {
+                        Text(durationLabel)
+                            .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+
                     Text(viewModel.uploadButtonLabel)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .textCase(.uppercase)
