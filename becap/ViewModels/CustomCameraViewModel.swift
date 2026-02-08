@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVFoundation
+import AudioToolbox
 
 enum CameraMode: Equatable {
     case normal
@@ -19,6 +20,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published var isLockedRecording: Bool = false
     @Published private var isBackCamera: Bool = true
     @Published private var videoRecordingElapsedTime: TimeInterval = 0
+    @Published private var videoRecordingRemainingTime: TimeInterval = 0
     @Published private var isFlashOn = false
     @Published var isProcessingTimelapse = false
 
@@ -35,8 +37,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     var videoRecordingTimer: String {
-        let minutes = Int(videoRecordingElapsedTime) / 60
-        let seconds = Int(videoRecordingElapsedTime) % 60
+        let timeValue = mode == .plank ? videoRecordingRemainingTime : videoRecordingElapsedTime
+        let minutes = Int(timeValue) / 60
+        let seconds = Int(timeValue) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
 
@@ -53,10 +56,13 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let outputMovie = AVCaptureMovieFileOutput()
     private let captureSessionQueueLabel: String = "camera.session.queue"
     private let mode: CameraMode
+    private let plankDuration: TimeInterval
+    private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
 
-    init(mode: CameraMode = .normal) {
+    init(mode: CameraMode = .normal, plankDuration: TimeInterval = 120) {
         self.mode = mode
+        self.plankDuration = plankDuration
         super.init()
         configureCaptureSession()
     }
@@ -245,9 +251,25 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private func startRecordingTimer() {
         let recordingStartTime = Date()
         videoRecordingElapsedTime = 0
+        if mode == .plank {
+            videoRecordingRemainingTime = plankDuration + plankPreparationDuration
+        } else {
+            videoRecordingRemainingTime = 0
+        }
         videoTimer?.invalidate()
         videoTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            self.videoRecordingElapsedTime = Date().timeIntervalSince(recordingStartTime)
+            if self.mode == .plank {
+                self.videoRecordingRemainingTime = max(self.videoRecordingRemainingTime - 1, 0)
+
+                let prepRemaining = max(self.videoRecordingRemainingTime - self.plankDuration, 0)
+                if prepRemaining > 0 {
+                    AudioServicesPlaySystemSound(1057)
+                } else if self.videoRecordingRemainingTime <= 0 {
+                    self.stopVideoRecording()
+                }
+            } else {
+                self.videoRecordingElapsedTime = Date().timeIntervalSince(recordingStartTime)
+            }
         }
     }
 
@@ -255,6 +277,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         videoTimer?.invalidate()
         videoTimer = nil
         videoRecordingElapsedTime = 0
+        videoRecordingRemainingTime = 0
     }
 }
 
