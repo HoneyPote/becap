@@ -350,11 +350,24 @@ extension ChallengeService {
         let videoRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(videoFileName)")
         let compressedVideoURL = try await compressVideo(inputURL: data.url)
 
-        let compressedVideoURLData = try Data(contentsOf: compressedVideoURL)
         let videoMetadata = StorageMetadata()
-        videoMetadata.contentType = "video/mov"
+        if compressedVideoURL.pathExtension.lowercased() == "mp4" {
+            videoMetadata.contentType = "video/mp4"
+        } else {
+            videoMetadata.contentType = "video/quicktime"
+        }
 
-        _ = try await videoRef.putDataAsync(compressedVideoURLData, metadata: videoMetadata)
+        _ = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<StorageMetadata, Error>) in
+            videoRef.putFile(from: compressedVideoURL, metadata: videoMetadata) { metadata, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else if let metadata {
+                    continuation.resume(returning: metadata)
+                } else {
+                    continuation.resume(throwing: ChallengeServiceError.invalidImageData("Upload vidéo sans metadata"))
+                }
+            }
+        }
 
         let downloadedVideoUrl = try await videoRef.downloadURL()
 
@@ -383,16 +396,19 @@ extension ChallengeService {
     private func compressVideo(inputURL: URL) async throws -> URL {
         let asset = AVURLAsset(url: inputURL)
 
-        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPresetHEVCHighestQuality) else {
+        guard let exportSession = AVAssetExportSession(asset: asset, presetName: AVAssetExportPreset1280x720) else {
             throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
         }
 
         exportSession.shouldOptimizeForNetworkUse = true
-        exportSession.outputFileType = .mov
+        let supportedTypes = exportSession.supportedFileTypes
+        let outputFileType: AVFileType = supportedTypes.contains(.mp4) ? .mp4 : .mov
+        exportSession.outputFileType = outputFileType
 
-        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).mov")
+        let outputExtension = outputFileType == .mp4 ? "mp4" : "mov"
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("\(UUID().uuidString).\(outputExtension)")
 
-        try await exportSession.export(to: outputURL, as: .mov)
+        try await exportSession.export(to: outputURL, as: outputFileType)
 
         return outputURL
     }
