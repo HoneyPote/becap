@@ -194,6 +194,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
             if let connection = self.outputVideoData.connection(with: .video) {
                 connection.videoOrientation = .portrait
             }
+            if let connection = self.outputMovie.connection(with: .video) {
+                connection.videoOrientation = .portrait
+            }
 
             if let device = AVCaptureDevice.default(for: .video) {
                 try? device.lockForConfiguration()
@@ -376,10 +379,11 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
             }
 
             let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+            let (outputWidth, outputHeight) = timelapseOutputDimensions(for: dimensions)
             let outputSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
-                AVVideoWidthKey: Int(dimensions.width),
-                AVVideoHeightKey: Int(dimensions.height)
+                AVVideoWidthKey: outputWidth,
+                AVVideoHeightKey: outputHeight
             ]
 
             do {
@@ -588,10 +592,18 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         }
     }
 
+    private func timelapseOutputDimensions(for dimensions: CMVideoDimensions) -> (Int, Int) {
+        if dimensions.width > dimensions.height {
+            return (Int(dimensions.height), Int(dimensions.width))
+        }
+        return (Int(dimensions.width), Int(dimensions.height))
+    }
+
     private func timelapseTransform(for dimensions: CMVideoDimensions) -> CGAffineTransform {
-        let width = CGFloat(dimensions.width)
+        guard dimensions.width > dimensions.height else { return .identity }
+        let height = CGFloat(dimensions.height)
         return CGAffineTransform(rotationAngle: .pi / 2)
-            .translatedBy(x: 0, y: -width)
+            .translatedBy(x: 0, y: -height)
     }
 
     private func clampedSpeedMultiplier(for durationSeconds: Double) -> Double {
