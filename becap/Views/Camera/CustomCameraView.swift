@@ -16,11 +16,16 @@ struct CustomCameraView: View {
 
     var onCapture: (ChallengeRawMedia) -> Void
     private let mode: CameraMode
+    private let plankDuration: TimeInterval
 
-    init(mode: CameraMode = .normal, onCapture: @escaping (ChallengeRawMedia) -> Void) {
+    init(mode: CameraMode = .normal,
+         plankDuration: TimeInterval = 120,
+         onCapture: @escaping (ChallengeRawMedia) -> Void) {
         self.mode = mode
+        self.plankDuration = plankDuration
         self.onCapture = onCapture
-        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode))
+        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode,
+                                                                     plankDuration: plankDuration))
     }
 
     var body: some View {
