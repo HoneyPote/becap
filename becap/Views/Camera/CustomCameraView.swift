@@ -16,17 +16,13 @@ struct CustomCameraView: View {
     @State private var isTimelapseRingAnimating = false
 
     var onCapture: (ChallengeRawMedia) -> Void
-    private let mode: CameraMode
-    private let plankDuration: TimeInterval
+    private let mode: ChallengeCaptureMode
 
-    init(mode: CameraMode = .normal,
-         plankDuration: TimeInterval = 120,
+    init(mode: ChallengeCaptureMode = .normal,
          onCapture: @escaping (ChallengeRawMedia) -> Void) {
         self.mode = mode
-        self.plankDuration = plankDuration
         self.onCapture = onCapture
-        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode,
-                                                                     plankDuration: plankDuration))
+        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode))
     }
 
     var body: some View {
@@ -46,7 +42,7 @@ struct CustomCameraView: View {
             }
         }
         .overlay {
-            if mode == .plank, viewModel.isProcessingTimelapse {
+            if mode.isPlank, viewModel.isProcessingTimelapse {
                 timelapseProcessingOverlay
             }
         }
@@ -126,23 +122,29 @@ struct CustomCameraView: View {
                 Spacer()
 
                 if viewModel.isRecordingVideo {
-                    VStack(spacing: 6) {
-                        if mode == .plank {
-                            Text(viewModel.videoRecordingTimer)
-                                .font(.system(size: 22, weight: .semibold, design: .monospaced))
-                                .foregroundColor(.white)
-                        } else {
-                            Text(viewModel.videoRecordingTimer)
-                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                                .foregroundColor(.white)
+                    if mode.isPushUps {
+                        pushUpsRecordingOverlay
+                            .padding(.top, 16)
+                            .transition(.opacity)
+                    } else {
+                        VStack(spacing: 6) {
+                            if mode.isPlank {
+                                Text(viewModel.videoRecordingTimer)
+                                    .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.white)
+                            } else {
+                                Text(viewModel.videoRecordingTimer)
+                                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                    .foregroundColor(.white)
+                            }
                         }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 14)
+                        .background(Color.black.opacity(0.5))
+                        .clipShape(Capsule())
+                        .padding(.top, 20)
+                        .transition(.opacity)
                     }
-                    .padding(.vertical, 8)
-                    .padding(.horizontal, 14)
-                    .background(Color.black.opacity(0.5))
-                    .clipShape(Capsule())
-                    .padding(.top, 20)
-                    .transition(.opacity)
                 }
 
                 Spacer()
@@ -165,7 +167,7 @@ struct CustomCameraView: View {
                 Spacer()
 
                 ZStack {
-                    if mode == .plank, viewModel.isRecordingVideo {
+                    if mode.isPlank, viewModel.isRecordingVideo {
                         Circle()
                             .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
                             .frame(width: 112, height: 112)
@@ -211,7 +213,7 @@ struct CustomCameraView: View {
                 Spacer()
             }
 
-            if mode == .plank, viewModel.isRecordingVideo {
+            if mode.isPlank, viewModel.isRecordingVideo {
                 VStack(spacing: 6) {
                     HStack(spacing: 6) {
                         Circle()
@@ -230,6 +232,46 @@ struct CustomCameraView: View {
                 .transition(.opacity)
             }
         }
+    }
+
+    private var pushUpsRecordingOverlay: some View {
+        let target = mode.pushUpsTarget ?? 0
+
+        return HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Pompes")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.95))
+
+                HStack(spacing: 8) {
+                    Text("Objectif: \(target)")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.85))
+
+                    Text(viewModel.videoRecordingTimer)
+                        .font(.system(size: 13, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.white.opacity(0.9))
+                }
+            }
+
+            Spacer()
+
+            Circle()
+                .fill(Color(red: 0.92, green: 0.86, blue: 0.72))
+                .frame(width: 12, height: 12)
+                .scaleEffect(viewModel.beatPulse ? 1.6 : 1.0)
+                .opacity(viewModel.beatPulse ? 1 : 0.6)
+                .animation(.easeOut(duration: 0.2), value: viewModel.beatPulse)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 14)
+        .background(.ultraThinMaterial, in: Capsule(style: .continuous))
+        .overlay(
+            Capsule(style: .continuous)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 8, y: 4)
+        .padding(.horizontal, 20)
     }
 
     private var longPressGesture: some Gesture {

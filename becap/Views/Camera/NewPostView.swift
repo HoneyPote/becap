@@ -68,7 +68,7 @@ struct NewPostView: View {
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showCamera) {
-            CustomCameraView(mode: .plank) { media in
+            CustomCameraView(mode: captureMode) { media in
                 viewModel.updateSelectedMedia(media)
             }
         }
@@ -433,6 +433,24 @@ struct NewPostView: View {
                 Spacer()
             }
         }
+    }
+
+    private var captureMode: ChallengeCaptureMode {
+        guard let challenge = viewModel.selectedChallenge else {
+            return .normal
+        }
+
+        let title = challenge.title.lowercased()
+        if title.contains("pompe") {
+            let target = PushUpsTargetCalculator.dailyTarget(on: Date(), startDate: challenge.startDate)
+            return .pushUps(target: target, bpm: 60)
+        }
+
+        if title.contains("planche") || title.contains("plank") {
+            return .plank(duration: 120)
+        }
+
+        return .normal
     }
 }
 

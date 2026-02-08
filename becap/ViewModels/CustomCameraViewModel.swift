@@ -9,11 +9,6 @@ import SwiftUI
 import AVFoundation
 import AudioToolbox
 
-enum CameraMode: Equatable {
-    case normal
-    case plank
-}
-
 final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published var capturedMedia: ChallengeRawMedia?
     @Published var isRecordingVideo = false
@@ -23,6 +18,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published private var videoRecordingRemainingTime: TimeInterval = 0
     @Published private var isFlashOn = false
     @Published var isProcessingTimelapse = false
+    @Published var beatPulse = false
 
     var showFlashButton: Bool {
         !isRecordingVideo && isBackCamera
@@ -37,7 +33,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     var videoRecordingTimer: String {
-        let timeValue = mode == .plank ? videoRecordingRemainingTime : videoRecordingElapsedTime
+        let timeValue = mode.isPlank ? videoRecordingRemainingTime : videoRecordingElapsedTime
         let minutes = Int(timeValue) / 60
         let seconds = Int(timeValue) % 60
         return String(format: "%02d:%02d", minutes, seconds)
@@ -55,20 +51,33 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let outputPhoto = AVCapturePhotoOutput()
     private let outputMovie = AVCaptureMovieFileOutput()
     private let captureSessionQueueLabel: String = "camera.session.queue"
-    private let mode: CameraMode
+    private let mode: ChallengeCaptureMode
     private let plankDuration: TimeInterval
     private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
+    private let metronomePlayer: MetronomePlayer?
 
-    init(mode: CameraMode = .normal, plankDuration: TimeInterval = 120) {
+    init(mode: ChallengeCaptureMode = .normal) {
         self.mode = mode
-        self.plankDuration = plankDuration
+        self.plankDuration = mode.plankDuration ?? 120
+        if let bpm = mode.pushUpsBpm {
+            let player = MetronomePlayer(bpm: bpm)
+            self.metronomePlayer = player
+        } else {
+            self.metronomePlayer = nil
+        }
         super.init()
+        self.metronomePlayer?.onBeat = { [weak self] in
+            DispatchQueue.main.async {
+                self?.beatPulse.toggle()
+            }
+        }
         configureCaptureSession()
     }
 
     deinit {
         videoTimer?.invalidate()
+        metronomePlayer?.stop()
         stopCaptureSession()
     }
 
@@ -210,6 +219,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     private func shouldCaptureAudio() -> Bool {
+        if mode.isPlank {
+            return false
+        }
         let session = AVAudioSession.sharedInstance()
         if session.category == .playAndRecord || session.mode == .voiceChat || session.mode == .videoChat {
             return false
@@ -237,6 +249,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         outputMovie.startRecording(to: tempURL, recordingDelegate: self)
         startRecordingTimer()
         isRecordingVideo = true
+        startMetronomeIfNeeded()
     }
 
     private func stopVideoRecording() {
@@ -246,19 +259,20 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         isRecordingVideo = false
         stopRecordingTimer()
         isLockedRecording = false
+        stopMetronomeIfNeeded()
     }
 
     private func startRecordingTimer() {
         let recordingStartTime = Date()
         videoRecordingElapsedTime = 0
-        if mode == .plank {
+        if mode.isPlank {
             videoRecordingRemainingTime = plankDuration + plankPreparationDuration
         } else {
             videoRecordingRemainingTime = 0
         }
         videoTimer?.invalidate()
         videoTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
-            if self.mode == .plank {
+            if self.mode.isPlank {
                 self.videoRecordingRemainingTime = max(self.videoRecordingRemainingTime - 1, 0)
 
                 let prepRemaining = max(self.videoRecordingRemainingTime - self.plankDuration, 0)
@@ -280,6 +294,18 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         videoTimer = nil
         videoRecordingElapsedTime = 0
         videoRecordingRemainingTime = 0
+    }
+
+    private func startMetronomeIfNeeded() {
+        guard mode.isPushUps else { return }
+        beatPulse = false
+        metronomePlayer?.start()
+    }
+
+    private func stopMetronomeIfNeeded() {
+        guard mode.isPushUps else { return }
+        metronomePlayer?.stop()
+        beatPulse = false
     }
 }
 
@@ -310,7 +336,7 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         let processId = UUID()
         currentProcessId = processId
 
-        if mode == .plank {
+        if mode.isPlank {
             DispatchQueue.main.async {
                 self.isProcessingTimelapse = true
             }
