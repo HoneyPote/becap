@@ -44,11 +44,6 @@ struct CustomCameraView: View {
                     .transition(.opacity)
             }
         }
-        .overlay {
-            if mode == .plank, viewModel.isProcessingTimelapse {
-                timelapseProcessingOverlay
-            }
-        }
         .overlay(alignment: .topLeading) {
             if !viewModel.isRecordingVideo {
                 HStack {
@@ -246,24 +241,7 @@ struct CustomCameraView: View {
              }
     }
 
-    private var timelapseProcessingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.55)
-                .ignoresSafeArea()
-
-            VStack(spacing: 12) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.2)
-                Text("⏳ Création du timelapse…")
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundColor(.white)
-            }
-            .padding(20)
-            .background(Color.black.opacity(0.6))
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-        }
-    }
+    
 }
 
 struct PulsatingEffect: ViewModifier {
