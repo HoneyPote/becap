@@ -68,7 +68,7 @@ struct NewPostView: View {
             .navigationBarHidden(true)
         }
         .sheet(isPresented: $showCamera) {
-            CustomCameraView() { media in
+            CustomCameraView(mode: .plank) { media in
                 viewModel.updateSelectedMedia(media)
             }
         }
