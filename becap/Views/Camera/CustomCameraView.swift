@@ -50,6 +50,11 @@ struct CustomCameraView: View {
                 timelapseProcessingOverlay
             }
         }
+        .overlay {
+            if mode == .plank, let countdownValue = viewModel.prepCountdownValue {
+                countdownOverlay(value: countdownValue)
+            }
+        }
         .overlay(alignment: .topLeading) {
             if !viewModel.isRecordingVideo {
                 HStack {
@@ -127,11 +132,11 @@ struct CustomCameraView: View {
 
                 if viewModel.isRecordingVideo {
                     VStack(spacing: 6) {
-                        if mode == .plank {
+                        if mode == .plank, !viewModel.isInPrepCountdown {
                             Text(viewModel.videoRecordingTimer)
                                 .font(.system(size: 22, weight: .semibold, design: .monospaced))
                                 .foregroundColor(.white)
-                        } else {
+                        } else if mode != .plank {
                             Text(viewModel.videoRecordingTimer)
                                 .font(.system(size: 18, weight: .semibold, design: .monospaced))
                                 .foregroundColor(.white)
@@ -274,6 +279,20 @@ struct CustomCameraView: View {
             .padding(20)
             .background(Color.black.opacity(0.6))
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func countdownOverlay(value: Int) -> some View {
+        ZStack {
+            Color.black.opacity(0.2)
+                .ignoresSafeArea()
+
+            Text("\(value)")
+                .font(.system(size: 96, weight: .heavy, design: .rounded))
+                .foregroundColor(.green)
+                .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 6)
+                .transition(.scale.combined(with: .opacity))
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: value)
         }
     }
 }

@@ -287,13 +287,23 @@ struct NewPostView: View {
 
             if let durationLabel = viewModel.uploadDurationLabel {
                 VStack(alignment: .leading, spacing: 6) {
-                    ProgressView(value: viewModel.isUploadingPost ? 1.0 : 0.0)
+                    ProgressView(value: viewModel.uploadProgress)
                         .progressViewStyle(LinearProgressViewStyle(tint: .white))
                         .frame(height: 6)
 
-                    Text(durationLabel)
-                        .font(.system(.caption, design: .rounded).weight(.semibold))
-                        .foregroundColor(.white.opacity(0.85))
+                    HStack {
+                        if viewModel.isUploadingPost {
+                            Text("\(Int(viewModel.uploadProgress * 100))%")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white.opacity(0.95))
+                        }
+
+                        Spacer()
+
+                        Text(durationLabel)
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white.opacity(0.85))
+                    }
                 }
                 .padding(.horizontal, 6)
                 .opacity(viewModel.isUploadingPost ? 1.0 : 0.85)

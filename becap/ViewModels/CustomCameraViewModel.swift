@@ -21,6 +21,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published private var isBackCamera: Bool = true
     @Published private var videoRecordingElapsedTime: TimeInterval = 0
     @Published private var videoRecordingRemainingTime: TimeInterval = 0
+    @Published private var plankRemainingTime: TimeInterval = 0
+    @Published private var plankPrepRemainingTime: TimeInterval = 0
+    @Published var prepCountdownValue: Int?
     @Published private var isFlashOn = false
     @Published var isProcessingTimelapse = false
 
@@ -37,10 +40,14 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     var videoRecordingTimer: String {
-        let timeValue = mode == .plank ? videoRecordingRemainingTime : videoRecordingElapsedTime
+        let timeValue = mode == .plank ? plankRemainingTime : videoRecordingElapsedTime
         let minutes = Int(timeValue) / 60
         let seconds = Int(timeValue) % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var isInPrepCountdown: Bool {
+        prepCountdownValue != nil
     }
 
     private var videoTimer: Timer?
@@ -285,22 +292,28 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         let recordingStartTime = Date()
         videoRecordingElapsedTime = 0
         if mode == .plank {
-            videoRecordingRemainingTime = plankDuration + plankPreparationDuration
+            plankRemainingTime = plankDuration
+            plankPrepRemainingTime = plankPreparationDuration
+            prepCountdownValue = Int(plankPreparationDuration)
         } else {
-            videoRecordingRemainingTime = 0
+            plankRemainingTime = 0
+            plankPrepRemainingTime = 0
+            prepCountdownValue = nil
         }
         videoTimer?.invalidate()
         videoTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if self.mode == .plank {
-                self.videoRecordingRemainingTime = max(self.videoRecordingRemainingTime - 1, 0)
-
-                let prepRemaining = max(self.videoRecordingRemainingTime - self.plankDuration, 0)
-                if prepRemaining > 0 {
+                if self.plankPrepRemainingTime > 0 {
+                    self.plankPrepRemainingTime = max(self.plankPrepRemainingTime - 1, 0)
+                    self.prepCountdownValue = self.plankPrepRemainingTime > 0 ? Int(self.plankPrepRemainingTime) : nil
                     AudioServicesPlaySystemSound(1057)
-                } else if self.videoRecordingRemainingTime > 0, self.videoRecordingRemainingTime <= 5 {
-                    AudioServicesPlaySystemSound(1057)
-                } else if self.videoRecordingRemainingTime <= 0 {
-                    self.stopVideoRecording()
+                } else {
+                    self.plankRemainingTime = max(self.plankRemainingTime - 1, 0)
+                    if self.plankRemainingTime > 0, self.plankRemainingTime <= 5 {
+                        AudioServicesPlaySystemSound(1057)
+                    } else if self.plankRemainingTime <= 0 {
+                        self.stopVideoRecording()
+                    }
                 }
             } else {
                 self.videoRecordingElapsedTime = Date().timeIntervalSince(recordingStartTime)
@@ -313,6 +326,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         videoTimer = nil
         videoRecordingElapsedTime = 0
         videoRecordingRemainingTime = 0
+        plankRemainingTime = 0
+        plankPrepRemainingTime = 0
+        prepCountdownValue = nil
     }
 
     private func startTimelapseRecording() {

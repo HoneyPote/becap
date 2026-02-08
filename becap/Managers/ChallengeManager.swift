@@ -23,7 +23,10 @@ protocol ChallengeManagerProtocol {
     func removeParticipant(_ challengeId: String, userId: String) async throws
 
     // Posts
-    func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: Challenge,
+                           descriptionText: String?,
+                           progressHandler: ((Double) -> Void)?) async throws
     func loadPosts(from challengeId: String) async throws -> [ChallengePost]
     func deletePost(_ post: ChallengePost) async throws
     func likePost(post: ChallengePost) async throws
@@ -302,7 +305,10 @@ extension ChallengeManager {
 
 // MARK: - Posts
 extension ChallengeManager {
-    func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws {
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: Challenge,
+                           descriptionText: String?,
+                           progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
 
         guard let currentUser,
@@ -313,7 +319,8 @@ extension ChallengeManager {
         let uploadedPost = try await uploadPostToFirebase(media: media,
                                                           challengeId: challenge.id,
                                                           author: currentUser,
-                                                          description: descriptionText)
+                                                          description: descriptionText,
+                                                          progressHandler: progressHandler)
 
         var newProgress = progress
         if !dayAlreadyValidated(progress: newProgress, day: Date()) {
@@ -414,11 +421,16 @@ extension ChallengeManager {
 
     // Posts - Privates
 
-    private func uploadPostToFirebase(media: ChallengeRawMedia, challengeId: String, author: User, description: String? = "") async throws -> ChallengePost {
+    private func uploadPostToFirebase(media: ChallengeRawMedia,
+                                      challengeId: String,
+                                      author: User,
+                                      description: String? = "",
+                                      progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         let post = try await challengeService.uploadPost(rawMedia: media,
                                                          challengeId: challengeId,
                                                          author: author,
-                                                         description: description)
+                                                         description: description,
+                                                         progressHandler: progressHandler)
 
         await MainActor.run {
             savePostInLocal(post, to: challengeId)

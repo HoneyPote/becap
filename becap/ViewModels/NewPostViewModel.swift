@@ -20,6 +20,7 @@ class NewPostViewModel: ObservableObject {
     @Published var shakeImage: Bool = false
     @Published var toast: Toast = Toast(isShown: false, type: .error, message: "")
     @Published var isUploadingPost: Bool = false
+    @Published var uploadProgress: Double = 0
     @Published var videoThubmnail: UIImage?
 
     let currentUser: User?
@@ -49,6 +50,7 @@ class NewPostViewModel: ObservableObject {
 
     func uploadMedia() {
         isUploadingPost = true
+        uploadProgress = 0
 
         guard let media = selectedMedia, let challenge = selectedChallenge else {
             updateToast("Veuillez sélectionner un média et défi.", type: .error)
@@ -59,7 +61,14 @@ class NewPostViewModel: ObservableObject {
 
         Task {
             do {
-                try await challengeManager.sendPostAndNotify(media: media, challenge: challenge, descriptionText: descriptionText)
+                try await challengeManager.sendPostAndNotify(media: media,
+                                                             challenge: challenge,
+                                                             descriptionText: descriptionText,
+                                                             progressHandler: { [weak self] progress in
+                                                                 DispatchQueue.main.async {
+                                                                     self?.uploadProgress = progress
+                                                                 }
+                                                             })
 
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
@@ -67,11 +76,13 @@ class NewPostViewModel: ObservableObject {
                     self.descriptionText = ""
                     self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
+                    self.uploadProgress = 0
                 }
             } catch let error {
                 await MainActor.run {
                     self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
                     self.isUploadingPost = false
+                    self.uploadProgress = 0
                 }
             }
         }
