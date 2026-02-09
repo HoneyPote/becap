@@ -74,7 +74,7 @@ extension ChallengeService {
                 return try? doc.data(as: Challenge.self)
             }
 
-            return challenges.filter { $0.id != "" }
+            return challenges
         } catch {
             print("❌ Erreur Firestore dans fetchAllChallengesOnceAsync: \(error)")
             return []
@@ -121,6 +121,47 @@ extension ChallengeService {
             return createdChallenge
         } catch {
             print("Error creating challenge into database")
+            return nil
+        }
+    }
+
+    func addBecapChallengeData(_ data: BecapChallengeData) async throws -> BecapChallengeData? {
+        do {
+            let docRef = try firestoreDB.collection(collecBecapData).addDocument(from: data)
+            let snapshot = try await docRef.getDocument()
+            let createdChallenge = try? snapshot.data(as: BecapChallengeData.self)
+
+            return createdChallenge
+        } catch {
+            print("Error creating becap data into database")
+            return nil
+        }
+    }
+
+    func fetchAllBecapData() async throws -> [BecapChallengeData] {
+        do {
+            let snapshot = try await firestoreDB.collection(collecBecapData).getDocuments()
+            let becapDatas = snapshot.documents.compactMap { doc in
+                return try? doc.data(as: BecapChallengeData.self)
+            }
+
+            return becapDatas
+        } catch {
+            print("❌ Erreur Firestore dans fetchAllBecapData: \(error)")
+            return []
+        }
+    }
+
+    func fetchBecapData(by id: String) async throws -> BecapChallengeData? {
+        do {
+            let snapshot = try await firestoreDB
+                .collection(collecBecapData)
+                .document(id)
+                .getDocument()
+
+            return try snapshot.data(as: BecapChallengeData.self)
+        } catch {
+            print("❌ Erreur Firestore lors de fetchBecapData(by:): \(error)")
             return nil
         }
     }

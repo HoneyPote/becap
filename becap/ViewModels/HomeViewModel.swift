@@ -12,6 +12,7 @@ class HomeViewModel: ObservableObject {
     @Published var showQuitAlert = false
     @Published var quitChallengeError: String?
     @Published var challenges: [Challenge] = []
+    @Published var becapChallenges: [BecapChallenge] = []
     @Published var challengeToReport: Challenge?
     @Published var isSubmittingReport = false
     @Published var reportErrorMessage: String?
@@ -23,12 +24,79 @@ class HomeViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
 
+    var createBecapChallenges: [BecapChallenge] = []
+
+    private func loadBecapChallenges() {
+        // Base Challenge commun (mock)
+        let baseGainage = Challenge(title: "Créer gainage quotidien",
+                                    duration: 30,
+                                    startDate: Date(),
+                                    creatorUID: "becap",
+                                    adminUids: [],
+                                    participantUids: [],
+                                    category: .sport,
+                                    defaultNotificationsConfig: [480],
+                                    code: nil,
+                                    jokerConfiguration: 0)
+
+        let baseLecture = Challenge(title: "Créer lecture quotidienne",
+                                    duration: 21,
+                                    startDate: Date(),
+                                    creatorUID: "becap",
+                                    adminUids: [],
+                                    participantUids: [],
+                                    category: .reading,
+                                    defaultNotificationsConfig: [600],
+                                    code: nil,
+                                    jokerConfiguration: 0)
+
+        let baseFood = Challenge(title: "Créer nutrition quotidienne",
+                                 duration: 14,
+                                 startDate: Date(),
+                                 creatorUID: "becap",
+                                 adminUids: [],
+                                 participantUids: [],
+                                 category: .food,
+                                 defaultNotificationsConfig: [720],
+                                 code: nil,
+                                 jokerConfiguration: 0)
+
+        createBecapChallenges = [
+            BecapChallenge(
+                base: baseGainage,
+                becapData: BecapChallengeData(
+                    challengeId: "1",
+                    type: .gainage,
+                    configuration: .gainage(GainageConfig(secondsPerDay: 60)),
+                )
+            ),
+            BecapChallenge(
+                base: baseLecture,
+                becapData: BecapChallengeData(
+                    challengeId: "2",
+                    type: .reading,
+                    configuration: .reading(ReadingConfig(pagesPerDay: 20)),
+                )
+            ),
+            BecapChallenge(
+                base: baseFood,
+                becapData: BecapChallengeData(
+                    challengeId: "3",
+                    type: .food,
+                    configuration: .food(FoodConfig(cheatMealsAllowed: 3)),
+                )
+            )
+        ]
+    }
+
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
          reportManager: ReportManagerProtocol = ReportManager.shared) {
         self.challengeManager = challengeManager
         self.reportManager = reportManager
 
+        loadBecapChallenges()
         observeChallengesChanges()
+        observeBecapChallengesChanges()
     }
 
     func onAppearQuitChallengeError() {
@@ -121,6 +189,20 @@ extension HomeViewModel {
                 self?.challenges = challenges.sorted(by: {
                     // Ordre du tri : les actifs en premiers et date de création de la plus récente avant
                     guard $0.status == $1.status else { return $0.status == .active && $1.status == .finished }
+
+                    return $0.startDate > $1.startDate
+                })
+            }
+            .store(in: &cancellables)
+    }
+
+    private func observeBecapChallengesChanges() {
+        challengeManager.$becapChallenges
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] becapChallenges in
+                self?.becapChallenges = becapChallenges.sorted(by: {
+                    // Ordre du tri : les actifs en premiers et date de création de la plus récente avant
+                    guard $0.base.status == $1.base.status else { return $0.base.status == .active && $1.base.status == .finished }
 
                     return $0.startDate > $1.startDate
                 })

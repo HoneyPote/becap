@@ -1,27 +1,24 @@
 //
-//  NewChallengeView.swift
+//  CreateBecapChallengeView.swift
 //  becap
 //
-//  Created by Adam Mabrouki on 15/07/2025.
+//  Created by Victor Derveaux on 06/02/2026.
 //
 
 import SwiftUI
 
-struct NewChallengeView: View {
+struct CreateBecapChallengeView: View {
     @Environment(\.dismiss) var dismiss
-    @FocusState private var focusedField: Field?
 
-    @StateObject private var viewModel = NewChallengeViewModel()
+    @StateObject private var viewModel: CreateBecapChallengeViewModel
 
-    @Binding var challengeCreated: Bool
-
-    @State private var showNameError = false
+    @State private var challengeCreated: Bool = false
     @State private var editedNotifTime: Date = Date()
     @State private var editedNotifIndex: Int?
     @State private var isEditTimeSheetOpen: Bool = false
 
-    private enum Field: Hashable {
-        case name
+    init(type: BecapChallengeType) {
+        _viewModel = StateObject(wrappedValue: CreateBecapChallengeViewModel(type: type))
     }
 
     var body: some View {
@@ -34,29 +31,18 @@ struct NewChallengeView: View {
                         .padding(.horizontal)
                         .padding(.top, 36)
 
-                    // Name
-                    GlassCard {
-                        nameSetting
-                    }
-
-                    // Category
-                    GlassCard {
-                        categorySetting
-                    }
-
                     // Duration
                     GlassCard {
                         durationSetting
                     }
 
-                    // Jokers
-                    GlassCard {
-                        jokerSetting
-                    }
-
                     // Notifications
                     GlassCard {
                         notificationsSetting
+                    }
+
+                    GlassCard {
+                        configurationSection
                     }
 
                     // Creation button
@@ -70,27 +56,7 @@ struct NewChallengeView: View {
                 .padding(.bottom, 32)
             }
         }
-        .interactiveDismissDisabled()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(.ultraThinMaterial.opacity(0.35))
-                        .clipShape(Circle())
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Text("Nouveau défi")
-                    .font(.system(.title2, design: .rounded).weight(.heavy))
-                    .foregroundColor(.white)
-            }
-        }
+        .navigationBarBackButtonHidden()
     }
 
     private var header: some View {
@@ -108,87 +74,12 @@ struct NewChallengeView: View {
 
             Spacer()
 
-            Text("Créer un défi")
+            Text("Créer un défi Becap de \(viewModel.challengeName)")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
 
             Spacer()
-        }
-    }
-
-    private var nameSetting: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Nom du défi")
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
-
-            VStack(alignment: .leading, spacing: 6) {
-                TextField("Nom", text: $viewModel.name)
-                    .padding(16)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(14)
-                    .font(.system(.body, design: .rounded))
-                    .textInputAutocapitalization(.words)
-                    .disableAutocorrection(true)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(showNameError && viewModel.trimmedName.isEmpty ? Color.red.opacity(0.9) : Color.white.opacity(0.18), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
-                    .focused($focusedField, equals: .name)
-                    .onChange(of: viewModel.name) { newValue in
-                        if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            showNameError = false
-                        }
-                    }
-                    .submitLabel(.done)
-                    .onSubmit {
-                        showNameError = viewModel.trimmedName.isEmpty
-                    }
-
-                if showNameError && viewModel.trimmedName.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.red.opacity(0.85))
-                        Text("Le nom du défi est obligatoire.")
-                            .font(.system(.footnote, design: .rounded))
-                            .foregroundColor(.red.opacity(0.9))
-                    }
-                    .transition(.opacity)
-                }
-            }
-        }
-    }
-
-    private var categorySetting: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Type de défi")
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
-
-            Menu {
-                ForEach(ChallengeCategory.allCases, id: \.self) { category in
-                    Button(category.displayName) {
-                        viewModel.category = category
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(viewModel.category.displayName)
-                        .font(.system(.body, design: .rounded))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-            }
         }
     }
 
@@ -234,42 +125,20 @@ struct NewChallengeView: View {
         }
     }
 
-    private var jokerSetting: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Jokers disponibles")
-                    .font(.system(.headline, design: .rounded).weight(.bold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text("\(viewModel.jokersNumber)")
-                    .font(.system(.title3, design: .rounded).weight(.semibold))
-                    .foregroundColor(.white.opacity(0.85))
-            }
+    @ViewBuilder
+    private var configurationSection: some View {
+        switch viewModel.becapConfiguration {
+        case .gainage(let config):
+            GainageConfigurationView(config: config,
+                                     onChange: { viewModel.becapConfiguration = .gainage($0) })
 
-            Stepper(value: $viewModel.jokersNumber,
-                    in: 0...max(0, viewModel.duration)) {
-                Text("Nombre de jokers pour le défi")
-                    .foregroundColor(.white.opacity(0.9))
-            }
+        case .reading(let config):
+            ReadingConfigurationView(config: config,
+                                     onChange: { viewModel.becapConfiguration = .reading($0) })
 
-            HStack(spacing: 8) {
-                let iconCount = min(max(viewModel.jokersNumber, 1), 8)
-                ForEach(0..<iconCount, id: \.self) { index in
-                    let isActive = index < min(viewModel.jokersNumber, iconCount)
-                    JokerIconView(size: 28, isDimmed: !isActive)
-                        .opacity(viewModel.jokersNumber == 0 ? 0.25 : 1.0)
-                }
-
-                if viewModel.jokersNumber > iconCount {
-                    Text("+\(viewModel.jokersNumber - iconCount)")
-                        .font(.system(.footnote, design: .rounded).weight(.semibold))
-                        .foregroundColor(.white.opacity(0.6))
-                }
-            }
-
-            Text("Les jokers permettent de sauver un jour sans post. Les participants peuvent voter pour valider un joker sur une publication si la majorité l'estime nécessaire.")
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.65))
+        case .food(let config):
+            FoodConfigurationView(config: config,
+                                  onChange: { viewModel.becapConfiguration = .food($0) })
         }
     }
 
@@ -285,15 +154,7 @@ struct NewChallengeView: View {
                 .padding(.vertical, 16)
             } else {
                 Button(action: {
-                    if viewModel.trimmedName.isEmpty {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showNameError = true
-                            focusedField = .name
-                        }
-                        return
-                    }
-
-                    viewModel.createChallenge() { success in
+                    viewModel.createBecapChallenge() { success in
                         if success {
                             challengeCreated = true
                             dismiss()
@@ -332,14 +193,13 @@ struct NewChallengeView: View {
                     .cornerRadius(18)
                     .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 10)
                 }
-                .opacity(viewModel.isFormValid ? 1 : 0.65)
             }
         }
     }
 }
 
 // MARK: Notifications setting
-extension NewChallengeView {
+extension CreateBecapChallengeView {
     private var notificationsSetting: some View {
         let notifSettingColumns = [GridItem(.flexible(), spacing: 12),
                                    GridItem(.flexible(), spacing: 12)]
@@ -452,5 +312,87 @@ extension NewChallengeView {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct GainageConfigurationView: View {
+    let config: GainageConfig
+    let onChange: (GainageConfig) -> Void
+
+    @State private var seconds: Int
+
+    init(config: GainageConfig, onChange: @escaping (GainageConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _seconds = State(initialValue: config.secondsPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Durée du gainage par jour")
+                .font(.headline)
+
+            Stepper(value: $seconds, in: 10...600, step: 10) {
+                Text("\(seconds) secondes")
+            }
+            .onChange(of: seconds) { seconds in
+                onChange(GainageConfig(secondsPerDay: seconds))
+            }
+        }
+    }
+}
+
+
+struct ReadingConfigurationView: View {
+    let config: ReadingConfig
+    let onChange: (ReadingConfig) -> Void
+
+    @State private var pages: Int
+
+    init(config: ReadingConfig, onChange: @escaping (ReadingConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _pages = State(initialValue: config.pagesPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Pages à lire par jour")
+                .font(.headline)
+
+            Stepper(value: $pages, in: 1...200) {
+                Text("\(pages) pages")
+            }
+            .onChange(of: pages) { pages in
+                onChange(ReadingConfig(pagesPerDay: pages))
+            }
+        }
+    }
+}
+
+struct FoodConfigurationView: View {
+    let config: FoodConfig
+    let onChange: (FoodConfig) -> Void
+
+    @State private var meals: Int
+
+    init(config: FoodConfig, onChange: @escaping (FoodConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _meals = State(initialValue: config.cheatMealsAllowed)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Repas à respecter par jour")
+                .font(.headline)
+
+            Stepper(value: $meals, in: 1...6) {
+                Text("\(meals) repas")
+            }
+            .onChange(of: meals) { meals in
+                onChange(FoodConfig(cheatMealsAllowed: meals))
+            }
+        }
     }
 }

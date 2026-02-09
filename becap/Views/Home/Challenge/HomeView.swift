@@ -51,6 +51,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
                         shareCreateChallengeSection
+                        becapChallengeListSection
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -185,6 +186,44 @@ struct HomeView: View {
                     }) {
                         DefiCell(challenge: challenge,
                                  onReport: { viewModel.presentReport(for: challenge) })
+                    }
+                }
+            }
+        }
+    }
+
+    private var becapChallengeListSection: some View {
+        Group {
+            HStack(spacing: 10) {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                Text("DÉFIS BECAP")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .padding(.bottom, 14)
+            .foregroundColor(.white)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+                ForEach(viewModel.createBecapChallenges) { becapChallenge in
+                    NavigationLink {
+                        CreateBecapChallengeView(type: becapChallenge.type)
+                    } label: {
+                        DefiCell(challenge: becapChallenge.base,
+                                 onQuit: {},
+                                 onReport: {})
+                    }
+                }
+                ForEach(viewModel.becapChallenges) { becapChallenge in
+                    NavigationLink {
+                        CalendarDetailView(challenge: becapChallenge.base)
+                            .onDisappear { viewModel.refreshChallenges() }
+                    } label: {
+                        DefiCell(challenge: becapChallenge.base,
+                                 onQuit: {},
+                                 onReport: {})
                     }
                 }
             }

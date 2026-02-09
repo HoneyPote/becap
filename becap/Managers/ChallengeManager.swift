@@ -76,6 +76,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
 
     @Published private(set) var currentUser: User?
     @Published private(set) var challenges: [Challenge] = []
+    @Published private(set) var becapChallenges: [BecapChallenge] = []
     @Published private(set) var posts: [String: [ChallengePost]] = [:]
 
     private var cancellables = Set<AnyCancellable>()
@@ -120,25 +121,58 @@ extension ChallengeManager {
         }
     }
 
+    func createBecapChallengeData(_ data: BecapChallengeData) async throws -> BecapChallengeData? {
+        do {
+            let newBecapChallengeData = try await challengeService.addBecapChallengeData(data)
+
+            return newBecapChallengeData
+        }
+    }
+
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
     func fetchAndFilterChallenges() async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
-        let filtered = try await fetchAllChallenges().filter { challenge in
-            challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
+        // 1️⃣ Fetch user challenges
+        let userChallenges = try await fetchAllChallenges().filter { challenge in
+            challenge.participantUids.contains(currentUserId)
         }
 
         // TODO: Temporary piece of code, to be removed when all the users have an existing participatingChallenges field in database
-        for filter in filtered {
-            try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: filter.id)
+        for challenge in userChallenges {
+            try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: challenge.id)
+        }
+
+        // 2️⃣ Fetch all becap datas
+        let becapDatas = try await fetchAllBecapDatas()
+
+        // 3️⃣ Create challenge/becap data pairs
+        let becapPairs: [(Challenge, BecapChallengeData)] = userChallenges.compactMap { challenge in
+            guard let data = becapDatas.first(where: { $0.challengeId == challenge.id }) else {
+                return nil
+            }
+            return (challenge, data)
+        }
+
+        // 4️⃣ Build BecapChallenges using becapPairs
+        let becapChallenges: [BecapChallenge] = becapPairs.map {
+            BecapChallenge(base: $0.0, becapData: $0.1)
+        }
+
+        // 5️⃣ Filter becap challenges from classical challenges
+        let becapChallengeIds = Set(becapChallenges.map { $0.id })
+        let classicChallenges = userChallenges.filter {
+            !becapChallengeIds.contains($0.id)
         }
 
         await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+            self.challenges = classicChallenges
+            self.becapChallenges = becapChallenges
+
+            print("Classical challenges :", classicChallenges.map(\.title))
+            print("BecapChallenges :", becapChallenges.map(\.base.title))
         }
     }
-
     func ensureMembership(in challengeId: String) async throws {
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
@@ -227,6 +261,10 @@ extension ChallengeManager {
     /// Récupère tous les défis présents dans Firestore sans filtrage
     private func fetchAllChallenges() async throws -> [Challenge] {
         return try await challengeService.fetchAllChallenges()
+    }
+
+    private func fetchAllBecapDatas() async throws -> [BecapChallengeData] {
+        return try await challengeService.fetchAllBecapData()
     }
 
     private func updateChallenge(_ challenge: Challenge) async throws {
