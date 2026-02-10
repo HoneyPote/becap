@@ -399,7 +399,11 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
             let outputSettings: [String: Any] = [
                 AVVideoCodecKey: AVVideoCodecType.h264,
                 AVVideoWidthKey: outputWidth,
-                AVVideoHeightKey: outputHeight
+                AVVideoHeightKey: outputHeight,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoAverageBitRateKey: timelapseAverageBitrate(width: outputWidth, height: outputHeight),
+                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                ]
             ]
 
             do {
@@ -611,10 +615,34 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
     }
 
     private func timelapseOutputDimensions(for dimensions: CMVideoDimensions) -> (Int, Int) {
-        if dimensions.width > dimensions.height {
-            return (Int(dimensions.height), Int(dimensions.width))
+        let sourceWidth = max(Int(dimensions.width), 1)
+        let sourceHeight = max(Int(dimensions.height), 1)
+
+        let portraitWidth: Int
+        let portraitHeight: Int
+        if sourceWidth > sourceHeight {
+            portraitWidth = sourceHeight
+            portraitHeight = sourceWidth
+        } else {
+            portraitWidth = sourceWidth
+            portraitHeight = sourceHeight
         }
-        return (Int(dimensions.width), Int(dimensions.height))
+
+        let maxLongSide = 1280
+        guard portraitHeight > maxLongSide else {
+            return (portraitWidth, portraitHeight)
+        }
+
+        let scale = Double(maxLongSide) / Double(portraitHeight)
+        let scaledWidth = max(Int(Double(portraitWidth) * scale), 1)
+        return (scaledWidth, maxLongSide)
+    }
+
+    private func timelapseAverageBitrate(width: Int, height: Int) -> Int {
+        let pixels = max(width * height, 1)
+        let bitratePerPixel = 2.1
+        let bitrate = Int(Double(pixels) * bitratePerPixel)
+        return min(max(bitrate, 1_200_000), 3_500_000)
     }
 
     private func timelapseTransform(for dimensions: CMVideoDimensions) -> CGAffineTransform {
