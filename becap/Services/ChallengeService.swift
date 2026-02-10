@@ -379,7 +379,8 @@ extension ChallengeService {
 
         /// Video
         let isAlreadyMP4 = data.url.pathExtension.lowercased() == "mp4"
-        let uploadVideoURL = isAlreadyMP4 ? data.url : try await compressVideo(inputURL: data.url)
+        let shouldBypassCompression = data.shouldSkipCompression || isAlreadyMP4
+        let uploadVideoURL = shouldBypassCompression ? data.url : try await compressVideo(inputURL: data.url)
         let videoFileType: AVFileType = uploadVideoURL.pathExtension.lowercased() == "mp4" ? .mp4 : .mov
         let videoFileName = "\(mediaUuid).\(videoFileType.fileExtension)"
         let videoRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(videoFileName)")

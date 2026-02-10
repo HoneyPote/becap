@@ -161,6 +161,7 @@ enum ChallengeRawMedia: Equatable {
     struct VideoRawData: Equatable {
         var url: URL
         var thumbnailImage: UIImage?
+        var shouldSkipCompression: Bool = false
     }
 }
 

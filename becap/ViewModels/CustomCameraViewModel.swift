@@ -459,7 +459,7 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
             return
         } else {
             DispatchQueue.main.async {
-                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil, shouldSkipCompression: false))
             }
             finalizeVideoOutput(originalURL: outputFileURL,
                                 timelapseURL: nil,
@@ -572,7 +572,7 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         DispatchQueue.main.async {
             if self.currentProcessId == processId {
                 self.isProcessingTimelapse = false
-                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: nil))
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: nil, shouldSkipCompression: false))
             }
         }
 
@@ -589,21 +589,23 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
 
             DispatchQueue.main.async {
                 self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL,
-                                                                           thumbnailImage: thumbnail))
+                                                                           thumbnailImage: thumbnail,
+                                                                           shouldSkipCompression: false))
             }
         }
     }
 
     private func finalizeTimelapseOutput(url: URL) {
         DispatchQueue.main.async {
-            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: url, thumbnailImage: nil))
+            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: url, thumbnailImage: nil, shouldSkipCompression: true))
         }
 
         generateThumbnailAsync(for: url) { [weak self] thumbnail in
             guard let self else { return }
             DispatchQueue.main.async {
                 self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: url,
-                                                                           thumbnailImage: thumbnail))
+                                                                           thumbnailImage: thumbnail,
+                                                                           shouldSkipCompression: true))
             }
         }
     }
