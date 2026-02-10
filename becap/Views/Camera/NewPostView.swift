@@ -284,30 +284,6 @@ struct NewPostView: View {
             .buttonStyle(PressableButtonStyle())
             .disabled(viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil)
             .opacity((viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
-
-            if let durationLabel = viewModel.uploadDurationLabel {
-                VStack(alignment: .leading, spacing: 6) {
-                    ProgressView(value: viewModel.uploadProgress)
-                        .progressViewStyle(LinearProgressViewStyle(tint: .white))
-                        .frame(height: 6)
-
-                    HStack {
-                        if viewModel.isUploadingPost {
-                            Text("\(Int(viewModel.uploadProgress * 100))%")
-                                .font(.system(.caption, design: .rounded).weight(.semibold))
-                                .foregroundColor(.white.opacity(0.95))
-                        }
-
-                        Spacer()
-
-                        Text(durationLabel)
-                            .font(.system(.caption, design: .rounded).weight(.semibold))
-                            .foregroundColor(.white.opacity(0.85))
-                    }
-                }
-                .padding(.horizontal, 6)
-                .opacity(viewModel.isUploadingPost ? 1.0 : 0.85)
-            }
         }
         .padding(4)
     }
@@ -376,6 +352,13 @@ struct NewPostView: View {
                             }
                         }
                     }
+                    .overlay(alignment: .bottom) {
+                        if let durationLabel = viewModel.uploadDurationLabel {
+                            uploadProgressOverlay(durationLabel: durationLabel)
+                                .padding(.horizontal, 12)
+                                .padding(.bottom, 12)
+                        }
+                    }
                     .onTapGesture {
                         showMediaPreview = true
                     }
@@ -431,6 +414,68 @@ struct NewPostView: View {
                 .font(.system(.body, design: .rounded))
         }
         .padding(4)
+    }
+
+    private func uploadProgressOverlay(durationLabel: String) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Image(systemName: viewModel.isUploadingPost ? "arrow.up.circle.fill" : "checkmark.seal.fill")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(viewModel.isUploadingPost ? .white : Color.green.opacity(0.95))
+
+                Text(viewModel.isUploadingPost ? "Upload en cours" : "Upload terminé")
+                    .font(.system(.caption, design: .rounded).weight(.bold))
+                    .foregroundColor(.white.opacity(0.95))
+
+                Spacer()
+
+                Text("\(Int(viewModel.uploadProgress * 100))%")
+                    .font(.system(.caption, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+            }
+
+            GeometryReader { geometry in
+                ZStack(alignment: .leading) {
+                    Capsule(style: .continuous)
+                        .fill(Color.white.opacity(0.2))
+
+                    Capsule(style: .continuous)
+                        .fill(
+                            LinearGradient(
+                                colors: [Color.white.opacity(0.95), Color(red: 0.92, green: 0.86, blue: 0.72)],
+                                startPoint: .leading,
+                                endPoint: .trailing
+                            )
+                        )
+                        .frame(width: max(0, min(1, viewModel.uploadProgress)) * geometry.size.width)
+                        .animation(.easeOut(duration: 0.2), value: viewModel.uploadProgress)
+                }
+            }
+            .frame(height: 7)
+
+            HStack {
+                Text(durationLabel)
+                    .font(.system(.caption2, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white.opacity(0.82))
+
+                Spacer()
+
+                Text(viewModel.isUploadingPost ? "Connexion sécurisée" : "Prêt à publier")
+                    .font(.system(.caption2, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white.opacity(0.78))
+            }
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                )
+        )
+        .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
     }
 
     private var toastView: some View {
