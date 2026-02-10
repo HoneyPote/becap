@@ -73,10 +73,18 @@ struct NewPostView: View {
             }
         }
         .overlay(alignment: .top) {
-            if viewModel.toast.isShown {
-                ToastView(message: viewModel.toast.message,
-                          type: viewModel.toast.type)
+            VStack(spacing: 10) {
+                if viewModel.toast.isShown {
+                    ToastView(message: viewModel.toast.message,
+                              type: viewModel.toast.type)
+                }
+
+                if let durationLabel = viewModel.uploadDurationLabel {
+                    uploadProgressAlert(durationLabel: durationLabel)
+                        .padding(.horizontal, 20)
+                }
             }
+            .padding(.top, 6)
         }
     }
 
@@ -352,13 +360,6 @@ struct NewPostView: View {
                             }
                         }
                     }
-                    .overlay(alignment: .bottom) {
-                        if let durationLabel = viewModel.uploadDurationLabel {
-                            uploadProgressOverlay(durationLabel: durationLabel)
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 12)
-                        }
-                    }
                     .onTapGesture {
                         showMediaPreview = true
                     }
@@ -416,14 +417,14 @@ struct NewPostView: View {
         .padding(4)
     }
 
-    private func uploadProgressOverlay(durationLabel: String) -> some View {
+    private func uploadProgressAlert(durationLabel: String) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
                 Image(systemName: viewModel.isUploadingPost ? "arrow.up.circle.fill" : "checkmark.seal.fill")
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(viewModel.isUploadingPost ? .white : Color.green.opacity(0.95))
 
-                Text(viewModel.isUploadingPost ? "Upload en cours" : "Upload terminé")
+                Text(viewModel.isUploadingPost ? "Publication en cours" : "Publication prête")
                     .font(.system(.caption, design: .rounded).weight(.bold))
                     .foregroundColor(.white.opacity(0.95))
 
@@ -442,7 +443,7 @@ struct NewPostView: View {
                     Capsule(style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [Color.white.opacity(0.95), Color(red: 0.92, green: 0.86, blue: 0.72)],
+                                colors: [Color(red: 0.43, green: 0.76, blue: 0.98), Color(red: 0.21, green: 0.44, blue: 0.69)],
                                 startPoint: .leading,
                                 endPoint: .trailing
                             )
@@ -460,22 +461,31 @@ struct NewPostView: View {
 
                 Spacer()
 
-                Text(viewModel.isUploadingPost ? "Connexion sécurisée" : "Prêt à publier")
+                Text(viewModel.isUploadingPost ? "Envoi sécurisé" : "Terminé")
                     .font(.system(.caption2, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.78))
             }
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 12)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
         .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(.ultraThinMaterial)
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.29, green: 0.58, blue: 0.84).opacity(0.92),
+                            Color(red: 0.21, green: 0.44, blue: 0.69).opacity(0.95)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14, style: .continuous)
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 )
         )
-        .shadow(color: Color.black.opacity(0.25), radius: 8, x: 0, y: 4)
+        .shadow(color: Color.black.opacity(0.28), radius: 10, x: 0, y: 5)
     }
 
     private var toastView: some View {
