@@ -153,13 +153,23 @@ struct CustomCameraView: View {
                 Spacer()
 
                 if viewModel.showFlashButton {
-                    Image(systemName: viewModel.flashIconName)
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.black.opacity(0.4))
-                        .clipShape(Circle())
-                        .onTapGesture { viewModel.toggleFlash() }
+                    HStack(spacing: 12) {
+                        Image(systemName: "camera.rotate")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                            .onTapGesture { viewModel.switchCamera() }
+
+                        Image(systemName: viewModel.flashIconName)
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                            .onTapGesture { viewModel.toggleFlash() }
+                    }
                 }
             }
             .padding()
