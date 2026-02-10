@@ -325,6 +325,15 @@ private extension AVFileType {
             return "mov"
         }
     }
+
+    var mimeType: String {
+        switch self {
+        case .mp4:
+            return "video/mp4"
+        default:
+            return "video/quicktime"
+        }
+    }
 }
 
 // MARK: - Posts
@@ -412,15 +421,16 @@ extension ChallengeService {
         let folder = "\(mediaUuid)"
 
         /// Video
-        let videoFileName = "\(mediaUuid).mov"
+        let isAlreadyMP4 = data.url.pathExtension.lowercased() == "mp4"
+        let uploadVideoURL = isAlreadyMP4 ? data.url : try await compressVideo(inputURL: data.url)
+        let videoFileType: AVFileType = uploadVideoURL.pathExtension.lowercased() == "mp4" ? .mp4 : .mov
+        let videoFileName = "\(mediaUuid).\(videoFileType.fileExtension)"
         let videoRef = firebaseStorage.reference().child("videos/\(challengeId)/\(authorId)/\(folder)/\(videoFileName)")
-        let compressedVideoURL = try await compressVideo(inputURL: data.url)
 
-        let compressedVideoURLData = try Data(contentsOf: compressedVideoURL)
         let videoMetadata = StorageMetadata()
-        videoMetadata.contentType = "video/mov"
+        videoMetadata.contentType = videoFileType.mimeType
 
-        _ = try await uploadData(compressedVideoURLData, to: videoRef, metadata: videoMetadata, progressHandler: progressHandler)
+        _ = try await uploadFile(from: uploadVideoURL, to: videoRef, metadata: videoMetadata, progressHandler: progressHandler)
 
         let downloadedVideoUrl = try await videoRef.downloadURL()
 
@@ -446,11 +456,11 @@ extension ChallengeService {
         return (downloadedVideoUrl, downloadedThumbnailUrl)
     }
 
-    private func uploadData(_ data: Data,
+    private func uploadFile(from fileURL: URL,
                             to reference: StorageReference,
                             metadata: StorageMetadata?,
                             progressHandler: ((Double) -> Void)?) async throws -> StorageMetadata? {
-        let uploadTask = reference.putData(data, metadata: metadata)
+        let uploadTask = reference.putFile(from: fileURL, metadata: metadata)
 
         let progressHandle = uploadTask.observe(.progress) { snapshot in
             guard let progress = snapshot.progress else { return }
@@ -475,17 +485,14 @@ extension ChallengeService {
     }
 
     private func compressVideo(inputURL: URL) async throws -> URL {
+        if inputURL.pathExtension.lowercased() == "mp4" {
+            return inputURL
+        }
+
         let asset = AVURLAsset(url: inputURL)
 
-        let presetName: String
-        let outputType: AVFileType
-        if inputURL.pathExtension.lowercased() == "mp4" {
-            presetName = AVAssetExportPresetPassthrough
-            outputType = .mp4
-        } else {
-            presetName = AVAssetExportPresetHEVCHighestQuality
-            outputType = .mov
-        }
+        let presetName: String = AVAssetExportPresetHEVCHighestQuality
+        let outputType: AVFileType = .mov
 
         guard let exportSession = AVAssetExportSession(asset: asset, presetName: presetName) else {
             throw NSError(domain: "CompressionError", code: -1, userInfo: [NSLocalizedDescriptionKey: "Impossible de créer une session d'exportation"])
