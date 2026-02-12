@@ -259,7 +259,7 @@ struct NewPostView: View {
                             .font(.system(size: 20, weight: .semibold))
                     }
 
-                    Text(viewModel.isUploadingPost ? "Publication en cours..." : "Partager le post")
+                    Text(viewModel.uploadButtonLabel)
                         .font(.system(.headline, design: .rounded).weight(.heavy))
                         .textCase(.uppercase)
                         .foregroundColor(.white)
@@ -284,6 +284,30 @@ struct NewPostView: View {
             .buttonStyle(PressableButtonStyle())
             .disabled(viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil)
             .opacity((viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
+
+            if let durationLabel = viewModel.uploadDurationLabel {
+                VStack(alignment: .leading, spacing: 6) {
+                    ProgressView(value: viewModel.uploadProgress)
+                        .progressViewStyle(LinearProgressViewStyle(tint: .white))
+                        .frame(height: 6)
+
+                    HStack {
+                        if viewModel.isUploadingPost {
+                            Text("\(Int(viewModel.uploadProgress * 100))%")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white.opacity(0.95))
+                        }
+
+                        Spacer()
+
+                        Text(durationLabel)
+                            .font(.system(.caption, design: .rounded).weight(.semibold))
+                            .foregroundColor(.white.opacity(0.85))
+                    }
+                }
+                .padding(.horizontal, 6)
+                .opacity(viewModel.isUploadingPost ? 1.0 : 0.85)
+            }
         }
         .padding(4)
     }

@@ -21,6 +21,9 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published private var isBackCamera: Bool = true
     @Published private var videoRecordingElapsedTime: TimeInterval = 0
     @Published private var videoRecordingRemainingTime: TimeInterval = 0
+    @Published private var plankRemainingTime: TimeInterval = 0
+    @Published private var plankPrepRemainingTime: TimeInterval = 0
+    @Published var prepCountdownValue: Int?
     @Published private var isFlashOn = false
     @Published var isProcessingTimelapse = false
 
@@ -37,10 +40,14 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     var videoRecordingTimer: String {
-        let timeValue = mode == .plank ? videoRecordingRemainingTime : videoRecordingElapsedTime
+        let timeValue = mode == .plank ? plankRemainingTime : videoRecordingElapsedTime
         let minutes = Int(timeValue) / 60
         let seconds = Int(timeValue) % 60
         return String(format: "%02d:%02d", minutes, seconds)
+    }
+
+    var isInPrepCountdown: Bool {
+        prepCountdownValue != nil
     }
 
     private var videoTimer: Timer?
@@ -54,11 +61,19 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let captureSession = AVCaptureSession()
     private let outputPhoto = AVCapturePhotoOutput()
     private let outputMovie = AVCaptureMovieFileOutput()
+    private let outputVideoData = AVCaptureVideoDataOutput()
+    private let videoDataOutputQueue = DispatchQueue(label: "camera.video.data.queue")
     private let captureSessionQueueLabel: String = "camera.session.queue"
     private let mode: CameraMode
     private let plankDuration: TimeInterval
     private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
+    private var timelapseOutputURL: URL?
+    private var timelapseStartTime: CMTime?
+    private var timelapseSpeedMultiplier: Double = 1.0
+    private var assetWriter: AVAssetWriter?
+    private var assetWriterInput: AVAssetWriterInput?
+    private var assetWriterAdaptor: AVAssetWriterInputPixelBufferAdaptor?
 
     init(mode: CameraMode = .normal, plankDuration: TimeInterval = 120) {
         self.mode = mode
@@ -175,6 +190,21 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
                 self.captureSession.addOutput(self.outputMovie)
             }
 
+            if self.captureSession.canAddOutput(self.outputVideoData) {
+                self.outputVideoData.videoSettings = [
+                    kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
+                ]
+                self.outputVideoData.setSampleBufferDelegate(self, queue: self.videoDataOutputQueue)
+                self.captureSession.addOutput(self.outputVideoData)
+            }
+
+            if let connection = self.outputVideoData.connection(with: .video) {
+                connection.videoOrientation = .portrait
+            }
+            if let connection = self.outputMovie.connection(with: .video) {
+                connection.videoOrientation = .portrait
+            }
+
             if let device = AVCaptureDevice.default(for: .video) {
                 try? device.lockForConfiguration()
                 device.activeVideoMinFrameDuration = CMTime(value: 1, timescale: 30)
@@ -228,6 +258,11 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     private func startVideoRecording() {
+        if mode == .plank {
+            startTimelapseRecording()
+            return
+        }
+
         guard !outputMovie.isRecording else { return }
 
         let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
@@ -240,6 +275,11 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     private func stopVideoRecording() {
+        if mode == .plank {
+            stopTimelapseRecording()
+            return
+        }
+
         guard outputMovie.isRecording else { return }
 
         outputMovie.stopRecording()
@@ -252,22 +292,28 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         let recordingStartTime = Date()
         videoRecordingElapsedTime = 0
         if mode == .plank {
-            videoRecordingRemainingTime = plankDuration + plankPreparationDuration
+            plankRemainingTime = plankDuration
+            plankPrepRemainingTime = plankPreparationDuration
+            prepCountdownValue = Int(plankPreparationDuration)
         } else {
-            videoRecordingRemainingTime = 0
+            plankRemainingTime = 0
+            plankPrepRemainingTime = 0
+            prepCountdownValue = nil
         }
         videoTimer?.invalidate()
         videoTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
             if self.mode == .plank {
-                self.videoRecordingRemainingTime = max(self.videoRecordingRemainingTime - 1, 0)
-
-                let prepRemaining = max(self.videoRecordingRemainingTime - self.plankDuration, 0)
-                if prepRemaining > 0 {
+                if self.plankPrepRemainingTime > 0 {
+                    self.plankPrepRemainingTime = max(self.plankPrepRemainingTime - 1, 0)
+                    self.prepCountdownValue = self.plankPrepRemainingTime > 0 ? Int(self.plankPrepRemainingTime) : nil
                     AudioServicesPlaySystemSound(1057)
-                } else if self.videoRecordingRemainingTime > 0, self.videoRecordingRemainingTime <= 5 {
-                    AudioServicesPlaySystemSound(1057)
-                } else if self.videoRecordingRemainingTime <= 0 {
-                    self.stopVideoRecording()
+                } else {
+                    self.plankRemainingTime = max(self.plankRemainingTime - 1, 0)
+                    if self.plankRemainingTime > 0, self.plankRemainingTime <= 5 {
+                        AudioServicesPlaySystemSound(1057)
+                    } else if self.plankRemainingTime <= 0 {
+                        self.stopVideoRecording()
+                    }
                 }
             } else {
                 self.videoRecordingElapsedTime = Date().timeIntervalSince(recordingStartTime)
@@ -280,12 +326,54 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         videoTimer = nil
         videoRecordingElapsedTime = 0
         videoRecordingRemainingTime = 0
+        plankRemainingTime = 0
+        plankPrepRemainingTime = 0
+        prepCountdownValue = nil
+    }
+
+    private func startTimelapseRecording() {
+        guard !isRecordingVideo else { return }
+
+        let tempURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+
+        timelapseOutputURL = tempURL
+        timelapseStartTime = nil
+        timelapseSpeedMultiplier = clampedSpeedMultiplier(for: plankDuration + plankPreparationDuration)
+        assetWriter = nil
+        assetWriterInput = nil
+        assetWriterAdaptor = nil
+
+        startRecordingTimer()
+        isRecordingVideo = true
+        isProcessingTimelapse = false
+    }
+
+    private func stopTimelapseRecording() {
+        guard isRecordingVideo else { return }
+
+        isRecordingVideo = false
+        stopRecordingTimer()
+        isLockedRecording = false
+
+        guard let assetWriter else { return }
+
+        assetWriterInput?.markAsFinished()
+        assetWriter.finishWriting { [weak self] in
+            guard let self else { return }
+            guard assetWriter.status == .completed, let outputURL = self.timelapseOutputURL else {
+                print("❌ Échec export timelapse direct :", assetWriter.error as Any)
+                return
+            }
+            self.finalizeTimelapseOutput(url: outputURL)
+        }
     }
 }
 
 // MARK: - AVCapture Delegates
 
-extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOutputRecordingDelegate {
+extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOutputRecordingDelegate, AVCaptureVideoDataOutputSampleBufferDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {
         if let data = photo.fileDataRepresentation(),
            let image = UIImage(data: data) {
@@ -293,6 +381,67 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                 self.capturedMedia = .image(image)
             }
         }
+    }
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        guard mode == .plank, isRecordingVideo else { return }
+        guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+
+        if assetWriter == nil {
+            guard let formatDescription = CMSampleBufferGetFormatDescription(sampleBuffer),
+                  let outputURL = timelapseOutputURL else {
+                return
+            }
+
+            let dimensions = CMVideoFormatDescriptionGetDimensions(formatDescription)
+            let (outputWidth, outputHeight) = timelapseOutputDimensions(for: dimensions)
+            let outputSettings: [String: Any] = [
+                AVVideoCodecKey: AVVideoCodecType.h264,
+                AVVideoWidthKey: outputWidth,
+                AVVideoHeightKey: outputHeight,
+                AVVideoCompressionPropertiesKey: [
+                    AVVideoAverageBitRateKey: timelapseAverageBitrate(width: outputWidth, height: outputHeight),
+                    AVVideoProfileLevelKey: AVVideoProfileLevelH264HighAutoLevel
+                ]
+            ]
+
+            do {
+                let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
+                let input = AVAssetWriterInput(mediaType: .video, outputSettings: outputSettings)
+                input.expectsMediaDataInRealTime = true
+                input.transform = timelapseTransform(for: dimensions)
+                let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input, sourcePixelBufferAttributes: nil)
+
+                guard writer.canAdd(input) else {
+                    print("❌ Impossible d'ajouter l'input timelapse")
+                    return
+                }
+
+                writer.add(input)
+                writer.startWriting()
+                writer.startSession(atSourceTime: .zero)
+                assetWriter = writer
+                assetWriterInput = input
+                assetWriterAdaptor = adaptor
+                timelapseStartTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+            } catch {
+                print("❌ Impossible de démarrer l'écriture timelapse :", error)
+                return
+            }
+        }
+
+        guard let assetWriter,
+              let assetWriterInput,
+              let assetWriterAdaptor,
+              assetWriter.status == .writing,
+              assetWriterInput.isReadyForMoreMediaData,
+              let timelapseStartTime else { return }
+
+        let sampleTime = CMSampleBufferGetPresentationTimeStamp(sampleBuffer)
+        let relativeTime = CMTimeSubtract(sampleTime, timelapseStartTime)
+        let scaledTime = CMTimeMultiplyByFloat64(relativeTime, multiplier: 1.0 / timelapseSpeedMultiplier)
+        assetWriterAdaptor.append(pixelBuffer, withPresentationTime: scaledTime)
     }
 
     func fileOutput(_ output: AVCaptureFileOutput,
@@ -311,19 +460,10 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         currentProcessId = processId
 
         if mode == .plank {
-            DispatchQueue.main.async {
-                self.isProcessingTimelapse = true
-            }
-
-            createTimelapse(from: outputFileURL) { [weak self] timelapseURL in
-                guard let self else { return }
-                self.finalizeVideoOutput(originalURL: outputFileURL,
-                                         timelapseURL: timelapseURL,
-                                         processId: processId)
-            }
+            return
         } else {
             DispatchQueue.main.async {
-                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil, shouldSkipCompression: false))
             }
             finalizeVideoOutput(originalURL: outputFileURL,
                                 timelapseURL: nil,
@@ -436,7 +576,7 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         DispatchQueue.main.async {
             if self.currentProcessId == processId {
                 self.isProcessingTimelapse = false
-                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: nil))
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL, thumbnailImage: nil, shouldSkipCompression: false))
             }
         }
 
@@ -453,9 +593,63 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
 
             DispatchQueue.main.async {
                 self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL,
-                                                                           thumbnailImage: thumbnail))
+                                                                           thumbnailImage: thumbnail,
+                                                                           shouldSkipCompression: false))
             }
         }
+    }
+
+    private func finalizeTimelapseOutput(url: URL) {
+        DispatchQueue.main.async {
+            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: url, thumbnailImage: nil, shouldSkipCompression: true))
+        }
+
+        generateThumbnailAsync(for: url) { [weak self] thumbnail in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: url,
+                                                                           thumbnailImage: thumbnail,
+                                                                           shouldSkipCompression: true))
+            }
+        }
+    }
+
+    private func timelapseOutputDimensions(for dimensions: CMVideoDimensions) -> (Int, Int) {
+        let sourceWidth = max(Int(dimensions.width), 1)
+        let sourceHeight = max(Int(dimensions.height), 1)
+
+        let portraitWidth: Int
+        let portraitHeight: Int
+        if sourceWidth > sourceHeight {
+            portraitWidth = sourceHeight
+            portraitHeight = sourceWidth
+        } else {
+            portraitWidth = sourceWidth
+            portraitHeight = sourceHeight
+        }
+
+        let maxLongSide = 1280
+        guard portraitHeight > maxLongSide else {
+            return (portraitWidth, portraitHeight)
+        }
+
+        let scale = Double(maxLongSide) / Double(portraitHeight)
+        let scaledWidth = max(Int(Double(portraitWidth) * scale), 1)
+        return (scaledWidth, maxLongSide)
+    }
+
+    private func timelapseAverageBitrate(width: Int, height: Int) -> Int {
+        let pixels = max(width * height, 1)
+        let bitratePerPixel = 2.1
+        let bitrate = Int(Double(pixels) * bitratePerPixel)
+        return min(max(bitrate, 1_200_000), 3_500_000)
+    }
+
+    private func timelapseTransform(for dimensions: CMVideoDimensions) -> CGAffineTransform {
+        guard dimensions.width > dimensions.height else { return .identity }
+        let height = CGFloat(dimensions.height)
+        return CGAffineTransform(rotationAngle: .pi / 2)
+            .translatedBy(x: 0, y: -height)
     }
 
     private func clampedSpeedMultiplier(for durationSeconds: Double) -> Double {

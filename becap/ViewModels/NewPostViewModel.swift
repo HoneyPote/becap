@@ -20,6 +20,7 @@ class NewPostViewModel: ObservableObject {
     @Published var shakeImage: Bool = false
     @Published var toast: Toast = Toast(isShown: false, type: .error, message: "")
     @Published var isUploadingPost: Bool = false
+    @Published var uploadProgress: Double = 0
     @Published var videoThubmnail: UIImage?
 
     let currentUser: User?
@@ -28,6 +29,13 @@ class NewPostViewModel: ObservableObject {
     var challenges: [Challenge] = []
     var captureMediaButtonLabel: String {
         selectedMedia == nil ? "Prendre une photo ou une vidéo" : "Reprendre une photo ou une vidéo"
+    }
+    var uploadButtonLabel: String {
+        if isUploadingPost {
+            return "Publication en cours..."
+        }
+
+        return "Partager le post"
     }
 
     private var cancellables = Set<AnyCancellable>()
@@ -42,6 +50,7 @@ class NewPostViewModel: ObservableObject {
 
     func uploadMedia() {
         isUploadingPost = true
+        uploadProgress = 0
 
         guard let media = selectedMedia, let challenge = selectedChallenge else {
             updateToast("Veuillez sélectionner un média et défi.", type: .error)
@@ -52,7 +61,14 @@ class NewPostViewModel: ObservableObject {
 
         Task {
             do {
-                try await challengeManager.sendPostAndNotify(media: media, challenge: challenge, descriptionText: descriptionText)
+                try await challengeManager.sendPostAndNotify(media: media,
+                                                             challenge: challenge,
+                                                             descriptionText: descriptionText,
+                                                             progressHandler: { [weak self] progress in
+                                                                 DispatchQueue.main.async {
+                                                                     self?.uploadProgress = progress
+                                                                 }
+                                                             })
 
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
@@ -60,11 +76,13 @@ class NewPostViewModel: ObservableObject {
                     self.descriptionText = ""
                     self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
+                    self.uploadProgress = 0
                 }
             } catch let error {
                 await MainActor.run {
                     self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
                     self.isUploadingPost = false
+                    self.uploadProgress = 0
                 }
             }
         }
@@ -112,6 +130,16 @@ class NewPostViewModel: ObservableObject {
         generator.prepare()
         generator.selectionChanged()
         #endif
+    }
+
+    var uploadDurationLabel: String? {
+        guard case .video(let data) = selectedMedia else { return nil }
+        let asset = AVAsset(url: data.url)
+        let durationSeconds = asset.duration.seconds
+        guard durationSeconds.isFinite else { return nil }
+        let minutes = Int(durationSeconds) / 60
+        let seconds = Int(durationSeconds) % 60
+        return String(format: "%02d:%02d", minutes, seconds)
     }
 }
 
