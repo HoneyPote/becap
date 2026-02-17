@@ -18,19 +18,7 @@ struct MainView: View {
     @State private var selectedIndex: Int = 0
 
     var body: some View {
-        TabView(selection: $selectedIndex) {
-            HomeView()
-                .tabItem {
-                    Label("Défis", systemImage: "flag.checkered.2.crossed")
-                }
-                .tag(0)
-
-            HomeScreenModernView()
-                .tabItem {
-                    Label("Players", systemImage: "person.2.fill")
-                }
-                .tag(1)
-        }
+        HomeView()
             .onAppear {
                 NotificationManager.shared.requestAuthorization()
             }

@@ -12,54 +12,48 @@ struct DefiCell: View {
     let onQuit: () -> Void
     let onReport: () -> Void
 
+    private var participantsCount: Int {
+        challenge.participantUids.count
+    }
+
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.97, green: 0.97, blue: 0.98), // #F7F8FA
-                            Color(red: 0.93, green: 0.94, blue: 0.95)  // #ECEEF1
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 5)
-                .opacity(0.96)
+        ZStack(alignment: .bottomLeading) {
+            cardBackground
 
-            VStack(spacing: 8) {
-                Text(challenge.title)
-                    .font(.headline)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-
-                Text("\(challenge.participantUids.count) participant(s)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                HStack {
-                    Text(challenge.status.rawValue)
-                        .font(.caption.bold())
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(alignment: .top) {
+                    Text(challenge.title)
+                        .font(.system(.headline, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.8)
+
+                    Spacer(minLength: 8)
+
+                    statusBadge
                 }
-                .frame(maxWidth: .infinity)
-                .background(challenge.status == .active
-                            ? Color(red: 0.55, green: 0.82, blue: 0.61)
-                            : Color(red: 1.0, green: 0.71, blue: 0.81))
-                .cornerRadius(10)
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.95))
+
+                    Text("\(participantsCount) participant\(participantsCount > 1 ? "s" : "")")
+                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white.opacity(0.95))
+
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(.black.opacity(0.22), in: Capsule())
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 40)
+            .padding(12)
         }
-        .frame(height: 100)
-        .contentShape(RoundedRectangle(cornerRadius: 18))
+        .frame(height: 125)
+        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
             Button(role: .destructive) {
@@ -75,5 +69,42 @@ struct DefiCell: View {
             }
         }
         .padding(4)
+    }
+
+    private var cardBackground: some View {
+        ZStack {
+            Image(challenge.calendarBackgroundImageName)
+                .resizable()
+                .scaledToFill()
+
+            LinearGradient(
+                colors: [
+                    .black.opacity(0.20),
+                    .black.opacity(0.45)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.22), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
+    }
+
+    private var statusBadge: some View {
+        Text(challenge.status.rawValue)
+            .font(.system(.caption, design: .rounded).weight(.bold))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                challenge.status == .active
+                ? Color(red: 0.25, green: 0.77, blue: 0.48)
+                : Color(red: 0.61, green: 0.65, blue: 0.75)
+            )
+            .clipShape(Capsule())
     }
 }
