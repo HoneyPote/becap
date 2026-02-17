@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import FirebaseFirestore
 
 struct ParticipantUIModel: Hashable {
     let userId: String
@@ -83,6 +84,15 @@ class CalendarDetailViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
 
     let challenge: Challenge
+    private let firestoreDB = Firestore.firestore()
+    private let dailyPromptDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     var currentParticipant: ParticipantUIModel? {
         participants.first(where: { $0.userId == currentUserId })
@@ -228,6 +238,67 @@ class CalendarDetailViewModel: ObservableObject {
             } catch {
                 print("❌ Failed to declare joker for today: \(error)")
             }
+        }
+    }
+
+    /// Récupère le mot du jour pour un challenge dessin et une date donnée.
+    func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let ref = firestoreDB
+            .collection("challenges")
+            .document(challenge.id)
+            .collection("dailyPrompts")
+            .document(dayKey)
+
+        do {
+            let snapshot = try await ref.getDocument()
+            guard snapshot.exists else { return nil }
+            return try snapshot.data(as: DailyPrompt.self)
+        } catch {
+            print("❌ fetchDailyPrompt error: \(error)")
+            return nil
+        }
+    }
+
+    /// Vérifie si l'utilisateur courant a déjà vu le prompt du jour pour ce challenge.
+    func hasSeenDailyPrompt(for date: Date) async -> Bool {
+        guard let currentUserId else { return true }
+
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let seenPromptId = "\(challenge.id)_\(dayKey)"
+
+        let ref = firestoreDB
+            .collection("users")
+            .document(currentUserId)
+            .collection("seenPrompts")
+            .document(seenPromptId)
+
+        do {
+            let snapshot = try await ref.getDocument()
+            return snapshot.exists
+        } catch {
+            print("❌ hasSeenDailyPrompt error: \(error)")
+            return true
+        }
+    }
+
+    /// Marque le prompt comme vu afin de ne l'afficher qu'une seule fois par jour.
+    func markPromptAsSeen(for date: Date) async {
+        guard let currentUserId else { return }
+
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let seenPromptId = "\(challenge.id)_\(dayKey)"
+
+        let ref = firestoreDB
+            .collection("users")
+            .document(currentUserId)
+            .collection("seenPrompts")
+            .document(seenPromptId)
+
+        do {
+            try await ref.setData(from: SeenPrompt())
+        } catch {
+            print("❌ markPromptAsSeen error: \(error)")
         }
     }
 
