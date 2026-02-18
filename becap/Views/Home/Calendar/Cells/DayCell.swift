@@ -20,6 +20,7 @@ struct DayCell: View {
     let date: Date
     let dayNumber: Int
     let currentUserUsedJoker: Bool
+    let isValidated: Bool
     let isToday: Bool
     let isSelected: Bool
     let tap: () -> Void
@@ -75,8 +76,15 @@ private extension DayCell {
                                   startPoint: .topLeading, endPoint: .bottomTrailing)
         }
 
-        var baseColor: Color = isToday ? Color.green.opacity(0.85) : Color.white.opacity(0.55)
-        baseColor = date < Date() ? baseColor : Color.white.opacity(0.30)
+        let baseColor: Color
+
+        if isToday {
+            baseColor = Color.yellow.opacity(0.88)
+        } else if isValidated {
+            baseColor = Color.green.opacity(0.82)
+        } else {
+            baseColor = Color.red.opacity(0.82)
+        }
 
         return LinearGradient(colors: [baseColor, baseColor], startPoint: .top, endPoint: .bottom)
     }
@@ -85,6 +93,6 @@ private extension DayCell {
         if currentUserUsedJoker {
             return .white
         }
-        return date > Date() ? .white.opacity(0.55) : .white
+        return .white
     }
 }
