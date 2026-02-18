@@ -239,8 +239,7 @@ struct CalendarDetailView: View {
             onSelectDate: { date in
                 let day = startOfDay(date)
 
-                guard let cell = cells.first(where: { sameDay($0.date, day) }),
-                      (!cell.posts.isEmpty || !cell.jokers.isEmpty) else {
+                guard let cell = cells.first(where: { sameDay($0.date, day) }) else {
                     return
                 }
 
