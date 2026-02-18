@@ -93,6 +93,14 @@ class CalendarDetailViewModel: ObservableObject {
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter
     }()
+    private let dailyPromptUTCDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
 
     var currentParticipant: ParticipantUIModel? {
         participants.first(where: { $0.userId == currentUserId })
@@ -241,64 +249,80 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    /// Récupère le mot du jour pour un challenge dessin et une date donnée.
-    func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
-        let dayKey = dailyPromptDateFormatter.string(from: date)
-        let ref = firestoreDB
-            .collection("challenges")
-            .document(challenge.id)
-            .collection("dailyPrompts")
-            .document(dayKey)
+    private func dailyPromptKeys(for date: Date) -> [String] {
+        let localKey = dailyPromptDateFormatter.string(from: date)
+        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
+        if localKey == utcKey { return [localKey] }
+        return [localKey, utcKey]
+    }
 
-        do {
-            let snapshot = try await ref.getDocument()
-            guard snapshot.exists else { return nil }
-            return try snapshot.data(as: DailyPrompt.self)
-        } catch {
-            print("❌ fetchDailyPrompt error: \(error)")
-            return nil
+    /// Récupère le mot du jour pour un challenge dessin et une date donnée.
+    /// Fallback local+UTC pour couvrir les différences de timezone entre backend et client.
+    func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
+        for dayKey in dailyPromptKeys(for: date) {
+            let ref = firestoreDB
+                .collection("challenges")
+                .document(challenge.id)
+                .collection("dailyPrompts")
+                .document(dayKey)
+
+            do {
+                let snapshot = try await ref.getDocument()
+                guard snapshot.exists else { continue }
+                return try snapshot.data(as: DailyPrompt.self)
+            } catch {
+                print("❌ fetchDailyPrompt error for key \(dayKey): \(error)")
+            }
         }
+
+        return nil
     }
 
     /// Vérifie si l'utilisateur courant a déjà vu le prompt du jour pour ce challenge.
+    /// Vérifie les clés local+UTC pour éviter les faux négatifs sur le jour courant.
     func hasSeenDailyPrompt(for date: Date) async -> Bool {
         guard let currentUserId else { return true }
 
-        let dayKey = dailyPromptDateFormatter.string(from: date)
-        let seenPromptId = "\(challenge.id)_\(dayKey)"
+        for dayKey in dailyPromptKeys(for: date) {
+            let seenPromptId = "\(challenge.id)_\(dayKey)"
 
-        let ref = firestoreDB
-            .collection("users")
-            .document(currentUserId)
-            .collection("seenPrompts")
-            .document(seenPromptId)
+            let ref = firestoreDB
+                .collection("users")
+                .document(currentUserId)
+                .collection("seenPrompts")
+                .document(seenPromptId)
 
-        do {
-            let snapshot = try await ref.getDocument()
-            return snapshot.exists
-        } catch {
-            print("❌ hasSeenDailyPrompt error: \(error)")
-            return true
+            do {
+                let snapshot = try await ref.getDocument()
+                if snapshot.exists { return true }
+            } catch {
+                print("❌ hasSeenDailyPrompt error for key \(dayKey): \(error)")
+                // On continue avec les autres clés avant de conclure.
+            }
         }
+
+        return false
     }
 
     /// Marque le prompt comme vu afin de ne l'afficher qu'une seule fois par jour.
+    /// Écrit local+UTC pour que le flag soit cohérent quel que soit le format de clé utilisé.
     func markPromptAsSeen(for date: Date) async {
         guard let currentUserId else { return }
 
-        let dayKey = dailyPromptDateFormatter.string(from: date)
-        let seenPromptId = "\(challenge.id)_\(dayKey)"
+        for dayKey in dailyPromptKeys(for: date) {
+            let seenPromptId = "\(challenge.id)_\(dayKey)"
 
-        let ref = firestoreDB
-            .collection("users")
-            .document(currentUserId)
-            .collection("seenPrompts")
-            .document(seenPromptId)
+            let ref = firestoreDB
+                .collection("users")
+                .document(currentUserId)
+                .collection("seenPrompts")
+                .document(seenPromptId)
 
-        do {
-            try await ref.setData(from: SeenPrompt())
-        } catch {
-            print("❌ markPromptAsSeen error: \(error)")
+            do {
+                try await ref.setData(from: SeenPrompt())
+            } catch {
+                print("❌ markPromptAsSeen error for key \(dayKey): \(error)")
+            }
         }
     }
 
