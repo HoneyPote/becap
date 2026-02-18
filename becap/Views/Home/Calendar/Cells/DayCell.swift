@@ -76,14 +76,20 @@ private extension DayCell {
                                   startPoint: .topLeading, endPoint: .bottomTrailing)
         }
 
+        let calendar = Calendar.current
+        let day = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: Date())
+
         let baseColor: Color
 
         if isToday {
             baseColor = Color.yellow.opacity(0.88)
         } else if isValidated {
             baseColor = Color.green.opacity(0.82)
-        } else {
+        } else if day < today {
             baseColor = Color.red.opacity(0.82)
+        } else {
+            baseColor = Color.white.opacity(0.30)
         }
 
         return LinearGradient(colors: [baseColor, baseColor], startPoint: .top, endPoint: .bottom)
@@ -93,6 +99,6 @@ private extension DayCell {
         if currentUserUsedJoker {
             return .white
         }
-        return .white
+        return date > Date() ? .white.opacity(0.55) : .white
     }
 }
