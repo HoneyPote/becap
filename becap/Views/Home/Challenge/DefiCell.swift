@@ -93,7 +93,6 @@ struct DefiCell: View {
             Image(challengeTypeImageName)
                 .resizable()
                 .scaledToFill()
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .clipped()
 
             LinearGradient(
