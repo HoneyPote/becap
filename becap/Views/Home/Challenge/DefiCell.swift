@@ -85,7 +85,7 @@ struct DefiCell: View {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
-        .padding(4)
+        .padding(8)
     }
 
     private var cardBackground: some View {
