@@ -19,17 +19,17 @@ struct DefiCell: View {
     private var challengeTypeImageName: String {
         switch challenge.category {
         case .sport:
-            return "dumbbel"
+            return "sportDefiCell"
         case .dessin:
-            return "rocket-pencil"
+            return "drawDefiCell"
         case .nourriture:
-            return "iphone_wallpaper_chef_clean_bright"
+            return "foodDefiCell"
         case .lecture:
-            return "iphone_wallpaper_reader"
+            return "BookDefiCell"
         case .course:
             return "iphone_wallpaper_duo_run"
         case .autre, .none:
-            return "photoBg"
+            return "foodDefiCell"
         }
     }
 
