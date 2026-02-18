@@ -16,14 +16,31 @@ struct DefiCell: View {
         challenge.participantUids.count
     }
 
+    private var challengeTypeImageName: String {
+        switch challenge.category {
+        case .sport:
+            return "dumbbel"
+        case .dessin:
+            return "rocket-pencil"
+        case .nourriture:
+            return "iphone_wallpaper_chef_clean_bright"
+        case .lecture:
+            return "iphone_wallpaper_reader"
+        case .course:
+            return "iphone_wallpaper_duo_run"
+        case .autre, .none:
+            return "photoBg"
+        }
+    }
+
     var body: some View {
         ZStack(alignment: .bottomLeading) {
             cardBackground
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     Text(challenge.title)
-                        .font(.system(.headline, design: .rounded).weight(.heavy))
+                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.8)
@@ -41,18 +58,18 @@ struct DefiCell: View {
                         .foregroundColor(.white.opacity(0.95))
 
                     Text("\(participantsCount) participant\(participantsCount > 1 ? "s" : "")")
-                        .font(.system(.subheadline, design: .rounded).weight(.semibold))
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
                         .foregroundColor(.white.opacity(0.95))
 
                     Spacer()
                 }
                 .padding(.horizontal, 10)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
                 .background(.black.opacity(0.22), in: Capsule())
             }
-            .padding(12)
+            .padding(10)
         }
-        .frame(height: 125)
+        .frame(height: 100)
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
@@ -73,14 +90,17 @@ struct DefiCell: View {
 
     private var cardBackground: some View {
         ZStack {
-            Image(challenge.calendarBackgroundImageName)
+            Color(red: 0.80, green: 0.82, blue: 0.85)
+
+            Image(challengeTypeImageName)
                 .resizable()
-                .scaledToFill()
+                .scaledToFit()
+                .padding(8)
 
             LinearGradient(
                 colors: [
-                    .black.opacity(0.20),
-                    .black.opacity(0.45)
+                    .black.opacity(0.16),
+                    .black.opacity(0.38)
                 ],
                 startPoint: .top,
                 endPoint: .bottom
@@ -96,7 +116,7 @@ struct DefiCell: View {
 
     private var statusBadge: some View {
         Text(challenge.status.rawValue)
-            .font(.system(.caption, design: .rounded).weight(.bold))
+            .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundColor(.white)
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
