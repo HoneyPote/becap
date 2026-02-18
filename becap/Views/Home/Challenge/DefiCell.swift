@@ -70,6 +70,8 @@ struct DefiCell: View {
             .padding(10)
         }
         .frame(height: 100)
+        .frame(maxWidth: .infinity)
+        .clipped()
         .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .buttonStyle(PlainButtonStyle())
         .contextMenu {
