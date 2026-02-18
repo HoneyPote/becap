@@ -42,7 +42,6 @@ struct CalendarDetailView: View {
     @State private var showDailyPromptReveal = false
     @State private var dailyPromptWord: String?
     @State private var pendingPromptCell: CalendarDetailCell?
-    @State private var missingPromptAlertMessage: String?
 
     init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -148,14 +147,6 @@ struct CalendarDetailView: View {
         }
         .onChange(of: selectedParticipant) { _ in
             showJokerBubble = false
-        }
-        .alert("Prompt du jour indisponible", isPresented: Binding(
-            get: { missingPromptAlertMessage != nil },
-            set: { if !$0 { missingPromptAlertMessage = nil } }
-        )) {
-            Button("OK", role: .cancel) { missingPromptAlertMessage = nil }
-        } message: {
-            Text(missingPromptAlertMessage ?? "Aucun prompt n'a été défini pour ce jour.")
         }
         .navigationDestination(isPresented: $navigateToCamera) {
             ChallengeCameraContainerView(challenge: viewModel.challenge)
@@ -282,10 +273,6 @@ struct CalendarDetailView: View {
                   !prompt.word.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 await MainActor.run {
                     openGrid(cell: cell)
-                    let formatter = DateFormatter()
-                    formatter.locale = Locale(identifier: "fr_FR")
-                    formatter.dateFormat = "dd/MM/yyyy"
-                    missingPromptAlertMessage = "Aucun document dailyPrompts pour le \(formatter.string(from: day))."
                 }
                 return
             }
