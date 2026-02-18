@@ -18,6 +18,33 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
 
     var id: String { rawValue }
 
+    init(from decoder: Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        let raw = (try? container.decode(String.self))?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() ?? ""
+
+        switch raw {
+        case "sport", "sports", "fitness", "workout":
+            self = .sport
+        case "dessin", "drawing", "draw", "art":
+            self = .dessin
+        case "nourriture", "food", "meal", "cooking":
+            self = .nourriture
+        case "course", "running", "run":
+            self = .course
+        case "lecture", "reading", "book":
+            self = .lecture
+        case "autre", "other", "misc":
+            self = .autre
+        default:
+            self = .autre
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
+
     var displayName: String {
         switch self {
         case .sport: return "Sport"
