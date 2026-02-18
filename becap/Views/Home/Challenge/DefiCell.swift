@@ -90,12 +90,11 @@ struct DefiCell: View {
 
     private var cardBackground: some View {
         ZStack {
-            Color(red: 0.80, green: 0.82, blue: 0.85)
-
             Image(challengeTypeImageName)
                 .resizable()
-                .scaledToFit()
-                .padding(8)
+                .scaledToFill()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .clipped()
 
             LinearGradient(
                 colors: [
