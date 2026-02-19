@@ -330,6 +330,6 @@ extension HomeView {
 
 private extension HomeView {
     var homeBackgroundImageName: String {
-        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "epicPic"
+        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "homeWallPaper"
     }
 }
