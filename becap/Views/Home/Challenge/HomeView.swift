@@ -177,7 +177,7 @@ struct HomeView: View {
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.challenges) { challenge in
                     NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)
