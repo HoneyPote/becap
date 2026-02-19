@@ -1,10 +1,3 @@
-//
-//  DefiCell.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 16/07/2025.
-//
-
 import SwiftUI
 
 struct DefiCell: View {
@@ -12,38 +5,45 @@ struct DefiCell: View {
     let onQuit: () -> Void
     let onReport: () -> Void
 
-    private var participantsCount: Int {
-        challenge.participantUids.count
-    }
+    private let corner: CGFloat = 18
+
+    private var participantsCount: Int { challenge.participantUids.count }
 
     private var challengeTypeImageName: String {
         switch challenge.category {
-        case .sport:
-            return "sportDefiCell"
-        case .dessin:
-            return "drawDefiCell"
-        case .nourriture:
-            return "foodDefiCell"
-        case .lecture:
-            return "BookDefiCell"
-        case .course:
-            return "iphone_wallpaper_duo_run"
-        case .autre, .none:
-            return "foodDefiCell"
+        case .sport: return "sportDefiCell"
+        case .dessin: return "drawDefiCell"
+        case .nourriture: return "foodDefiCell"
+        case .lecture: return "BookDefiCell"
+        case .course: return "iphone_wallpaper_duo_run"
+        case .autre, .none: return "foodDefiCell"
         }
     }
 
     var body: some View {
-        ZStack(alignment: .bottomLeading) {
-            cardBackground
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
 
+        ZStack(alignment: .bottomLeading) {
+            // ✅ Background image + gradient
+            Image(challengeTypeImageName)
+                .resizable()
+                .scaledToFill()
+                .overlay(
+                    LinearGradient(
+                        colors: [.black.opacity(0.05), .black.opacity(0.15)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                )
+
+            // ✅ Content
             VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     Text(challenge.title)
                         .font(.system(.subheadline, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
                         .lineLimit(2)
-                        .minimumScaleFactor(0.8)
+                        .minimumScaleFactor(0.85)
 
                     Spacer(minLength: 8)
 
@@ -69,49 +69,23 @@ struct DefiCell: View {
             }
             .padding(10)
         }
-        .frame(height: 100)
-        .frame(maxWidth: .infinity)
-        .clipped()
-        .contentShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .buttonStyle(PlainButtonStyle())
+        .frame(height: 170)
+        .clipShape(shape) 
+        .overlay(
+            shape.stroke(.white.opacity(0.22), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
+        .contentShape(shape) // ✅ hitbox arrondie
         .contextMenu {
-            Button(role: .destructive) {
-                onQuit()
-            } label: {
+            Button(role: .destructive) { onQuit() } label: {
                 Label("Quitter le défi", systemImage: "trash")
             }
-
-            Button {
-                onReport()
-            } label: {
+            Button { onReport() } label: {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
-        .padding(8)
-    }
-
-    private var cardBackground: some View {
-        ZStack {
-            Image(challengeTypeImageName)
-                .resizable()
-                .scaledToFill()
-                .clipped()
-
-            LinearGradient(
-                colors: [
-                    .black.opacity(0.16),
-                    .black.opacity(0.38)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.22), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
+        .padding(4)
+        .buttonStyle(.plain)
     }
 
     private var statusBadge: some View {
