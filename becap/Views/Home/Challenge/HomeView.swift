@@ -160,7 +160,7 @@ struct HomeView: View {
     }
 
     private var shareCreateChallengeSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 14) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
             ShareButtonCell {
                 showShareChallengeView = true
             }
@@ -189,7 +189,7 @@ struct HomeView: View {
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 14) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.challenges) { challenge in
                     NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)

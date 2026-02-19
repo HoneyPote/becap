@@ -36,11 +36,11 @@ struct DefiCell: View {
             Image(challengeTypeImageName)
                 .resizable()
                 .scaledToFit()
-                .frame(maxWidth: 170, maxHeight: 90)
+                .frame(maxWidth: 150, maxHeight: 78)
                 .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 4)
-                .padding(.bottom, 32)
+                .padding(.bottom, 26)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack(alignment: .top) {
                     Text(challenge.title)
                         .font(.system(size: 16, weight: .heavy, design: .rounded))
@@ -66,13 +66,13 @@ struct DefiCell: View {
 
                     Spacer()
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 9)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .background(Color(red: 0.39, green: 0.53, blue: 0.75).opacity(0.52), in: Capsule())
             }
-            .padding(12)
+            .padding(10)
         }
-        .frame(height: 235)
+        .frame(height: 170)
         .clipShape(shape)
         .overlay(shape.stroke(.white.opacity(0.32), lineWidth: 1.2))
         .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
@@ -85,7 +85,7 @@ struct DefiCell: View {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
-        .padding(.horizontal, 2)
+        .padding(4)
         .buttonStyle(.plain)
     }
 

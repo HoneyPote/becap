@@ -47,10 +47,10 @@ struct ShareButtonCell: View {
                 .padding(.vertical, 10)
                 .padding(.horizontal, 10)
             }
-            .frame(height: 150)
+            .frame(height: 100)
             .contentShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(PlainButtonStyle())
-        .padding(.horizontal, 2)
+        .padding(4)
     }
 }
