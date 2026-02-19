@@ -254,7 +254,8 @@ struct CalendarDetailView: View {
     private func handleDateSelection(day: Date, cell: CalendarDetailCell) {
         selectedDate = day
 
-        guard viewModel.challenge.category == .dessin else {
+        let isToday = Calendar.current.isDateInToday(day)
+        guard viewModel.challenge.category == .dessin, isToday else {
             openGrid(cell: cell)
             return
         }
