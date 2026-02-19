@@ -13,39 +13,44 @@ struct ShareButtonCell: View {
     var body: some View {
         Button(action: onTap) {
             ZStack {
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.29, green: 0.58, blue: 0.84), // Bleu clair
-                                Color(red: 0.21, green: 0.44, blue: 0.69)  // Bleu foncé
+                                Color(red: 0.80, green: 0.88, blue: 1.00),
+                                Color(red: 0.64, green: 0.76, blue: 0.96)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 5)
-                VStack(spacing: 8) {
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 24, style: .continuous)
+                            .stroke(.white.opacity(0.30), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.18), radius: 12, x: 0, y: 7)
+
+                VStack(spacing: 10) {
                     Image("network")
                            .resizable()
                            .scaledToFit()
-                           .frame(width: 28, height: 28)
+                           .frame(width: 34, height: 34)
                            .foregroundColor(.white)
                            .shadow(radius: 1, x: 0, y: 3)
 
                     Text("Partager un défi")
-                        .font(.headline)
+                        .font(.system(size: 19, weight: .heavy, design: .rounded))
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)
                         .minimumScaleFactor(0.8)
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
                 .padding(.horizontal, 10)
             }
-            .frame(height: 100)
-            .contentShape(RoundedRectangle(cornerRadius: 18))
+            .frame(height: 150)
+            .contentShape(RoundedRectangle(cornerRadius: 24))
         }
         .buttonStyle(PlainButtonStyle())
-        .padding(4)
+        .padding(.horizontal, 2)
     }
 }

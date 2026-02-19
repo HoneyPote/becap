@@ -24,7 +24,7 @@ struct HomeView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .center, spacing: .zero) {
+            VStack(alignment: .center, spacing: 6) {
                 HStack {
                     Spacer()
 
@@ -34,18 +34,20 @@ struct HomeView: View {
                         Image(systemName: "person.crop.circle.fill")
                             .resizable()
                             .scaledToFit()
-                            .frame(width: 32, height: 32)
+                            .frame(width: 36, height: 36)
                             .foregroundColor(.white)
-                            .padding(10)
+                            .padding(8)
+                            .background(Color.white.opacity(0.12), in: Circle())
                     }
                 }
                 .padding(.horizontal, 24)
+                .padding(.top, 8)
 
                 Text("⛿ BE CAP ⛿")
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                    .font(.system(size: 52, weight: .heavy, design: .rounded))
                     .textCase(.uppercase)
                     .foregroundColor(.white)
-                    .padding(.bottom, 12)
+                    .padding(.bottom, 18)
                     .padding(.horizontal, 24)
 
                 ScrollView {
@@ -53,7 +55,8 @@ struct HomeView: View {
                         shareCreateChallengeSection
                         challengeListSection
                     }
-                    .padding(.horizontal)
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 16)
                 }
             }
             .overlay {
@@ -71,7 +74,16 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFill()
                     .offset(x: -60)
-                    .overlay(Color.black.opacity(0.15))
+                    .overlay(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.54, green: 0.70, blue: 0.90).opacity(0.40),
+                                Color(red: 0.37, green: 0.52, blue: 0.75).opacity(0.25)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                     .ignoresSafeArea()
             )
             .navigationBarHidden(true)
@@ -148,7 +160,7 @@ struct HomeView: View {
     }
 
     private var shareCreateChallengeSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 14) {
             ShareButtonCell {
                 showShareChallengeView = true
             }
@@ -167,17 +179,17 @@ struct HomeView: View {
                     .scaledToFit()
                     .frame(height: 30)
                 Text("LISTE DES DÉFIS")
-                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
                     .textCase(.uppercase)
                     .foregroundColor(.white)
             }
             .frame(maxWidth: .infinity)
-            .padding(.top, 34)
+            .padding(.top, 28)
             .padding(.bottom, 14)
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 170), spacing: 14)], spacing: 14) {
                 ForEach(viewModel.challenges) { challenge in
                     NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)

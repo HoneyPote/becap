@@ -5,7 +5,7 @@ struct DefiCell: View {
     let onQuit: () -> Void
     let onReport: () -> Void
 
-    private let corner: CGFloat = 18
+    private let corner: CGFloat = 22
 
     private var participantsCount: Int { challenge.participantUids.count }
 
@@ -24,23 +24,26 @@ struct DefiCell: View {
         let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
 
         ZStack(alignment: .bottomLeading) {
-            // ✅ Background image + gradient
+            LinearGradient(
+                colors: [
+                    Color(red: 0.81, green: 0.88, blue: 0.98),
+                    Color(red: 0.63, green: 0.76, blue: 0.94)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
             Image(challengeTypeImageName)
                 .resizable()
-                .scaledToFill()
-                .overlay(
-                    LinearGradient(
-                        colors: [.black.opacity(0.05), .black.opacity(0.15)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .scaledToFit()
+                .frame(maxWidth: 170, maxHeight: 90)
+                .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 4)
+                .padding(.bottom, 32)
 
-            // ✅ Content
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top) {
                     Text(challenge.title)
-                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
                         .foregroundColor(.white)
                         .lineLimit(2)
                         .minimumScaleFactor(0.85)
@@ -58,24 +61,22 @@ struct DefiCell: View {
                         .foregroundColor(.white.opacity(0.95))
 
                     Text("\(participantsCount) participant\(participantsCount > 1 ? "s" : "")")
-                        .font(.system(.caption, design: .rounded).weight(.semibold))
+                        .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .foregroundColor(.white.opacity(0.95))
 
                     Spacer()
                 }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.black.opacity(0.22), in: Capsule())
+                .padding(.horizontal, 12)
+                .padding(.vertical, 9)
+                .background(Color(red: 0.39, green: 0.53, blue: 0.75).opacity(0.52), in: Capsule())
             }
-            .padding(10)
+            .padding(12)
         }
-        .frame(height: 170)
-        .clipShape(shape) 
-        .overlay(
-            shape.stroke(.white.opacity(0.22), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
-        .contentShape(shape) // ✅ hitbox arrondie
+        .frame(height: 235)
+        .clipShape(shape)
+        .overlay(shape.stroke(.white.opacity(0.32), lineWidth: 1.2))
+        .shadow(color: .black.opacity(0.18), radius: 10, x: 0, y: 6)
+        .contentShape(shape)
         .contextMenu {
             Button(role: .destructive) { onQuit() } label: {
                 Label("Quitter le défi", systemImage: "trash")
@@ -84,7 +85,7 @@ struct DefiCell: View {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
-        .padding(4)
+        .padding(.horizontal, 2)
         .buttonStyle(.plain)
     }
 
@@ -92,11 +93,11 @@ struct DefiCell: View {
         Text(challenge.status.rawValue)
             .font(.system(size: 11, weight: .bold, design: .rounded))
             .foregroundColor(.white)
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 7)
             .background(
                 challenge.status == .active
-                ? Color(red: 0.25, green: 0.77, blue: 0.48)
+                ? Color(red: 0.39, green: 0.80, blue: 0.56)
                 : Color(red: 0.61, green: 0.65, blue: 0.75)
             )
             .clipShape(Capsule())
