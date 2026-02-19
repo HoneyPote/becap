@@ -22,6 +22,11 @@ protocol ChallengeManagerProtocol {
     func joinChallenge(withCode code: String) async throws -> Challenge
     func removeParticipant(_ challengeId: String, userId: String) async throws
 
+    // Daily prompts
+    func fetchDailyPrompt(challengeId: String, date: Date) async -> DailyPrompt?
+    func hasSeenDailyPrompt(challengeId: String, date: Date) async -> Bool
+    func markDailyPromptAsSeen(challengeId: String, date: Date) async
+
     // Posts
     func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
     func loadPosts(from challengeId: String) async throws -> [ChallengePost]
@@ -89,6 +94,34 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let defaults: UserDefaults
     private let chatLastReadPrefix = "challengeChatLastRead_"
     private let hasUnreadMessagePrefix = "challengeHasUnreadMessage_"
+    private let dailyPromptDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let dailyPromptUTCDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let animalFallbackWords: [String] = [
+        "Panda", "Lion", "Tigre", "Koala", "Girafe", "Éléphant", "Loutre", "Renard",
+        "Hibou", "Dauphin", "Baleine", "Requin", "Pieuvre", "Tortue", "Pingouin", "Lama",
+        "Cerf", "Lapin", "Hérisson", "Écureuil", "Panthère", "Caméléon", "Flamant", "Cheval",
+        "Chouette", "Coccinelle", "Papillon", "Abeille", "Chat", "Chien", "Loup", "Ours"
+    ]
+    private let plantFallbackWords: [String] = [
+        "Rose", "Tulipe", "Tournesol", "Lavande", "Pivoine", "Orchidée", "Marguerite", "Jasmin",
+        "Bambou", "Fougère", "Cactus", "Baobab", "Chêne", "Érable", "Sapin", "Palmier",
+        "Menthe", "Basilic", "Romarin", "Aloe", "Lierre", "Lotus", "Coquelicot", "Nénuphar",
+        "Violette", "Muguet", "Camélia", "Hortensia", "Anémone", "Mimosa", "Glycine", "Iris"
+    ]
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
@@ -220,6 +253,45 @@ extension ChallengeManager {
         try await challengeService.removeParticipant(challengeId: challengeId, userId: userId)
         try await challengeService.removeParticipatingChallenge(to: userId, challengeId: challengeId)
         try await challengeService.blockParticipant(challengeId: challengeId, userId: userId)
+    }
+
+    // Daily prompts
+    func fetchDailyPrompt(challengeId: String, date: Date) async -> DailyPrompt? {
+        do {
+            if let prompt = try await challengeService.fetchDailyPrompt(challengeId: challengeId,
+                                                                        dateKeys: dailyPromptKeys(for: date)) {
+                return prompt
+            }
+        } catch {
+            print("❌ fetchDailyPrompt manager error: \(error)")
+        }
+
+        return fallbackPrompt(challengeId: challengeId, date: date)
+    }
+
+    func hasSeenDailyPrompt(challengeId: String, date: Date) async -> Bool {
+        guard let currentUserId = currentUser?.id else { return true }
+
+        do {
+            return try await challengeService.hasSeenDailyPrompt(userId: currentUserId,
+                                                                 challengeId: challengeId,
+                                                                 dateKeys: dailyPromptKeys(for: date))
+        } catch {
+            print("❌ hasSeenDailyPrompt manager error: \(error)")
+            return false
+        }
+    }
+
+    func markDailyPromptAsSeen(challengeId: String, date: Date) async {
+        guard let currentUserId = currentUser?.id else { return }
+
+        do {
+            try await challengeService.markDailyPromptAsSeen(userId: currentUserId,
+                                                             challengeId: challengeId,
+                                                             dateKeys: dailyPromptKeys(for: date))
+        } catch {
+            print("❌ markDailyPromptAsSeen manager error: \(error)")
+        }
     }
 
     // Challenges - Privates
@@ -766,6 +838,30 @@ extension ChallengeManager {
         }
 
         NotificationManager.shared.scheduleDailyNotifications(for: challenge, config: config)
+    }
+}
+
+private extension ChallengeManager {
+    func dailyPromptKeys(for date: Date) -> [String] {
+        let localKey = dailyPromptDateFormatter.string(from: date)
+        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
+        if localKey == utcKey { return [localKey] }
+        return [localKey, utcKey]
+    }
+
+    func fallbackPrompt(challengeId: String, date: Date) -> DailyPrompt {
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let seedString = "\(challengeId)_\(dayKey)"
+        let seed = abs(seedString.unicodeScalars.reduce(0) { partial, scalar in
+            partial &* 31 &+ Int(scalar.value)
+        })
+
+        let useAnimals = seed % 2 == 0
+        let words = useAnimals ? animalFallbackWords : plantFallbackWords
+        let index = words.isEmpty ? 0 : seed % words.count
+        let word = words.isEmpty ? "Panda" : words[index]
+
+        return DailyPrompt(word: word, theme: useAnimals ? "Animaux" : "Plantes")
     }
 }
 

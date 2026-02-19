@@ -6,7 +6,6 @@
 //
 
 import SwiftUI
-import FirebaseFirestore
 
 struct ParticipantUIModel: Hashable {
     let userId: String
@@ -84,39 +83,6 @@ class CalendarDetailViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
 
     let challenge: Challenge
-    private let firestoreDB = Firestore.firestore()
-    private let dailyPromptDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = .current
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-    private let dailyPromptUTCDateFormatter: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = TimeZone(secondsFromGMT: 0)
-        formatter.dateFormat = "yyyy-MM-dd"
-        return formatter
-    }()
-
-    // Fallback local pour débloquer les défis dessin sans backend dailyPrompts.
-    // Le mot est déterministe pour un couple (challenge, jour) afin de rester stable dans la journée.
-    private let animalFallbackWords: [String] = [
-        "Panda", "Lion", "Tigre", "Koala", "Girafe", "Éléphant", "Loutre", "Renard",
-        "Hibou", "Dauphin", "Baleine", "Requin", "Pieuvre", "Tortue", "Pingouin", "Lama",
-        "Cerf", "Lapin", "Hérisson", "Écureuil", "Panthère", "Caméléon", "Flamant", "Cheval",
-        "Chouette", "Coccinelle", "Papillon", "Abeille", "Chat", "Chien", "Loup", "Ours"
-    ]
-
-    private let plantFallbackWords: [String] = [
-        "Rose", "Tulipe", "Tournesol", "Lavande", "Pivoine", "Orchidée", "Marguerite", "Jasmin",
-        "Bambou", "Fougère", "Cactus", "Baobab", "Chêne", "Érable", "Sapin", "Palmier",
-        "Menthe", "Basilic", "Romarin", "Aloe", "Lierre", "Lotus", "Coquelicot", "Nénuphar",
-        "Violette", "Muguet", "Camélia", "Hortensia", "Anémone", "Mimosa", "Glycine", "Iris"
-    ]
 
     var currentParticipant: ParticipantUIModel? {
         participants.first(where: { $0.userId == currentUserId })
@@ -265,97 +231,19 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
-    private func dailyPromptKeys(for date: Date) -> [String] {
-        let localKey = dailyPromptDateFormatter.string(from: date)
-        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
-        if localKey == utcKey { return [localKey] }
-        return [localKey, utcKey]
-    }
-
-    private func fallbackPrompt(for date: Date) -> DailyPrompt {
-        let dayKey = dailyPromptDateFormatter.string(from: date)
-        let seedString = "\(challenge.id)_\(dayKey)"
-        let seed = abs(seedString.unicodeScalars.reduce(0) { partial, scalar in
-            partial &* 31 &+ Int(scalar.value)
-        })
-
-        let useAnimals = seed % 2 == 0
-        let words = useAnimals ? animalFallbackWords : plantFallbackWords
-        let index = words.isEmpty ? 0 : seed % words.count
-        let word = words.isEmpty ? "Panda" : words[index]
-
-        return DailyPrompt(word: word, theme: useAnimals ? "Animaux" : "Plantes")
-    }
-
     /// Récupère le mot du jour pour un challenge dessin et une date donnée.
-    /// Fallback local+UTC pour couvrir les différences de timezone entre backend et client.
-    /// Si aucun prompt backend n'est trouvé, on génère un prompt local déterministe.
     func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
-        for dayKey in dailyPromptKeys(for: date) {
-            let ref = firestoreDB
-                .collection("challenges")
-                .document(challenge.id)
-                .collection("dailyPrompts")
-                .document(dayKey)
-
-            do {
-                let snapshot = try await ref.getDocument()
-                guard snapshot.exists else { continue }
-                return try snapshot.data(as: DailyPrompt.self)
-            } catch {
-                print("❌ fetchDailyPrompt error for key \(dayKey): \(error)")
-            }
-        }
-
-        return fallbackPrompt(for: date)
+        await challengeManager.fetchDailyPrompt(challengeId: challenge.id, date: date)
     }
 
     /// Vérifie si l'utilisateur courant a déjà vu le prompt du jour pour ce challenge.
-    /// Vérifie les clés local+UTC pour éviter les faux négatifs sur le jour courant.
     func hasSeenDailyPrompt(for date: Date) async -> Bool {
-        guard let currentUserId else { return true }
-
-        for dayKey in dailyPromptKeys(for: date) {
-            let seenPromptId = "\(challenge.id)_\(dayKey)"
-
-            let ref = firestoreDB
-                .collection("users")
-                .document(currentUserId)
-                .collection("seenPrompts")
-                .document(seenPromptId)
-
-            do {
-                let snapshot = try await ref.getDocument()
-                if snapshot.exists { return true }
-            } catch {
-                print("❌ hasSeenDailyPrompt error for key \(dayKey): \(error)")
-                // On continue avec les autres clés avant de conclure.
-            }
-        }
-
-        return false
+        await challengeManager.hasSeenDailyPrompt(challengeId: challenge.id, date: date)
     }
 
     /// Marque le prompt comme vu afin de ne l'afficher qu'une seule fois par jour.
-    /// Écrit local+UTC pour que le flag soit cohérent quel que soit le format de clé utilisé.
     func markPromptAsSeen(for date: Date) async {
-        guard let currentUserId else { return }
-
-        for dayKey in dailyPromptKeys(for: date) {
-            let seenPromptId = "\(challenge.id)_\(dayKey)"
-
-            let ref = firestoreDB
-                .collection("users")
-                .document(currentUserId)
-                .collection("seenPrompts")
-                .document(seenPromptId)
-
-            do {
-                try await ref.setData(from: SeenPrompt())
-            } catch {
-                print("❌ markPromptAsSeen error for key \(dayKey): \(error)")
-            }
-        }
+        await challengeManager.markDailyPromptAsSeen(challengeId: challenge.id, date: date)
     }
 
     // MARK: - Private functions
