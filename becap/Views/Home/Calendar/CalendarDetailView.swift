@@ -215,12 +215,27 @@ struct CalendarDetailView: View {
             return Set(usages.map { startOfDay($0.date) })
         }()
 
+        let validatedDays: Set<Date> = {
+            let calendar = Calendar.current
+
+            if let selectedParticipant {
+                return Set(selectedParticipant.progress.validatedDays.map { calendar.startOfDay(for: $0) })
+            }
+
+            guard let currentParticipant = viewModel.currentParticipant else {
+                return []
+            }
+
+            return Set(currentParticipant.progress.validatedDays.map { calendar.startOfDay(for: $0) })
+        }()
+
         return CalendarMonthGrid(
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
             selectedDate: selectedGridCell?.date,
             postCountByDay: postCountByDay,
             jokerCountByDay: jokerCountByDay,
+            validatedDays: validatedDays,
             currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
                 let day = startOfDay(date)
