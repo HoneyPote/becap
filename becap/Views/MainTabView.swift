@@ -33,20 +33,16 @@ struct MainView: View {
                     ProgressView()
                 }
             }
-        }
-        .onAppear {
-            NotificationManager.shared.requestAuthorization()
-        }
-        .task {
-            viewModel.fetchInfos()
-        }
-        .onChange(of: scenePhase) { newPhase in
-            viewModel.onChangeOfScenePhase(newPhase)
-        }
-        .overlay {
-            if !viewModel.medals.isEmpty {
-                MedalPopupView(medals: viewModel.medals, onDismiss: viewModel.dismissMedalPopup)
-                    .transition(.scale)
+            .overlay {
+                if let medal = viewModel.medal {
+                    MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
+                        .transition(.scale)
+                }
+            }
+            .navigationBarBackButtonHidden(true)
+            .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
+                guard id != nil else { return }
+                selectedIndex = 0
             }
     }
 }
