@@ -14,6 +14,7 @@ struct User: Identifiable, Codable {
     var name: String
     var photoURL: String?
     var medals: [UserMedal]
+    var profileDescription: String?
     var participatingChallengesIds: [String]?
 }
 

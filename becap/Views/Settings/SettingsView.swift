@@ -27,6 +27,8 @@ struct SettingsView: View {
     @State private var isUploadingAvatar = false
     @State private var showingMedalsPopover = false
     @State private var showingSpecialChallengeAlert = false
+    @State private var profileDescriptionDraft = ""
+    @State private var isSavingProfileDescription = false
 
     private let reportManager: ReportManagerProtocol = ReportManager.shared
 
@@ -126,6 +128,10 @@ struct SettingsView: View {
         }
         .task {
             try? await challengeManager.fetchAndFilterChallenges()
+            profileDescriptionDraft = viewModel.currentUser?.profileDescription ?? ""
+        }
+        .onChange(of: viewModel.currentUser?.id) { _ in
+            profileDescriptionDraft = viewModel.currentUser?.profileDescription ?? ""
         }
         .sheet(isPresented: $showReportSelector) {
             ReportChallengeSelectorView(
@@ -152,12 +158,26 @@ struct SettingsView: View {
     // MARK: - Header (wrapper)
 
     private func headerProfile(user: User) -> some View {
+        let totalPostsCount = challengeManager.posts
+            .values
+            .flatMap { $0 }
+            .filter { $0.authorUid == user.id }
+            .count
+
         ProfileHeader(
             user: user,
+            totalPostsCount: totalPostsCount,
+            followersCount: 0,
+            friendsCount: 0,
+            profileDescription: $profileDescriptionDraft,
+            isSavingDescription: $isSavingProfileDescription,
             avatarItem: $avatarItem,
             isUploading: $isUploadingAvatar,
             onAvatarPicked: { item in
                 Task { await handleAvatarSelection(item: item) }
+            },
+            onSaveDescription: {
+                await saveProfileDescription()
             }
         )
     }
@@ -248,6 +268,17 @@ struct SettingsView: View {
         }
     }
 
+    @MainActor
+    private func saveProfileDescription() async {
+        guard !isSavingProfileDescription else { return }
+
+        isSavingProfileDescription = true
+        defer { isSavingProfileDescription = false }
+
+        await viewModel.updateProfileDescription(profileDescriptionDraft)
+        profileDescriptionDraft = viewModel.currentUser?.profileDescription ?? profileDescriptionDraft
+    }
+
     private func submitReport(for challenge: Challenge, reason: ContentReportReason, details: String) {
         isSubmittingReport = true
         reportErrorMessage = nil
@@ -288,27 +319,97 @@ struct SettingsView: View {
 
 private struct ProfileHeader: View {
     let user: User
+    let totalPostsCount: Int
+    let followersCount: Int
+    let friendsCount: Int
+    @Binding var profileDescription: String
+    @Binding var isSavingDescription: Bool
     @Binding var avatarItem: PhotosPickerItem?
     @Binding var isUploading: Bool
     let onAvatarPicked: (PhotosPickerItem) -> Void
+    let onSaveDescription: () async -> Void
 
     var body: some View {
-        VStack(spacing: 12) {
-            AvatarEditor(avatarUrl: user.photoURL,
-                         isUploading: isUploading,
-                         avatarItem: $avatarItem,
-                         onPicked: onAvatarPicked)
-            .frame(width: 88, height: 88)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 10) {
+                AvatarEditor(avatarUrl: user.photoURL,
+                             isUploading: isUploading,
+                             avatarItem: $avatarItem,
+                             onPicked: onAvatarPicked)
+                .frame(width: 88, height: 88)
 
-            Text(user.name)
-                .font(.system(.title3, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
+                VStack(spacing: 2) {
+                    Text(user.name)
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .foregroundColor(.white)
 
-            Text(user.email)
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+                    Text(user.email)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(width: 110)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 20) {
+                    StatColumn(title: "Publications", value: totalPostsCount)
+                    StatColumn(title: "Followers", value: followersCount)
+                    StatColumn(title: "Amis", value: friendsCount)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Description")
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white.opacity(0.8))
+
+                    TextField("Ajoute une description", text: $profileDescription, axis: .vertical)
+                        .lineLimit(2...4)
+                        .textInputAutocapitalization(.sentences)
+                        .foregroundColor(.white)
+                        .font(.system(.footnote, design: .rounded))
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .background(Color.white.opacity(0.12))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                    Button {
+                        Task { await onSaveDescription() }
+                    } label: {
+                        if isSavingDescription {
+                            ProgressView()
+                                .progressViewStyle(.circular)
+                                .tint(.white)
+                        } else {
+                            Text("Enregistrer")
+                                .font(.system(.caption, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .disabled(isSavingDescription)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct StatColumn: View {
+    let title: String
+    let value: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+            Text(title)
+                .font(.system(.caption, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+        }
         .frame(maxWidth: .infinity)
     }
 }

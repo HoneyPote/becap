@@ -12,6 +12,7 @@ struct ParticipantUIModel: Hashable {
     let userName: String
     let userMedals: [UserMedal]
     let userProfilePhotoURL: String?
+    let userProfileDescription: String?
     let progress: ParticipantProgress
     let posts: [ChallengePost]
 
@@ -252,6 +253,7 @@ class CalendarDetailViewModel: ObservableObject {
                                                     userName: participantName,
                                                     userMedals: user.medals,
                                                     userProfilePhotoURL: user.photoURL,
+                                                    userProfileDescription: user.profileDescription,
                                                     progress: progress,
                                                     posts: posts,
                                                     isAdmin: isAdmin)
