@@ -184,7 +184,6 @@ struct HomeView: View {
                             .onDisappear { viewModel.refreshChallenges() }
                     }) {
                         DefiCell(challenge: challenge,
-                                 onQuit: { viewModel.confirmQuit(challenge) },
                                  onReport: { viewModel.presentReport(for: challenge) })
                     }
                 }

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct DefiCell: View {
     let challenge: Challenge
-    let onQuit: () -> Void
     let onReport: () -> Void
 
     private let corner: CGFloat = 18
@@ -77,9 +76,6 @@ struct DefiCell: View {
         .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
         .contentShape(shape) // ✅ hitbox arrondie
         .contextMenu {
-            Button(role: .destructive) { onQuit() } label: {
-                Label("Quitter le défi", systemImage: "trash")
-            }
             Button { onReport() } label: {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
