@@ -24,6 +24,11 @@ protocol ChallengeServiceProtocol {
     func deleteChallenge(challengeId: String) async throws
     func listenToGroupChat(challengeId: String, onUpdate: @escaping ([ChallengeChatMessage]) -> Void)
 
+    // Daily prompts
+    func fetchDailyPrompt(challengeId: String, dateKeys: [String]) async throws -> DailyPrompt?
+    func hasSeenDailyPrompt(userId: String, challengeId: String, dateKeys: [String]) async throws -> Bool
+    func markDailyPromptAsSeen(userId: String, challengeId: String, dateKeys: [String]) async throws
+
     // Posts
     func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost?
     func fetchPosts(for challengeId: String) async throws -> [ChallengePost]
@@ -59,6 +64,8 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecParticipants = "participants"
     private let collecComments = "comments"
     private let collecChat = "chatMessages"
+    private let collecDailyPrompts = "dailyPrompts"
+    private let collecSeenPrompts = "seenPrompts"
 
     private init() {}
 }
@@ -266,6 +273,59 @@ extension ChallengeService {
                     }
                 }
             }
+        }
+    }
+}
+
+// MARK: - Daily prompts
+extension ChallengeService {
+    func fetchDailyPrompt(challengeId: String, dateKeys: [String]) async throws -> DailyPrompt? {
+        guard !dateKeys.isEmpty else { return nil }
+
+        for dayKey in dateKeys {
+            let snapshot = try await firestoreDB
+                .collection(collecChallenges)
+                .document(challengeId)
+                .collection(collecDailyPrompts)
+                .document(dayKey)
+                .getDocument()
+
+            guard snapshot.exists else { continue }
+            return try snapshot.data(as: DailyPrompt.self)
+        }
+
+        return nil
+    }
+
+    func hasSeenDailyPrompt(userId: String, challengeId: String, dateKeys: [String]) async throws -> Bool {
+        guard !dateKeys.isEmpty else { return false }
+
+        for dayKey in dateKeys {
+            let seenPromptId = "\(challengeId)_\(dayKey)"
+            let snapshot = try await firestoreDB
+                .collection("users")
+                .document(userId)
+                .collection(collecSeenPrompts)
+                .document(seenPromptId)
+                .getDocument()
+
+            if snapshot.exists { return true }
+        }
+
+        return false
+    }
+
+    func markDailyPromptAsSeen(userId: String, challengeId: String, dateKeys: [String]) async throws {
+        guard !dateKeys.isEmpty else { return }
+
+        for dayKey in dateKeys {
+            let seenPromptId = "\(challengeId)_\(dayKey)"
+            try await firestoreDB
+                .collection("users")
+                .document(userId)
+                .collection(collecSeenPrompts)
+                .document(seenPromptId)
+                .setData(from: SeenPrompt())
         }
     }
 }
