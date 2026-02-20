@@ -61,6 +61,16 @@ final class SettingsViewModel: ObservableObject {
         }
     }
 
+    @MainActor
+    func updateProfileDescription(_ description: String) async {
+        do {
+            try await ChallengeService.shared.updateUserProfileDescription(description)
+            await reloadUser()
+        } catch {
+            print("❌ update profile description error: \(error)")
+        }
+    }
+
     // MARK: - Auth
 
     func signOut() {
