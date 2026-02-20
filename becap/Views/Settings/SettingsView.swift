@@ -152,8 +152,17 @@ struct SettingsView: View {
     // MARK: - Header (wrapper)
 
     private func headerProfile(user: User) -> some View {
+        let totalPostsCount = challengeManager.posts
+            .values
+            .flatMap { $0 }
+            .filter { $0.authorUid == user.id }
+            .count
+
         ProfileHeader(
             user: user,
+            totalPostsCount: totalPostsCount,
+            followersCount: 0,
+            friendsCount: 0,
             avatarItem: $avatarItem,
             isUploading: $isUploadingAvatar,
             onAvatarPicked: { item in
@@ -288,17 +297,29 @@ struct SettingsView: View {
 
 private struct ProfileHeader: View {
     let user: User
+    let totalPostsCount: Int
+    let followersCount: Int
+    let friendsCount: Int
     @Binding var avatarItem: PhotosPickerItem?
     @Binding var isUploading: Bool
     let onAvatarPicked: (PhotosPickerItem) -> Void
 
     var body: some View {
         VStack(spacing: 12) {
-            AvatarEditor(avatarUrl: user.photoURL,
-                         isUploading: isUploading,
-                         avatarItem: $avatarItem,
-                         onPicked: onAvatarPicked)
-            .frame(width: 88, height: 88)
+            HStack(alignment: .center, spacing: 16) {
+                AvatarEditor(avatarUrl: user.photoURL,
+                             isUploading: isUploading,
+                             avatarItem: $avatarItem,
+                             onPicked: onAvatarPicked)
+                .frame(width: 88, height: 88)
+
+                HStack(spacing: 20) {
+                    StatColumn(title: "Publications", value: totalPostsCount)
+                    StatColumn(title: "Followers", value: followersCount)
+                    StatColumn(title: "Amis", value: friendsCount)
+                }
+                .frame(maxWidth: .infinity)
+            }
 
             Text(user.name)
                 .font(.system(.title3, design: .rounded).weight(.bold))
@@ -309,6 +330,24 @@ private struct ProfileHeader: View {
                 .foregroundColor(.white.opacity(0.7))
         }
         .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct StatColumn: View {
+    let title: String
+    let value: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+            Text(title)
+                .font(.system(.caption, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+        }
         .frame(maxWidth: .infinity)
     }
 }
