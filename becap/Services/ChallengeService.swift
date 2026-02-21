@@ -59,6 +59,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecParticipants = "participants"
     private let collecComments = "comments"
     private let collecChat = "chatMessages"
+    private var groupChatListeners: [String: ListenerRegistration] = [:]
 
     private init() {}
 }
@@ -697,8 +698,9 @@ extension ChallengeService {
             .document(challengeId)
             .collection(collecChat)
 
+        groupChatListeners[challengeId]?.remove()
 
-        _ = ref.order(by: "createdAt").addSnapshotListener { snapshot, error in
+        groupChatListeners[challengeId] = ref.order(by: "createdAt").addSnapshotListener { snapshot, error in
             guard let documents = snapshot?.documents else { return onUpdate([]) }
 
             let comments = documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
