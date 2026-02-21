@@ -786,6 +786,21 @@ extension ChallengeService {
         }
     }
 
+
+    func updateUserProfile(name: String, description: String) async throws {
+        guard let uid = Auth.auth().currentUser?.uid else { return }
+
+        let sanitizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let sanitizedDescription = description.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        try await firestoreDB.collection("users")
+            .document(uid)
+            .updateData([
+                "name": sanitizedName,
+                "profileDescription": sanitizedDescription
+            ])
+    }
+
     func addParticipatingChallenge(to userId: String, challengeId: String) async throws {
         let ref = firestoreDB.collection("users").document(userId)
 

@@ -64,6 +64,14 @@ struct ParticipantCardView: View {
                          : "Fait partie du défi")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundColor(participant.progress.isBlocked ? .red.opacity(0.7) : .white.opacity(0.7))
+
+                    if let profileDescription = participant.userProfileDescription,
+                       !profileDescription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Text(profileDescription)
+                            .font(.system(.footnote, design: .rounded))
+                            .foregroundColor(.white.opacity(0.75))
+                            .lineLimit(3)
+                    }
                 }
 
                 Spacer()

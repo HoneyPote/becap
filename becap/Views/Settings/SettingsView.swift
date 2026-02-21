@@ -27,6 +27,10 @@ struct SettingsView: View {
     @State private var isUploadingAvatar = false
     @State private var showingMedalsPopover = false
     @State private var showingSpecialChallengeAlert = false
+    @State private var profileDescriptionDraft = ""
+    @State private var profileNameDraft = ""
+    @State private var isSavingProfile = false
+    @State private var showingEditProfileSheet = false
 
     private let reportManager: ReportManagerProtocol = ReportManager.shared
 
@@ -126,6 +130,10 @@ struct SettingsView: View {
         }
         .task {
             try? await challengeManager.fetchAndFilterChallenges()
+            syncProfileDraftsFromCurrentUser()
+        }
+        .onChange(of: viewModel.currentUser?.id) { _ in
+            syncProfileDraftsFromCurrentUser()
         }
         .sheet(isPresented: $showReportSelector) {
             ReportChallengeSelectorView(
@@ -147,17 +155,39 @@ struct SettingsView: View {
                 onCancel: { cancelReport() }
             )
         }
+        .sheet(isPresented: $showingEditProfileSheet) {
+            ProfileEditSheet(name: $profileNameDraft,
+                             description: $profileDescriptionDraft,
+                             isSaving: $isSavingProfile,
+                             onCancel: { showingEditProfileSheet = false },
+                             onSave: {
+                                await saveProfileEdits()
+                             })
+        }
     }
 
     // MARK: - Header (wrapper)
 
     private func headerProfile(user: User) -> some View {
+        let totalPostsCount = challengeManager.posts
+            .values
+            .flatMap { $0 }
+            .filter { $0.authorUid == user.id }
+            .count
+
         ProfileHeader(
             user: user,
+            totalPostsCount: totalPostsCount,
+            followersCount: 0,
+            friendsCount: 0,
             avatarItem: $avatarItem,
             isUploading: $isUploadingAvatar,
             onAvatarPicked: { item in
                 Task { await handleAvatarSelection(item: item) }
+            },
+            onEditTapped: {
+                syncProfileDraftsFromCurrentUser()
+                showingEditProfileSheet = true
             }
         )
     }
@@ -248,6 +278,24 @@ struct SettingsView: View {
         }
     }
 
+    @MainActor
+    private func syncProfileDraftsFromCurrentUser() {
+        profileNameDraft = viewModel.currentUser?.name ?? ""
+        profileDescriptionDraft = viewModel.currentUser?.profileDescription ?? ""
+    }
+
+    @MainActor
+    private func saveProfileEdits() async {
+        guard !isSavingProfile else { return }
+
+        isSavingProfile = true
+        defer { isSavingProfile = false }
+
+        await viewModel.updateProfile(name: profileNameDraft, description: profileDescriptionDraft)
+        syncProfileDraftsFromCurrentUser()
+        showingEditProfileSheet = false
+    }
+
     private func submitReport(for challenge: Challenge, reason: ContentReportReason, details: String) {
         isSubmittingReport = true
         reportErrorMessage = nil
@@ -288,27 +336,127 @@ struct SettingsView: View {
 
 private struct ProfileHeader: View {
     let user: User
+    let totalPostsCount: Int
+    let followersCount: Int
+    let friendsCount: Int
     @Binding var avatarItem: PhotosPickerItem?
     @Binding var isUploading: Bool
     let onAvatarPicked: (PhotosPickerItem) -> Void
+    let onEditTapped: () -> Void
+
+    private var displayDescription: String {
+        let trimmedDescription = user.profileDescription?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return trimmedDescription.isEmpty ? "Aucune description" : trimmedDescription
+    }
 
     var body: some View {
-        VStack(spacing: 12) {
-            AvatarEditor(avatarUrl: user.photoURL,
-                         isUploading: isUploading,
-                         avatarItem: $avatarItem,
-                         onPicked: onAvatarPicked)
-            .frame(width: 88, height: 88)
+        HStack(alignment: .top, spacing: 16) {
+            VStack(spacing: 10) {
+                AvatarEditor(avatarUrl: user.photoURL,
+                             isUploading: isUploading,
+                             avatarItem: $avatarItem,
+                             onPicked: onAvatarPicked)
+                .frame(width: 88, height: 88)
 
-            Text(user.name)
-                .font(.system(.title3, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
+                VStack(spacing: 2) {
+                    Text(user.name)
+                        .font(.system(.subheadline, design: .rounded).weight(.bold))
+                        .foregroundColor(.white)
 
-            Text(user.email)
-                .font(.subheadline)
-                .foregroundColor(.white.opacity(0.7))
+                    Text(user.email)
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                        .multilineTextAlignment(.center)
+                }
+            }
+            .frame(width: 110)
+
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 20) {
+                    StatColumn(title: "Publications", value: totalPostsCount)
+                    StatColumn(title: "Followers", value: followersCount)
+                    StatColumn(title: "Amis", value: friendsCount)
+                }
+
+                Text(displayDescription)
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.75))
+                    .lineLimit(3)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                Button(action: onEditTapped) {
+                    Label("Edit", systemImage: "pencil")
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.white.opacity(0.16))
+                        .clipShape(Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ProfileEditSheet: View {
+    @Binding var name: String
+    @Binding var description: String
+    @Binding var isSaving: Bool
+    let onCancel: () -> Void
+    let onSave: () async -> Void
+
+    var body: some View {
+        NavigationView {
+            Form {
+                Section(header: Text("Profil")) {
+                    TextField("Prénom", text: $name)
+                        .textInputAutocapitalization(.words)
+
+                    TextField("Description", text: $description, axis: .vertical)
+                        .lineLimit(2...5)
+                        .textInputAutocapitalization(.sentences)
+                }
+            }
+            .navigationTitle("Modifier le profil")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Annuler", action: onCancel)
+                        .disabled(isSaving)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        Task { await onSave() }
+                    } label: {
+                        if isSaving {
+                            ProgressView()
+                        } else {
+                            Text("Enregistrer")
+                        }
+                    }
+                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+private struct StatColumn: View {
+    let title: String
+    let value: Int
+
+    var body: some View {
+        VStack(spacing: 4) {
+            Text("\(value)")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+            Text(title)
+                .font(.system(.caption, design: .rounded).weight(.semibold))
+                .foregroundColor(.white.opacity(0.75))
+                .multilineTextAlignment(.center)
+        }
         .frame(maxWidth: .infinity)
     }
 }
