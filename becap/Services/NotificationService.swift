@@ -234,6 +234,70 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
+    // MARK: - Group chat notifications
+    func sendGroupChatMessageNotification(challenge: Challenge,
+                                          senderName: String,
+                                          messageContent: String) async {
+        let selfUid = userManager.currentUser?.id
+        let externalIds = Array(Set(challenge.participantUids.filter { $0 != selfUid }))
+
+        if externalIds.isEmpty {
+            print("ℹ️ sendGroupChatMessageNotification ignoré: aucun destinataire")
+            return
+        }
+
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: externalIds)) ?? []
+        let headings = ["en": "New group message 💬", "fr": "Nouveau message de groupe 💬"]
+        let contents = ["en": "\(senderName): \(messageContent)",
+                        "fr": "\(senderName) : \(messageContent)"]
+
+        let deepLink = makeChallengeDeepLink(challengeId: challenge.id)
+        let additionalData: [String: Any] = [
+            "type": "group_chat_message",
+            "challengeId": challenge.id
+        ]
+
+        sendForUser(externalIds: externalIds,
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: externalIds.first ?? "",
+                    context: "sendGroupChatMessageNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
+    }
+
+    func sendGroupChatReactionNotification(challenge: Challenge,
+                                           messageOwnerId: String,
+                                           reactorName: String,
+                                           reaction: String) async {
+        guard !messageOwnerId.isEmpty else { return }
+        guard messageOwnerId != userManager.currentUser?.id else {
+            print("ℹ️ sendGroupChatReactionNotification ignoré: auto-notification")
+            return
+        }
+
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: [messageOwnerId], excludeCurrentUser: false)) ?? []
+        let headings = ["en": "New reaction in group chat", "fr": "Nouvelle réaction dans le chat"]
+        let contents = ["en": "\(reactorName) reacted \(reaction) to your message in \"\(challenge.title)\"",
+                        "fr": "\(reactorName) a réagi \(reaction) à ton message dans \"\(challenge.title)\""]
+
+        let deepLink = makeChallengeDeepLink(challengeId: challenge.id)
+        let additionalData: [String: Any] = [
+            "type": "group_chat_reaction",
+            "challengeId": challenge.id
+        ]
+
+        sendForUser(externalIds: [messageOwnerId],
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: messageOwnerId,
+                    context: "sendGroupChatReactionNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
+    }
+
     // MARK: - Firestore fetch
     func fetchOneSignalPushIds(userIds: [String], excludeCurrentUser: Bool = true) async throws -> [String] {
         var ids: [String] = []
