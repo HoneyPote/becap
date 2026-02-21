@@ -19,25 +19,9 @@ struct GroupChatView: View {
                 chatInput
                     .background(.thinMaterial)
             }
+            .background(chatBackground)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .onAppear { viewModel.onAppear() }
-            .background(
-                ZStack {
-                    // Filler: covers edges at any ratio
-                    Image("chat")
-                        .resizable()
-                        .scaledToFill()
-                        .blur(radius: 12)
-                        .ignoresSafeArea()
-
-                    Image("chat")
-                        .resizable()
-                        .scaledToFill()
-                        .scaleEffect(0.92, anchor: .center)
-                        .offset(x: -35, y: -35)
-                        .overlay(Color.black.opacity(0.25))
-                        .ignoresSafeArea()
-                }
-            )
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -56,6 +40,23 @@ struct GroupChatView: View {
                 }
             }
         }
+    }
+
+    private var chatBackground: some View {
+        ZStack {
+            Image("chat")
+                .resizable()
+                .scaledToFill()
+                .blur(radius: 10)
+                .ignoresSafeArea()
+
+            Image("chat")
+                .resizable()
+                .scaledToFill()
+                .overlay(Color.black.opacity(0.25))
+                .ignoresSafeArea()
+        }
+        .allowsHitTesting(false)
     }
 
     private var messageScrollView: some View {
