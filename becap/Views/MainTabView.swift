@@ -9,7 +9,7 @@ import SwiftUI
 import Combine
 
 struct MainView: View {
-    @StateObject private var viewModel: MainViewModel = MainViewModel()
+    @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -34,8 +34,8 @@ struct MainView: View {
                 }
             }
             .overlay {
-                if let medal = viewModel.medal {
-                    MedalPopupView(medal: medal, onDismiss: viewModel.dismissMedalPopup)
+                if !viewModel.medals.isEmpty {
+                    MedalPopupView(medals: viewModel.medals, onDismiss: viewModel.dismissMedalPopup)
                         .transition(.scale)
                 }
             }
