@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct GroupChatView: View {
     @Environment(\.dismiss) private var dismiss
@@ -122,17 +123,17 @@ struct GroupChatView: View {
                 .foregroundColor(.white)
 
 
-            Image(systemName: "paperplane.fill")
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundColor(.white)
-                .frame(width: 44, height: 44)
-                .background(
-                    Circle().fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
-                )
-                .onTapGesture {
-                    sendMessage()
-                }
-                .disabled(isSendDisabled)
+            Button(action: sendMessage) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(width: 44, height: 44)
+                    .background(
+                        Circle().fill(Color.white.opacity(isSendDisabled ? 0.15 : 0.28))
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(isSendDisabled)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -147,6 +148,7 @@ struct GroupChatView: View {
         guard !trimmed.isEmpty else { return }
 
         isInputFocused = false
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
         messageDraft = ""
         viewModel.sendChatMessage(content: trimmed)
     }
