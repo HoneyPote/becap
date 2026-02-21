@@ -175,7 +175,7 @@ struct SettingsView: View {
             .filter { $0.authorUid == user.id }
             .count
 
-        ProfileHeader(
+        return ProfileHeader(
             user: user,
             totalPostsCount: totalPostsCount,
             followersCount: 0,
