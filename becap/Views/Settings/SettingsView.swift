@@ -392,7 +392,7 @@ private struct ProfileHeader: View {
                 .frame(maxWidth: .infinity)
                 .frame(height: 56) // ✅ hauteur fixe = tout s'aligne
 
-                Spacer(minLength: 10) // ✅ pousse la description vers le bas
+               
 
                 Text(displayDescription)
                     .font(.system(.footnote, design: .rounded))
