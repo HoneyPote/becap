@@ -145,6 +145,8 @@ struct GroupChatView: View {
     private func sendMessage() {
         let trimmed = messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        isInputFocused = false
         messageDraft = ""
         viewModel.sendChatMessage(content: trimmed)
     }
