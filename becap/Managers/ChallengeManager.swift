@@ -26,6 +26,7 @@ protocol ChallengeManagerProtocol {
     func fetchDailyPrompt(challengeId: String, date: Date) async -> DailyPrompt?
     func hasSeenDailyPrompt(challengeId: String, date: Date) async -> Bool
     func markDailyPromptAsSeen(challengeId: String, date: Date) async
+    
 
     // Posts
     func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
@@ -948,5 +949,32 @@ extension ChallengeManager {
                 }
             }
             .store(in: &cancellables)
+    }
+}
+
+private extension ChallengeManager {
+    func dailyPromptKeys(for date: Date) -> [String] {
+        let localKey = dailyPromptDateFormatter.string(from: date)
+        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
+        if localKey == utcKey { return [localKey] }
+        return [localKey, utcKey]
+    }
+    func dailySeenKey(for date: Date) -> String {
+          dailyPromptDateFormatter.string(from: date)
+      }
+
+    func fallbackPrompt(challengeId: String, date: Date) -> DailyPrompt {
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let seedString = "\(challengeId)_\(dayKey)"
+        let seed = abs(seedString.unicodeScalars.reduce(0) { partial, scalar in
+            partial &* 31 &+ Int(scalar.value)
+        })
+
+        let useAnimals = seed % 2 == 0
+        let words = useAnimals ? animalFallbackWords : plantFallbackWords
+        let index = words.isEmpty ? 0 : seed % words.count
+        let word = words.isEmpty ? "Panda" : words[index]
+
+        return DailyPrompt(word: word, theme: useAnimals ? "Animaux" : "Plantes")
     }
 }
