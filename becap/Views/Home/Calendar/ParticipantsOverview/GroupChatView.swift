@@ -13,31 +13,31 @@ struct GroupChatView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                messageScrollView
-
-                chatInput
-                    .background(.thinMaterial)
-            }
-            .onAppear { viewModel.onAppear() }
-            .background(
+            ZStack {
                 ZStack {
-                    // Filler: covers edges at any ratio
                     Image("chat")
                         .resizable()
                         .scaledToFill()
-                        .blur(radius: 12)
+                        .blur(radius: 10)
                         .ignoresSafeArea()
 
                     Image("chat")
                         .resizable()
                         .scaledToFill()
-                        .scaleEffect(0.92, anchor: .center)
-                        .offset(x: -35, y: -35)
                         .overlay(Color.black.opacity(0.25))
                         .ignoresSafeArea()
                 }
-            )
+                .allowsHitTesting(false)
+
+                VStack(spacing: 0) {
+                    messageScrollView
+
+                    chatInput
+                        .background(.thinMaterial)
+                }
+            }
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            .onAppear { viewModel.onAppear() }
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
