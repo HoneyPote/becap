@@ -383,12 +383,16 @@ private struct ProfileHeader: View {
             .frame(width: 110)
 
             VStack(alignment: .leading, spacing: 12) {
+
                 HStack(spacing: 0) {
-                    StatColumn(title: "Publications", value: totalPostsCount)
+                    StatColumn(title: "Photos", value: totalPostsCount)
                     StatColumn(title: "Followers", value: followersCount)
                     StatColumn(title: "Amis", value: friendsCount)
                 }
                 .frame(maxWidth: .infinity)
+                .frame(height: 56) // ✅ hauteur fixe = tout s'aligne
+
+                Spacer(minLength: 10) // ✅ pousse la description vers le bas
 
                 Text(displayDescription)
                     .font(.system(.footnote, design: .rounded))
@@ -397,6 +401,7 @@ private struct ProfileHeader: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(minHeight: 120)
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
