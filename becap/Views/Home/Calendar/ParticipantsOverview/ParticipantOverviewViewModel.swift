@@ -125,6 +125,16 @@ class ParticipantOverviewViewModel: ObservableObject {
 
         Task {
             do {
+                if challenge.participantUids.count == 1,
+                   challenge.participantUids.contains(currentUserId) {
+                    try await challengeManager.deleteChallenge(challenge.id)
+
+                    await MainActor.run {
+                        completion(true)
+                    }
+                    return
+                }
+
                 try await challengeManager.removeParticipant(challenge.id, userId: currentUserId)
 
                 await MainActor.run {

@@ -1,79 +1,100 @@
-//
-//  DefiCell.swift
-//  becap
-//
-//  Created by Adam Mabrouki on 16/07/2025.
-//
-
 import SwiftUI
 
 struct DefiCell: View {
     let challenge: Challenge
-    let onQuit: () -> Void
     let onReport: () -> Void
 
+    private let corner: CGFloat = 18
+
+    private var participantsCount: Int { challenge.participantUids.count }
+
+    private var challengeTypeImageName: String {
+        switch challenge.category {
+        case .sport: return "sportDefiCell"
+        case .dessin: return "drawDefiCell"
+        case .nourriture: return "foodDefiCell"
+        case .lecture: return "BookDefiCell"
+        case .course: return "iphone_wallpaper_duo_run"
+        case .autre, .none: return "foodDefiCell"
+        }
+    }
+
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(
+        let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
+
+        ZStack(alignment: .bottomLeading) {
+            // ✅ Background image + gradient
+            Image(challengeTypeImageName)
+                .resizable()
+                .scaledToFill()
+                .overlay(
                     LinearGradient(
-                        colors: [
-                            Color(red: 0.97, green: 0.97, blue: 0.98), // #F7F8FA
-                            Color(red: 0.93, green: 0.94, blue: 0.95)  // #ECEEF1
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+                        colors: [.black.opacity(0.05), .black.opacity(0.15)],
+                        startPoint: .top,
+                        endPoint: .bottom
                     )
                 )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(Color.white.opacity(0.3), lineWidth: 1)
-                )
-                .shadow(color: Color.black.opacity(0.25), radius: 6, x: 0, y: 5)
-                .opacity(0.96)
 
-            VStack(spacing: 8) {
-                Text(challenge.title)
-                    .font(.headline)
-                    .foregroundColor(.gray)
-                    .multilineTextAlignment(.center)
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.7)
-
-                Text("\(challenge.participantUids.count) participant(s)")
-                    .font(.caption)
-                    .foregroundColor(.gray)
-
-                HStack {
-                    Text(challenge.status.rawValue)
-                        .font(.caption.bold())
+            // ✅ Content
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(alignment: .top) {
+                    Text(challenge.title)
+                        .font(.system(.subheadline, design: .rounded).weight(.heavy))
                         .foregroundColor(.white)
-                }
-                .frame(maxWidth: .infinity)
-                .background(challenge.status == .active
-                            ? Color(red: 0.55, green: 0.82, blue: 0.61)
-                            : Color(red: 1.0, green: 0.71, blue: 0.81))
-                .cornerRadius(10)
-            }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 40)
-        }
-        .frame(height: 100)
-        .contentShape(RoundedRectangle(cornerRadius: 18))
-        .buttonStyle(PlainButtonStyle())
-        .contextMenu {
-            Button(role: .destructive) {
-                onQuit()
-            } label: {
-                Label("Quitter le défi", systemImage: "trash")
-            }
+                        .lineLimit(2)
+                        .minimumScaleFactor(0.85)
 
-            Button {
-                onReport()
-            } label: {
+                    Spacer(minLength: 8)
+
+                    statusBadge
+                }
+
+                Spacer(minLength: 0)
+
+                HStack(spacing: 8) {
+                    Image(systemName: "person.2.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundColor(.white.opacity(0.95))
+
+                    Text("\(participantsCount) participant\(participantsCount > 1 ? "s" : "")")
+                        .font(.system(.caption, design: .rounded).weight(.semibold))
+                        .foregroundColor(.white.opacity(0.95))
+
+                    Spacer()
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.black.opacity(0.22), in: Capsule())
+            }
+            .padding(10)
+        }
+        .frame(height: 170)
+        .clipShape(shape) 
+        .overlay(
+            shape.stroke(.white.opacity(0.22), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.24), radius: 8, x: 0, y: 5)
+        .contentShape(shape) // ✅ hitbox arrondie
+        .contextMenu {
+            Button { onReport() } label: {
                 Label("Signaler", systemImage: "exclamationmark.bubble")
             }
         }
         .padding(4)
+        .buttonStyle(.plain)
+    }
+
+    private var statusBadge: some View {
+        Text(challenge.status.rawValue)
+            .font(.system(size: 11, weight: .bold, design: .rounded))
+            .foregroundColor(.white)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(
+                challenge.status == .active
+                ? Color(red: 0.25, green: 0.77, blue: 0.48)
+                : Color(red: 0.61, green: 0.65, blue: 0.75)
+            )
+            .clipShape(Capsule())
     }
 }

@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var avatarItem: PhotosPickerItem?
     @State private var isUploadingAvatar = false
     @State private var showingMedalsPopover = false
+    @State private var showingSpecialChallengeAlert = false
 
     private let reportManager: ReportManagerProtocol = ReportManager.shared
 
@@ -171,16 +172,25 @@ struct SettingsView: View {
             MedalTriggerRow(
                 medalCount: medals.count,
                 participantName: viewModel.currentUser?.name ?? "Vous",
+                progress: nil,
+                challenge: nil,
                 onTap: {
                     if !sorted.isEmpty { showingMedalsPopover = true }
                 }
             )
             .popover(isPresented: $showingMedalsPopover, arrowEdge: .top) {
-                MedalBubbleView(medals: sorted)
+                SettingsMedalView(medals: sorted,
+                                  challenges: challengeManager.challenges,
+                                  onUnlockSpecialChallenge: { showingSpecialChallengeAlert = true })
             }
         }
         .onChange(of: medals.count) { count in
             if count == 0 { showingMedalsPopover = false }
+        }
+        .alert("Défi spécial débloqué !", isPresented: $showingSpecialChallengeAlert) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Bravo ! Un défi spécial est maintenant disponible. Restez connectés, il arrive bientôt.")
         }
     }
 
@@ -378,4 +388,3 @@ private struct AvatarCircle: View {
         }
     }
 }
-

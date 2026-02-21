@@ -8,8 +8,8 @@
 import SwiftUI
 import Combine
 
-class MainViewModel: ObservableObject {
-    @Published var medal: UserMedal?
+    @Published var medals: [UserMedal] = []
+class MainTabViewModel: ObservableObject {
     @Published var infosDoneFetching: Bool = false
 
     private let challengeManager: ChallengeManager
@@ -62,10 +62,10 @@ class MainViewModel: ObservableObject {
 // MARK: - Observers
 extension MainViewModel {
     private func observeMedals() {
-        alertManager.$currentMedal
+        alertManager.$currentMedals
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] currentMedal in
-                self?.medal = currentMedal
+            .sink { [weak self] currentMedals in
+                self?.medals = currentMedals
             }
             .store(in: &cancellables)
     }

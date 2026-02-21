@@ -14,6 +14,7 @@ struct CalendarMonthGrid: View {
     let selectedDate: Date?
     let postCountByDay: [Date: Int]
     let jokerCountByDay: [Date: Int]
+    let validatedDays: Set<Date>
     let currentUserJokerDays: Set<Date>
     let onSelectDate: (Date) -> Void
 
@@ -27,6 +28,7 @@ struct CalendarMonthGrid: View {
          selectedDate: Date?,
          postCountByDay: [Date: Int],
          jokerCountByDay: [Date: Int],
+         validatedDays: Set<Date>,
          currentUserJokerDays: Set<Date>,
          onSelectDate: @escaping (Date) -> Void) {
         self.startDate = startDate
@@ -34,6 +36,7 @@ struct CalendarMonthGrid: View {
         self.selectedDate = selectedDate
         self.postCountByDay = postCountByDay
         self.jokerCountByDay = jokerCountByDay
+        self.validatedDays = validatedDays
         self.currentUserJokerDays = currentUserJokerDays
         self.onSelectDate = onSelectDate
 
@@ -102,10 +105,12 @@ struct CalendarMonthGrid: View {
 
             let currentUserUsedJoker = currentUserJokerDays.contains(day)
             let isSelected = selectedDate.map { calendar.isDate($0, inSameDayAs: day) } ?? false
+            let isValidated = validatedDays.contains(day)
 
             DayCell(date: day,
                     dayNumber: item.dayNumber,
                     currentUserUsedJoker: currentUserUsedJoker,
+                    isValidated: isValidated,
                     isToday: calendar.isDateInToday(day),
                     isSelected: isSelected) {
                 if hasPosts || hasJokerUsage {
@@ -197,4 +202,3 @@ struct CalendarMonthGrid: View {
         var id: Int { dayNumber }
     }
 }
-

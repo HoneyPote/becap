@@ -177,14 +177,13 @@ struct HomeView: View {
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
                 ForEach(viewModel.challenges) { challenge in
                     NavigationLink(destination: {
                         CalendarDetailView(challenge: challenge)
                             .onDisappear { viewModel.refreshChallenges() }
                     }) {
                         DefiCell(challenge: challenge,
-                                 onQuit: { viewModel.confirmQuit(challenge) },
                                  onReport: { viewModel.presentReport(for: challenge) })
                     }
                 }
@@ -330,6 +329,6 @@ extension HomeView {
 
 private extension HomeView {
     var homeBackgroundImageName: String {
-        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "epicPic"
+        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "homeWallPaper"
     }
 }

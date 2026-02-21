@@ -66,6 +66,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecChat = "chatMessages"
     private let collecDailyPrompts = "dailyPrompts"
     private let collecSeenPrompts = "seenPrompts"
+    private var groupChatListeners: [String: ListenerRegistration] = [:]
 
     private init() {}
 }
@@ -550,7 +551,11 @@ extension ChallengeService {
             .order(by: "createdAt", descending: false)
             .getDocuments()
 
-        return snapshot.documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
+        return snapshot.documents.compactMap { document in
+            guard var message = try? document.data(as: ChallengeChatMessage.self) else { return nil }
+            message.documentId = document.documentID
+            return message
+        }
     }
 
     func addChatMessage(_ message: ChallengeChatMessage, to challengeId: String) async throws {
@@ -757,11 +762,20 @@ extension ChallengeService {
             .document(challengeId)
             .collection(collecChat)
 
+        groupChatListeners[challengeId]?.remove()
 
-        _ = ref.order(by: "createdAt").addSnapshotListener { snapshot, error in
+        groupChatListeners[challengeId] = ref.order(by: "createdAt").addSnapshotListener { snapshot, error in
+            if let error {
+                print("❌ Failed to listen group chat: \(error)")
+            }
+
             guard let documents = snapshot?.documents else { return onUpdate([]) }
 
-            let comments = documents.compactMap { try? $0.data(as: ChallengeChatMessage.self) }
+            let comments = documents.compactMap { document -> ChallengeChatMessage? in
+                guard var message = try? document.data(as: ChallengeChatMessage.self) else { return nil }
+                message.documentId = document.documentID
+                return message
+            }
 
             onUpdate(comments)
         }
