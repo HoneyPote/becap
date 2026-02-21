@@ -10,6 +10,7 @@ import Combine
 
     @Published var medals: [UserMedal] = []
 class MainTabViewModel: ObservableObject {
+    @Published var medals: [UserMedal] = []
     @Published var infosDoneFetching: Bool = false
 
     private let challengeManager: ChallengeManager

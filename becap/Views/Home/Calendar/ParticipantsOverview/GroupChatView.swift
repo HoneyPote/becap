@@ -15,7 +15,9 @@ struct GroupChatView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 messageScrollView
-
+            }
+            .background(chatBackground)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
                 chatInput
                     .background(.thinMaterial)
             }
@@ -145,6 +147,8 @@ struct GroupChatView: View {
     private func sendMessage() {
         let trimmed = messageDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
+
+        isInputFocused = false
         messageDraft = ""
         viewModel.sendChatMessage(content: trimmed)
     }

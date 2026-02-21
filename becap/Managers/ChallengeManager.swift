@@ -334,6 +334,12 @@ extension ChallengeManager {
                                            reactions: [:])
 
         try await challengeService.addChatMessage(message, to: challengeId)
+
+        if let challenge = challenges.first(where: { $0.id == challengeId }) {
+            await notificationService.sendGroupChatMessageNotification(challenge: challenge,
+                                                                       senderName: currentUser.name,
+                                                                       messageContent: trimmedContent)
+        }
     }
 
     func markChatAsRead(for challengeId: String) {
@@ -359,6 +365,16 @@ extension ChallengeManager {
 
         try await challengeService.addReaction(reaction, to: messageId, in: challengeId, userId: userId)
         await awardSocialMedalIfNeeded(type: .firstReaction, challengeId: challengeId)
+
+        guard message.senderId != userId,
+              let challenge = challenges.first(where: { $0.id == challengeId }),
+              let reactorName = currentUser?.name
+        else { return }
+
+        await notificationService.sendGroupChatReactionNotification(challenge: challenge,
+                                                                    messageOwnerId: message.senderId,
+                                                                    reactorName: reactorName,
+                                                                    reaction: reaction)
     }
 
     func removeChatReaction(_ reaction: String,
@@ -905,34 +921,6 @@ extension ChallengeManager {
         }
 
         NotificationManager.shared.scheduleDailyNotifications(for: challenge, config: config)
-    }
-}
-
-private extension ChallengeManager {
-    func dailyPromptKeys(for date: Date) -> [String] {
-        let localKey = dailyPromptDateFormatter.string(from: date)
-        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
-        if localKey == utcKey { return [localKey] }
-        return [localKey, utcKey]
-    }
-
-    func dailySeenKey(for date: Date) -> String {
-        dailyPromptDateFormatter.string(from: date)
-    }
-
-    func fallbackPrompt(challengeId: String, date: Date) -> DailyPrompt {
-        let dayKey = dailyPromptDateFormatter.string(from: date)
-        let seedString = "\(challengeId)_\(dayKey)"
-        let seed = abs(seedString.unicodeScalars.reduce(0) { partial, scalar in
-            partial &* 31 &+ Int(scalar.value)
-        })
-
-        let useAnimals = seed % 2 == 0
-        let words = useAnimals ? animalFallbackWords : plantFallbackWords
-        let index = words.isEmpty ? 0 : seed % words.count
-        let word = words.isEmpty ? "Panda" : words[index]
-
-        return DailyPrompt(word: word, theme: useAnimals ? "Animaux" : "Plantes")
     }
 }
 
