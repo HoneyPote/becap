@@ -275,7 +275,7 @@ extension ChallengeManager {
         do {
             return try await challengeService.hasSeenDailyPrompt(userId: currentUserId,
                                                                  challengeId: challengeId,
-                                                                 dateKeys: dailyPromptKeys(for: date))
+                                                                 dateKeys: [dailySeenKey(for: date)])
         } catch {
             print("❌ hasSeenDailyPrompt manager error: \(error)")
             return false
@@ -288,7 +288,7 @@ extension ChallengeManager {
         do {
             try await challengeService.markDailyPromptAsSeen(userId: currentUserId,
                                                              challengeId: challengeId,
-                                                             dateKeys: dailyPromptKeys(for: date))
+                                                             dateKeys: [dailySeenKey(for: date)])
         } catch {
             print("❌ markDailyPromptAsSeen manager error: \(error)")
         }
@@ -847,6 +847,10 @@ private extension ChallengeManager {
         let utcKey = dailyPromptUTCDateFormatter.string(from: date)
         if localKey == utcKey { return [localKey] }
         return [localKey, utcKey]
+    }
+
+    func dailySeenKey(for date: Date) -> String {
+        dailyPromptDateFormatter.string(from: date)
     }
 
     func fallbackPrompt(challengeId: String, date: Date) -> DailyPrompt {
