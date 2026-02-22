@@ -14,16 +14,21 @@ final class SettingsViewModel: ObservableObject {
     @Published var signoutError: String? = nil
     @Published var isDeletingAccount = false
     @Published var accountDeletionError: String?
+    @Published var totalPostsCount = 0
+    @Published var friendsCount = 0
 
     private var cancellables = Set<AnyCancellable>()
 
     private let accountManager: AccountManagerProtocol
     private let userManager: UserManager
+    private let challengeService: ChallengeService
 
     init(userManager: UserManager = UserManager.shared,
-         accountManager: AccountManagerProtocol = AccountManager()) {
+         accountManager: AccountManagerProtocol = AccountManager(),
+         challengeService: ChallengeService = ChallengeService.shared) {
         self.userManager = userManager
         self.accountManager = accountManager
+        self.challengeService = challengeService
         self.currentUser = userManager.currentUser
 
         observeCurrentUser()
@@ -68,6 +73,55 @@ final class SettingsViewModel: ObservableObject {
             await reloadUser()
         } catch {
             print("❌ update profile error: \(error)")
+        }
+    }
+
+
+
+    @MainActor
+    func refreshProfileStats(challenges: [Challenge]) async {
+        guard let currentUserId = currentUser?.id else {
+            totalPostsCount = 0
+            friendsCount = 0
+            return
+        }
+
+        let userChallenges = challenges.filter {
+            $0.creatorUID == currentUserId || $0.participantUids.contains(currentUserId)
+        }
+
+        let computedFriends = Set(
+            userChallenges
+                .flatMap(\.participantUids)
+                .filter { $0 != currentUserId }
+        )
+        friendsCount = computedFriends.count
+
+        guard !userChallenges.isEmpty else {
+            totalPostsCount = 0
+            return
+        }
+
+        do {
+            let postCount = try await withThrowingTaskGroup(of: Int.self) { group in
+                for challenge in userChallenges {
+                    group.addTask {
+                        let posts = try await self.challengeService.fetchPosts(for: challenge.id)
+                        return posts.filter { $0.authorUid == currentUserId }.count
+                    }
+                }
+
+                var total = 0
+                for try await count in group {
+                    total += count
+                }
+                return total
+            }
+
+            totalPostsCount = postCount
+        } catch {
+            print("❌ Impossible de charger les photos du profil: \(error)")
+            totalPostsCount = 0
         }
     }
 

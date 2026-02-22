@@ -131,9 +131,14 @@ struct SettingsView: View {
         .task {
             try? await challengeManager.fetchAndFilterChallenges()
             syncProfileDraftsFromCurrentUser()
+            await viewModel.refreshProfileStats(challenges: challengeManager.challenges)
         }
         .onChange(of: viewModel.currentUser?.id) { _ in
             syncProfileDraftsFromCurrentUser()
+            Task { await viewModel.refreshProfileStats(challenges: challengeManager.challenges) }
+        }
+        .onChange(of: challengeManager.challenges.map(\.id).joined(separator: "|")) { _ in
+            Task { await viewModel.refreshProfileStats(challenges: challengeManager.challenges) }
         }
         .sheet(isPresented: $showReportSelector) {
             ReportChallengeSelectorView(
@@ -169,17 +174,11 @@ struct SettingsView: View {
     // MARK: - Header (wrapper)
 
     private func headerProfile(user: User) -> some View {
-        let totalPostsCount = challengeManager.posts
-            .values
-            .flatMap { $0 }
-            .filter { $0.authorUid == user.id }
-            .count
-
         return ProfileHeader(
             user: user,
-            totalPostsCount: totalPostsCount,
+            totalPostsCount: viewModel.totalPostsCount,
             followersCount: 0,
-            friendsCount: 0,
+            friendsCount: viewModel.friendsCount,
             avatarItem: $avatarItem,
             isUploading: $isUploadingAvatar,
             onAvatarPicked: { item in
