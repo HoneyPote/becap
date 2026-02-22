@@ -341,6 +341,11 @@ struct CalendarDetailView: View {
         let date = cell.date
         inlineDailyPromptWord = nil
 
+        let today = startOfDay(Date())
+        guard startOfDay(date) <= today else {
+            return
+        }
+
         Task {
             let prompt = await viewModel.fetchDailyPrompt(for: date)
             let sanitizedWord = prompt?.word.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
