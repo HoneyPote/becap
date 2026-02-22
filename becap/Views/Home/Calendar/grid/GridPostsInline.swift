@@ -10,6 +10,7 @@ import SwiftUI
 // TODO: Découper vue
 struct GridPostsInline: View {
     let cell: CalendarDetailCell
+    let dailyPromptWord: String?
     let getParticipant: (String) -> ParticipantUIModel?
     let onClose: () -> Void
     let onOpenPager: (PagerInfo) -> Void
@@ -52,6 +53,23 @@ struct GridPostsInline: View {
 
             ScrollView {
                 VStack {
+                    if let dailyPromptWord,
+                       !dailyPromptWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Mot du jour ✍️")
+                                .font(.system(.headline, design: .rounded).weight(.semibold))
+                                .foregroundColor(.white)
+
+                            Text(dailyPromptWord)
+                                .font(.system(.title3, design: .rounded).weight(.heavy))
+                                .foregroundColor(.white)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(Color.white.opacity(0.08))
+                        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    }
+
                     if postsSorted.isEmpty {
                         Text("Aucun post partagé ce jour.")
                             .font(.system(.callout, design: .rounded))
@@ -168,4 +186,3 @@ private struct JokerUsageRow: View {
         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
     }
 }
-
