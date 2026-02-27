@@ -211,9 +211,7 @@ struct HomeView: View {
                     NavigationLink {
                         CreateBecapChallengeView(type: becapChallenge.type)
                     } label: {
-                        DefiCell(challenge: becapChallenge.base,
-                                 onQuit: {},
-                                 onReport: {})
+                        DefiCell(challenge: becapChallenge.base, onReport: {})
                     }
                 }
                 ForEach(viewModel.becapChallenges) { becapChallenge in
@@ -221,9 +219,7 @@ struct HomeView: View {
                         CalendarDetailView(challenge: becapChallenge.base)
                             .onDisappear { viewModel.refreshChallenges() }
                     } label: {
-                        DefiCell(challenge: becapChallenge.base,
-                                 onQuit: {},
-                                 onReport: {})
+                        DefiCell(challenge: becapChallenge.base, onReport: {})
                     }
                 }
             }

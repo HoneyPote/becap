@@ -63,6 +63,7 @@ final class ChallengeService: ChallengeServiceProtocol {
     private let collecParticipants = "participants"
     private let collecComments = "comments"
     private let collecChat = "chatMessages"
+    private let collecBecapData = "becapData"
     private var groupChatListeners: [String: ListenerRegistration] = [:]
 
     private init() {}
