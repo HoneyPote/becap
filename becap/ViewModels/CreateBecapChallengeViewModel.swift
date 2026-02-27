@@ -25,7 +25,7 @@ class CreateBecapChallengeViewModel: ObservableObject {
 
     var challengeName: String {
         switch type {
-        case .gainage:
+        case .plank:
             "Gainage"
         case .reading:
             "Lecture"
@@ -36,7 +36,7 @@ class CreateBecapChallengeViewModel: ObservableObject {
 
     var challengeCategory: ChallengeCategory {
         switch type {
-        case .gainage: .sport
+        case .plank: .sport
         case .reading: .reading
         case .food: .food
         }

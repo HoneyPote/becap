@@ -28,16 +28,16 @@ class HomeViewModel: ObservableObject {
 
     private func loadBecapChallenges() {
         // Base Challenge commun (mock)
-        let baseGainage = Challenge(title: "Créer gainage quotidien",
-                                    duration: 30,
-                                    startDate: Date(),
-                                    creatorUID: "becap",
-                                    adminUids: [],
-                                    participantUids: [],
-                                    category: .sport,
-                                    defaultNotificationsConfig: [480],
-                                    code: nil,
-                                    jokerConfiguration: 0)
+        let basePlank = Challenge(title: "Créer gainage quotidien",
+                                  duration: 30,
+                                  startDate: Date(),
+                                  creatorUID: "becap",
+                                  adminUids: [],
+                                  participantUids: [],
+                                  category: .sport,
+                                  defaultNotificationsConfig: [480],
+                                  code: nil,
+                                  jokerConfiguration: 0)
 
         let baseLecture = Challenge(title: "Créer lecture quotidienne",
                                     duration: 21,
@@ -63,11 +63,11 @@ class HomeViewModel: ObservableObject {
 
         createBecapChallenges = [
             BecapChallenge(
-                base: baseGainage,
+                base: basePlank,
                 becapData: BecapChallengeData(
                     challengeId: "1",
-                    type: .gainage,
-                    configuration: .gainage(GainageConfig(secondsPerDay: 60)),
+                    type: .plank,
+                    configuration: .plank(PlankConfig(secondsPerDay: 60)),
                 )
             ),
             BecapChallenge(

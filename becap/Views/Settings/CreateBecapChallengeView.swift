@@ -128,9 +128,9 @@ struct CreateBecapChallengeView: View {
     @ViewBuilder
     private var configurationSection: some View {
         switch viewModel.becapConfiguration {
-        case .gainage(let config):
-            GainageConfigurationView(config: config,
-                                     onChange: { viewModel.becapConfiguration = .gainage($0) })
+        case .plank(let config):
+            PlankConfigurationView(config: config,
+                                   onChange: { viewModel.becapConfiguration = .plank($0) })
 
         case .reading(let config):
             ReadingConfigurationView(config: config,
@@ -315,13 +315,13 @@ extension CreateBecapChallengeView {
     }
 }
 
-struct GainageConfigurationView: View {
-    let config: GainageConfig
-    let onChange: (GainageConfig) -> Void
+struct PlankConfigurationView: View {
+    let config: PlankConfig
+    let onChange: (PlankConfig) -> Void
 
     @State private var seconds: Int
 
-    init(config: GainageConfig, onChange: @escaping (GainageConfig) -> Void) {
+    init(config: PlankConfig, onChange: @escaping (PlankConfig) -> Void) {
         self.config = config
         self.onChange = onChange
         _seconds = State(initialValue: config.secondsPerDay)
@@ -336,7 +336,7 @@ struct GainageConfigurationView: View {
                 Text("\(seconds) secondes")
             }
             .onChange(of: seconds) { seconds in
-                onChange(GainageConfig(secondsPerDay: seconds))
+                onChange(PlankConfig(secondsPerDay: seconds))
             }
         }
     }

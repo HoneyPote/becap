@@ -160,14 +160,14 @@ struct BecapChallengeData: Codable {
 }
 
 enum BecapChallengeType: String, Codable {
-    case gainage
+    case plank
     case reading
     case food
 
     var defaultConfiguration: BecapChallengeConfiguration {
         switch self {
-        case .gainage:
-            return .gainage(GainageConfig(secondsPerDay: 60))
+        case .plank:
+            return .plank(PlankConfig(secondsPerDay: 60))
 
         case .reading:
             return .reading(ReadingConfig(pagesPerDay: 10))
@@ -179,7 +179,7 @@ enum BecapChallengeType: String, Codable {
 }
 
 enum BecapChallengeConfiguration: Hashable {
-    case gainage(GainageConfig)
+    case plank(PlankConfig)
     case reading(ReadingConfig)
     case food(FoodConfig)
 
@@ -189,14 +189,14 @@ enum BecapChallengeConfiguration: Hashable {
     }
 
     enum ConfigType: String, Codable {
-        case gainage
+        case plank
         case reading
         case food
     }
 
     var displayName: String {
         switch self {
-        case .gainage: return "Gainage"
+        case .plank: return "Gainage"
         case .reading: return "Lecture"
         case .food: return "Nourriture"
         }
@@ -209,9 +209,9 @@ extension BecapChallengeConfiguration: Codable {
         let type = try container.decode(ConfigType.self, forKey: .type)
 
         switch type {
-        case .gainage:
-            let config = try container.decode(GainageConfig.self, forKey: .config)
-            self = .gainage(config)
+        case .plank:
+            let config = try container.decode(PlankConfig.self, forKey: .config)
+            self = .plank(config)
 
         case .reading:
             let config = try container.decode(ReadingConfig.self, forKey: .config)
@@ -227,8 +227,8 @@ extension BecapChallengeConfiguration: Codable {
         var container = encoder.container(keyedBy: CodingKeys.self)
 
         switch self {
-        case .gainage(let config):
-            try container.encode(ConfigType.gainage, forKey: .type)
+        case .plank(let config):
+            try container.encode(ConfigType.plank, forKey: .type)
             try container.encode(config, forKey: .config)
 
         case .reading(let config):
@@ -242,7 +242,7 @@ extension BecapChallengeConfiguration: Codable {
     }
 }
 
-struct GainageConfig: Codable, Hashable {
+struct PlankConfig: Codable, Hashable {
     var secondsPerDay: Int
 }
 

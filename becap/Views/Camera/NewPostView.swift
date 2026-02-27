@@ -208,8 +208,8 @@ struct NewPostView: View {
                 )
             }
             .buttonStyle(PressableButtonStyle())
-            .disabled(viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil)
-            .opacity((viewModel.isUploadingPost || viewModel.selectedChallenge == nil || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
+            .disabled(viewModel.isUploadingPost || viewModel.selectedMedia == nil)
+            .opacity((viewModel.isUploadingPost || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
         }
         .padding(4)
     }

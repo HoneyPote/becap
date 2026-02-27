@@ -58,7 +58,7 @@ class NewPostViewModel: ObservableObject {
         Task {
             do {
                 try await challengeManager.sendPostAndNotify(media: media,
-                                                             challenge: challenge,
+                                                             challenge: currentChallenge,
                                                              descriptionText: descriptionText,
                                                              progressHandler: { [weak self] progress in
                                                                  DispatchQueue.main.async {
@@ -120,7 +120,7 @@ class NewPostViewModel: ObservableObject {
         generator.notificationOccurred(.success)
     }
 
-    private var uploadDurationLabel: String? {
+    var uploadDurationLabel: String? {
         guard case .video(let data) = selectedMedia else { return nil }
         let asset = AVAsset(url: data.url)
         let durationSeconds = asset.duration.seconds
@@ -129,5 +129,4 @@ class NewPostViewModel: ObservableObject {
         let seconds = Int(durationSeconds) % 60
         return String(format: "%02d:%02d", minutes, seconds)
     }
-}
 }
