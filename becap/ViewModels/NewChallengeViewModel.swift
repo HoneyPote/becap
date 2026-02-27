@@ -13,7 +13,7 @@ class NewChallengeViewModel: ObservableObject {
     @Published var duration: Int = defaultDuration {
         didSet { updateSuggestedJokersIfNeeded() }
     }
-    @Published var category: ChallengeCategory = .autre
+    @Published var category: ChallengeCategory = .other
     @Published var notificationTimes: [NotificationTime] = []
     @Published var isLoading: Bool = false
     @Published var jokersNumber: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {

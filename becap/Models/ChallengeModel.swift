@@ -10,22 +10,22 @@ import FirebaseFirestore
 
 enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     case sport
-    case dessin
-    case nourriture
-    case course
-    case lecture
-    case autre
+    case drawing
+    case food
+    case running
+    case reading
+    case other
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
         case .sport: return "Sport"
-        case .dessin: return "Dessin"
-        case .nourriture: return "Nourriture"
-        case .course: return "Course à pied"
-        case .lecture: return "Lecture"
-        case .autre: return "Autre"
+        case .drawing: return "Dessin"
+        case .food: return "Nourriture"
+        case .running: return "Course à pied"
+        case .reading: return "Lecture"
+        case .other: return "Autre"
         }
     }
 
@@ -33,15 +33,15 @@ enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
         switch self {
         case .sport:
             return "iphone_wallpaper_pullup"
-        case .dessin:
+        case .drawing:
             return "iphone_wallpaper_painter"
-        case .nourriture:
+        case .food:
             return "iphone_wallpaper_chef_clean_bright"
-        case .course:
+        case .running:
             return "iphone_wallpaper_duo_run"
-        case .lecture:
+        case .reading:
             return "iphone_wallpaper_reader"
-        case .autre:
+        case .other:
             return "iphone_wallpaper_bridge"
         }
     }
