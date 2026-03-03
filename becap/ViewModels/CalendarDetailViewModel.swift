@@ -83,7 +83,7 @@ class CalendarDetailViewModel: ObservableObject {
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     var currentParticipant: ParticipantUIModel? {
         participants.first(where: { $0.userId == currentUserId })
@@ -118,12 +118,12 @@ class CalendarDetailViewModel: ObservableObject {
         return !hasValidatedToday
     }
 
-    init(accountManager: AccountManager = AccountManager(),
-         challengeManager: ChallengeManager = ChallengeManager.shared,
-         challenge: Challenge) {
+    init(challenge: any ChallengeRepresentable,
+         accountManager: AccountManager = AccountManager(),
+         challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.challenge = challenge
         self.accountManager = accountManager
         self.challengeManager = challengeManager
-        self.challenge = challenge
     }
 
     func fetchInfos() {

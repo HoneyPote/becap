@@ -24,7 +24,7 @@ protocol ChallengeManagerProtocol {
 
     // Posts
     func sendPostAndNotify(media: ChallengeRawMedia,
-                           challenge: Challenge,
+                           challenge: any ChallengeRepresentable,
                            descriptionText: String?,
                            progressHandler: ((Double) -> Void)?) async throws
     func loadPosts(from challengeId: String) async throws -> [ChallengePost]
@@ -38,12 +38,12 @@ protocol ChallengeManagerProtocol {
     func updateParticipantProgress(progress: ParticipantProgress) async throws -> ParticipantProgress
     func assignCreationMedalsToUser(_ userId: String) async
     func autoDeclareDailyJoker(for progress: ParticipantProgress) async throws
-    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress?
+    func autoDeclareMissedDayJokers(for challenge: any ChallengeRepresentable, progress: ParticipantProgress) async -> ParticipantProgress?
     func declareJokerOnPost(for post: ChallengePost, jokerState: PostJokerState) async throws
 
     // Notifications
-    func updateChallengeNotifications(for challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
-    func updateUserNotifications(for userId: String, challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
+    func updateChallengeNotifications(for challenge: any ChallengeRepresentable, config: [Int], completion: ((Error?) -> Void)?)
+    func updateUserNotifications(for userId: String, challenge: any ChallengeRepresentable, config: [Int], completion: ((Error?) -> Void)?)
 
     // Chat
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
@@ -362,7 +362,7 @@ extension ChallengeManager {
 // MARK: - Posts
 extension ChallengeManager {
     func sendPostAndNotify(media: ChallengeRawMedia,
-                           challenge: Challenge,
+                           challenge: any ChallengeRepresentable,
                            descriptionText: String?,
                            progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
@@ -581,7 +581,7 @@ extension ChallengeManager {
         await awardJokerMedalIfNeeded(progress: newProgress)
     }
 
-    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress? {
+    func autoDeclareMissedDayJokers(for challenge: any ChallengeRepresentable, progress: ParticipantProgress) async -> ParticipantProgress? {
         guard let currentUserId = currentUser?.id, currentUserId == progress.id
         else { return nil }
 
@@ -867,7 +867,7 @@ extension ChallengeManager {
 
 // MARK: - Notifications
 extension ChallengeManager {
-    func updateChallengeNotifications(for challenge: Challenge,
+    func updateChallengeNotifications(for challenge: any ChallengeRepresentable,
                                       config: [Int],
                                       completion: ((Error?) -> Void)? = nil) {
         // Mise à jour locale dans la liste -> On garde ?
@@ -886,7 +886,7 @@ extension ChallengeManager {
     }
 
     func updateUserNotifications(for userId: String,
-                                 challenge: Challenge,
+                                 challenge: any ChallengeRepresentable,
                                  config: [Int],
                                  completion: ((Error?) -> Void)? = nil) {
         challengeService.updateUserNotifications(for: userId, challengeId: challenge.id, config: config) { error in

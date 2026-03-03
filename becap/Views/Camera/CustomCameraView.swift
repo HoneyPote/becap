@@ -16,17 +16,15 @@ struct CustomCameraView: View {
     @State private var isTimelapseRingAnimating = false
 
     var onCapture: (ChallengeRawMedia) -> Void
-    private let mode: CameraMode
-    private let plankDuration: TimeInterval
 
-    init(mode: CameraMode = .normal,
-         plankDuration: TimeInterval = 120,
+    init(challenge: any ChallengeRepresentable,
          onCapture: @escaping (ChallengeRawMedia) -> Void) {
-        self.mode = mode
-        self.plankDuration = plankDuration
         self.onCapture = onCapture
-        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(mode: mode,
-                                                                     plankDuration: plankDuration))
+        var becapData: BecapChallengeData? = nil
+        if let challenge = challenge as? BecapChallenge {
+            becapData = challenge.becapData
+        }
+        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(becapData: becapData))
     }
 
     var body: some View {
@@ -46,12 +44,12 @@ struct CustomCameraView: View {
             }
         }
         .overlay {
-            if mode == .plank, viewModel.isProcessingTimelapse {
+            if viewModel.mode == .plank, viewModel.isProcessingTimelapse {
                 timelapseProcessingOverlay
             }
         }
         .overlay {
-            if mode == .plank, let countdownValue = viewModel.prepCountdownValue {
+            if viewModel.mode == .plank, let countdownValue = viewModel.prepCountdownValue {
                 countdownOverlay(value: countdownValue)
             }
         }
@@ -135,11 +133,11 @@ struct CustomCameraView: View {
 
                 if viewModel.isRecordingVideo {
                     VStack(spacing: 6) {
-                        if mode == .plank, !viewModel.isInPrepCountdown {
+                        if viewModel.mode == .plank, !viewModel.isInPrepCountdown {
                             Text(viewModel.videoRecordingTimer)
                                 .font(.system(size: 22, weight: .semibold, design: .monospaced))
                                 .foregroundColor(.white)
-                        } else if mode != .plank {
+                        } else if viewModel.mode != .plank {
                             Text(viewModel.videoRecordingTimer)
                                 .font(.system(size: 18, weight: .semibold, design: .monospaced))
                                 .foregroundColor(.white)
@@ -183,7 +181,7 @@ struct CustomCameraView: View {
                 Spacer()
 
                 ZStack {
-                    if mode == .plank, viewModel.isRecordingVideo {
+                    if viewModel.mode == .plank, viewModel.isRecordingVideo {
                         Circle()
                             .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
                             .frame(width: 112, height: 112)
@@ -229,7 +227,7 @@ struct CustomCameraView: View {
                 Spacer()
             }
 
-            if mode == .plank, viewModel.isRecordingVideo {
+            if viewModel.mode == .plank, viewModel.isRecordingVideo {
                 VStack(spacing: 6) {
                     HStack(spacing: 6) {
                         Circle()

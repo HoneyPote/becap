@@ -35,7 +35,7 @@ final class NotificationManager {
             }
     }
 
-    func scheduleDailyNotifications(for challenge: Challenge, config: [Int]) {
+    func scheduleDailyNotifications(for challenge: any ChallengeRepresentable, config: [Int]) {
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
 
         for minutes in config {
@@ -66,13 +66,13 @@ final class NotificationManager {
 
     // Privates
 
-    private func notificationID(for challenge: Challenge, time: Date) -> String {
+    private func notificationID(for challenge: any ChallengeRepresentable, time: Date) -> String {
         let comps = Calendar.current.dateComponents([.hour, .minute], from: time)
 
         return "challenge-\(challenge.id)-h\(comps.hour ?? 0)m\(comps.minute ?? 0)"
     }
 
-    private func makeContent(for challenge: Challenge) -> UNMutableNotificationContent {
+    private func makeContent(for challenge: any ChallengeRepresentable) -> UNMutableNotificationContent {
         let content = UNMutableNotificationContent()
         content.title = challenge.title
         content.body = "C’est l’heure de poster pour ton défi 💪"

@@ -39,7 +39,7 @@ struct CalendarDetailView: View {
     @State private var jokerButtonFrame: CGRect = .zero
     @State private var navigateToCamera = false
 
-    init(challenge: Challenge, initialPostId: String? = nil) {
+    init(challenge: any ChallengeRepresentable, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
         _pendingInitialPostId = State(initialValue: initialPostId)
     }

@@ -9,6 +9,7 @@ import FirebaseFirestore
 
 // MARK: - Challenge representable protocol
 protocol ChallengeRepresentable: Identifiable, Hashable {
+    var id: String { get }
     var title: String { get }
     var duration: Int { get }
     var startDate: Date { get }
@@ -21,7 +22,37 @@ protocol ChallengeRepresentable: Identifiable, Hashable {
     var jokerConfiguration: Int { get }
 }
 
-// MARK: - Challenge base
+extension ChallengeRepresentable {
+    private var calendar: Calendar { Calendar.current }
+
+    var lastDayDate: Date {
+        calendar.date(byAdding: .day, value: max(duration - 1, 0), to: startDate) ?? startDate
+    }
+
+    var endDate: Date {
+        Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
+    }
+
+    func isLastDay(on date: Date = Date()) -> Bool {
+        calendar.isDate(lastDayDate, inSameDayAs: date)
+    }
+
+    var isLastDayToday: Bool { isLastDay() }
+
+    var calendarBackgroundImageName: String {
+        if isLastDayToday {
+            return "sunset"
+        }
+
+        return category?.calendarBackgroundImageName ?? "photoBg"
+    }
+
+    var status: ChallengeStatus {
+        Date() > endDate ? .finished : .active
+    }
+}
+
+// MARK: - Base challenge
 struct Challenge: ChallengeRepresentable, Identifiable, Codable, Hashable {
     @DocumentID private var _id: String?
     var id: String {
@@ -38,14 +69,6 @@ struct Challenge: ChallengeRepresentable, Identifiable, Codable, Hashable {
     var code: String?
     var jokerConfiguration: Int
 
-    var endDate: Date {
-        Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
-    }
-
-    var status: ChallengeStatus {
-        Date() > endDate ? .finished : .active
-    }
-
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(title)
@@ -53,28 +76,6 @@ struct Challenge: ChallengeRepresentable, Identifiable, Codable, Hashable {
 
     static func == (lhs: Challenge, rhs: Challenge) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title
-    }
-}
-
-extension Challenge {
-    private var calendar: Calendar { Calendar.current }
-
-    var lastDayDate: Date {
-        calendar.date(byAdding: .day, value: max(duration - 1, 0), to: startDate) ?? startDate
-    }
-
-    func isLastDay(on date: Date = Date()) -> Bool {
-        calendar.isDate(lastDayDate, inSameDayAs: date)
-    }
-
-    var isLastDayToday: Bool { isLastDay() }
-
-    var calendarBackgroundImageName: String {
-        if isLastDayToday {
-            return "sunset"
-        }
-
-        return category?.calendarBackgroundImageName ?? "photoBg"
     }
 }
 

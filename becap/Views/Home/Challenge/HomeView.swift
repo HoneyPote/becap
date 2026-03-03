@@ -216,7 +216,7 @@ struct HomeView: View {
                 }
                 ForEach(viewModel.becapChallenges) { becapChallenge in
                     NavigationLink {
-                        CalendarDetailView(challenge: becapChallenge.base)
+                        CalendarDetailView(challenge: becapChallenge)
                             .onDisappear { viewModel.refreshChallenges() }
                     } label: {
                         DefiCell(challenge: becapChallenge.base, onReport: {})

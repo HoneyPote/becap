@@ -85,7 +85,7 @@ final class NotificationService: NSObject {
         db.collection("users").document(userId).setData(["onesignalPlayerId": oneSignalPushId], merge: true)
     }
 
-    func sendPostNotification(challenge: Challenge, authorName: String, postId: String) async {
+    func sendPostNotification(challenge: any ChallengeRepresentable, authorName: String, postId: String) async {
         do {
             // Exclure l’auteur, dédupliquer
             let allParticipants = challenge.participantUids

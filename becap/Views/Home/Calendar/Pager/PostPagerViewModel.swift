@@ -174,7 +174,7 @@ class PostPagerViewModel: ObservableObject {
 
     private let challengeService: ChallengeServiceProtocol
     private let challengeManager: ChallengeManagerProtocol
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     private var selectedPostSubscription: AnyCancellable?
     private var selectedJokerSubscription: AnyCancellable?
@@ -211,7 +211,7 @@ class PostPagerViewModel: ObservableObject {
          challengeManager: ChallengeManagerProtocol = ChallengeManager.shared,
          posts: [ChallengePost],
          selectedPostIndex: Int = 0,
-         challenge: Challenge) {
+         challenge: any ChallengeRepresentable) {
         self.challengeService = challengeService
         self.challengeManager = challengeManager
         self.challenge = challenge

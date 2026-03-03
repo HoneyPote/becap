@@ -26,6 +26,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     @Published var prepCountdownValue: Int?
     @Published private var isFlashOn = false
     @Published var isProcessingTimelapse = false
+    @Published var mode: CameraMode = .normal
 
     var showFlashButton: Bool {
         !isRecordingVideo && isBackCamera
@@ -64,8 +65,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let outputVideoData = AVCaptureVideoDataOutput()
     private let videoDataOutputQueue = DispatchQueue(label: "camera.video.data.queue")
     private let captureSessionQueueLabel: String = "camera.session.queue"
-    private let mode: CameraMode
-    private let plankDuration: TimeInterval
+    private var plankDuration: TimeInterval = TimeInterval(120)
     private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
     private var timelapseOutputURL: URL?
@@ -75,9 +75,15 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private var assetWriterInput: AVAssetWriterInput?
     private var assetWriterAdaptor: AVAssetWriterInputPixelBufferAdaptor?
 
-    init(mode: CameraMode = .normal, plankDuration: TimeInterval = 120) {
-        self.mode = mode
-        self.plankDuration = plankDuration
+    let becapData: BecapChallengeData?
+
+    init(becapData: BecapChallengeData? = nil) {
+        self.becapData = becapData
+
+        if let becapData {
+            self.mode = becapData.type == .plank ? .plank : .normal
+            self.plankDuration = TimeInterval(becapData.configuration.hashValue)
+        }
         super.init()
         configureCaptureSession()
     }

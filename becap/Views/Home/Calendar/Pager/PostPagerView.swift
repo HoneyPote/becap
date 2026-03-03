@@ -31,7 +31,7 @@ struct PostPagerView: View {
 
     init(posts: [ChallengePost],
          startIndex: Int = 0,
-         challenge: Challenge,
+         challenge: any ChallengeRepresentable,
          getParticipant: @escaping (String) -> ParticipantUIModel?,
          onDelete: @escaping (String) -> Void,
          onClose: @escaping () -> Void) {

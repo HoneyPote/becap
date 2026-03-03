@@ -7,7 +7,7 @@ struct GroupChatView: View {
     @State private var messageDraft: String = ""
     @FocusState private var isInputFocused: Bool
 
-    init(challenge: Challenge) {
+    init(challenge: any ChallengeRepresentable) {
         _viewModel = StateObject(wrappedValue: GroupChatViewModel(challenge: challenge))
     }
 

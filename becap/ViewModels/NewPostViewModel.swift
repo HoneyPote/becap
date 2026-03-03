@@ -20,7 +20,7 @@ class NewPostViewModel: ObservableObject {
 
     private let challengeManager: ChallengeManager
     let currentUser: User?
-    let currentChallenge: Challenge
+    let currentChallenge: any ChallengeRepresentable
 
     var challenges: [Challenge] = []
     var captureMediaButtonLabel: String {
@@ -34,7 +34,7 @@ class NewPostViewModel: ObservableObject {
         return "Partager le post"
     }
 
-    init(challenge: Challenge,
+    init(challenge: any ChallengeRepresentable,
          rawMedia: ChallengeRawMedia?,
          userManager: UserManager = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared) {

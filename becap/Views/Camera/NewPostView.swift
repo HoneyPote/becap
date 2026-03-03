@@ -18,7 +18,7 @@ struct NewPostView: View {
 
     let onCameraButtonClick: () -> Void
 
-    init(challenge: Challenge, rawMedia: ChallengeRawMedia?, onCameraButtonClick: @escaping () -> Void) {
+    init(challenge: any ChallengeRepresentable, rawMedia: ChallengeRawMedia?, onCameraButtonClick: @escaping () -> Void) {
         _viewModel = StateObject(wrappedValue: NewPostViewModel(challenge: challenge, rawMedia: rawMedia))
         self.onCameraButtonClick = onCameraButtonClick
     }
