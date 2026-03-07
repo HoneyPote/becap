@@ -1,3 +1,10 @@
+//
+//  DefiCell.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 23/07/2025.
+//
+
 import SwiftUI
 
 struct DefiCell: View {

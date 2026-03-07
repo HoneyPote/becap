@@ -8,6 +8,29 @@
 import SwiftUI
 import Combine
 
+struct BecapChallengeTemplate: Identifiable {
+    let id: String
+    let title: String
+    let category: ChallengeCategory
+    let duration: Int
+    let defaultNotifications: [Int]
+    let type: BecapChallengeType
+    let defaultConfiguration: BecapChallengeConfiguration
+
+    var baseChallenge: Challenge {
+        Challenge(title: title,
+                  duration: duration,
+                  startDate: Date(),
+                  creatorUID: "becap",
+                  adminUids: [],
+                  participantUids: [],
+                  category: category,
+                  defaultNotificationsConfig: defaultNotifications,
+                  code: nil,
+                  jokerConfiguration: 0)
+    }
+}
+
 class HomeViewModel: ObservableObject {
     @Published var showQuitAlert = false
     @Published var quitChallengeError: String?
@@ -24,68 +47,34 @@ class HomeViewModel: ObservableObject {
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
 
-    var createBecapChallenges: [BecapChallenge] = []
+    var becapTemplates: [BecapChallengeTemplate] = []
 
+    // Mocked becap challenge templates
     private func loadBecapChallenges() {
-        // Base Challenge commun (mock)
-        let basePlank = Challenge(title: "Créer gainage quotidien",
-                                  duration: 30,
-                                  startDate: Date(),
-                                  creatorUID: "becap",
-                                  adminUids: [],
-                                  participantUids: [],
-                                  category: .sport,
-                                  defaultNotificationsConfig: [480],
-                                  code: nil,
-                                  jokerConfiguration: 0)
+        becapTemplates = [
+            BecapChallengeTemplate(id: "plank_template",
+                                   title: "Créer gainage quotidien",
+                                   category: .sport,
+                                   duration: 30,
+                                   defaultNotifications: [480],
+                                   type: .plank,
+                                   defaultConfiguration: .plank(PlankConfig(secondsPerDay: 60))),
 
-        let baseLecture = Challenge(title: "Créer lecture quotidienne",
-                                    duration: 21,
-                                    startDate: Date(),
-                                    creatorUID: "becap",
-                                    adminUids: [],
-                                    participantUids: [],
-                                    category: .reading,
-                                    defaultNotificationsConfig: [600],
-                                    code: nil,
-                                    jokerConfiguration: 0)
+            BecapChallengeTemplate(id: "reading_template",
+                                   title: "Créer lecture quotidienne",
+                                   category: .reading,
+                                   duration: 21,
+                                   defaultNotifications: [600],
+                                   type: .reading,
+                                   defaultConfiguration: .reading(ReadingConfig(pagesPerDay: 20))),
 
-        let baseFood = Challenge(title: "Créer nutrition quotidienne",
-                                 duration: 14,
-                                 startDate: Date(),
-                                 creatorUID: "becap",
-                                 adminUids: [],
-                                 participantUids: [],
-                                 category: .food,
-                                 defaultNotificationsConfig: [720],
-                                 code: nil,
-                                 jokerConfiguration: 0)
-
-        createBecapChallenges = [
-            BecapChallenge(
-                base: basePlank,
-                becapData: BecapChallengeData(
-                    challengeId: "1",
-                    type: .plank,
-                    configuration: .plank(PlankConfig(secondsPerDay: 60)),
-                )
-            ),
-            BecapChallenge(
-                base: baseLecture,
-                becapData: BecapChallengeData(
-                    challengeId: "2",
-                    type: .reading,
-                    configuration: .reading(ReadingConfig(pagesPerDay: 20)),
-                )
-            ),
-            BecapChallenge(
-                base: baseFood,
-                becapData: BecapChallengeData(
-                    challengeId: "3",
-                    type: .food,
-                    configuration: .food(FoodConfig(cheatMealsAllowed: 3)),
-                )
-            )
+            BecapChallengeTemplate(id: "food_template",
+                                   title: "Créer nutrition quotidienne",
+                                   category: .food,
+                                   duration: 14,
+                                   defaultNotifications: [720],
+                                   type: .food,
+                                   defaultConfiguration: .food(FoodConfig(cheatMealsAllowed: 3)))
         ]
     }
 

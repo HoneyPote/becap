@@ -167,7 +167,7 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(height: 30)
-                Text("LISTE DES DÉFIS")
+                Text("DÉFIS PERSONNALISÉS")
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
                     .foregroundColor(.white)
@@ -197,7 +197,7 @@ struct HomeView: View {
             HStack(spacing: 10) {
                 Image(systemName: "sparkles")
                     .font(.title2)
-                Text("DÉFIS BECAP")
+                Text("DÉFIS SPÉCIAUX BECAP")
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
             }
@@ -207,19 +207,25 @@ struct HomeView: View {
             .foregroundColor(.white)
 
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
-                ForEach(viewModel.createBecapChallenges) { becapChallenge in
-                    NavigationLink {
-                        CreateBecapChallengeView(type: becapChallenge.type)
-                    } label: {
-                        DefiCell(challenge: becapChallenge.base, onReport: {})
-                    }
-                }
                 ForEach(viewModel.becapChallenges) { becapChallenge in
                     NavigationLink {
                         CalendarDetailView(challenge: becapChallenge)
                             .onDisappear { viewModel.refreshChallenges() }
                     } label: {
                         DefiCell(challenge: becapChallenge.base, onReport: {})
+                    }
+                }
+
+                ForEach(viewModel.becapTemplates.filter { template in
+                    !viewModel.becapChallenges.contains(where: {
+                        $0.type == template.type
+                    })
+                }) { template in
+                    NavigationLink {
+                        CreateBecapChallengeView(type: template.type)
+                            .onDisappear { viewModel.refreshChallenges() }
+                    } label: {
+                        BecapTemplateCell(template: template)
                     }
                 }
             }

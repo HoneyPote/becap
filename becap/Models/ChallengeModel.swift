@@ -202,6 +202,17 @@ enum BecapChallengeConfiguration: Hashable {
         case .food: return "Nourriture"
         }
     }
+
+    var primaryValue: Int {
+        switch self {
+        case .plank(let config):
+            return config.secondsPerDay
+        case .reading(let config):
+            return config.pagesPerDay
+        case .food(let config):
+            return config.cheatMealsAllowed
+        }
+    }
 }
 
 extension BecapChallengeConfiguration: Codable {

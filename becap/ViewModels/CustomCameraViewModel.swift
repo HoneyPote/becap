@@ -65,7 +65,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let outputVideoData = AVCaptureVideoDataOutput()
     private let videoDataOutputQueue = DispatchQueue(label: "camera.video.data.queue")
     private let captureSessionQueueLabel: String = "camera.session.queue"
-    private var plankDuration: TimeInterval = TimeInterval(120)
+    private var plankDuration: TimeInterval = 120
     private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
     private var timelapseOutputURL: URL?
@@ -82,7 +82,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
 
         if let becapData {
             self.mode = becapData.type == .plank ? .plank : .normal
-            self.plankDuration = TimeInterval(becapData.configuration.hashValue)
+            self.plankDuration = TimeInterval(becapData.configuration.primaryValue)
         }
         super.init()
         configureCaptureSession()
@@ -302,6 +302,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private func startRecordingTimer() {
         let recordingStartTime = Date()
         videoRecordingElapsedTime = 0
+
         if mode == .plank {
             plankRemainingTime = plankDuration
             plankPrepRemainingTime = plankPreparationDuration
@@ -351,7 +352,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
 
         timelapseOutputURL = tempURL
         timelapseStartTime = nil
-        timelapseSpeedMultiplier = clampedSpeedMultiplier(for: plankDuration + plankPreparationDuration)
+        timelapseSpeedMultiplier = clampedSpeedMultiplier(for: Double(plankDuration) + plankPreparationDuration)
         assetWriter = nil
         assetWriterInput = nil
         assetWriterAdaptor = nil
