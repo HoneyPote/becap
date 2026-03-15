@@ -86,7 +86,7 @@ struct NewChallengeView: View {
                 }
             }
             ToolbarItem(placement: .principal) {
-                Text("Nouveau défi")
+                Text("Défi libre")
                     .font(.system(.title2, design: .rounded).weight(.heavy))
                     .foregroundColor(.white)
             }
@@ -108,7 +108,7 @@ struct NewChallengeView: View {
 
             Spacer()
 
-            Text("Créer un défi")
+            Text("Créer un défi libre")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)

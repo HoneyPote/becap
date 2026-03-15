@@ -53,7 +53,7 @@ class HomeViewModel: ObservableObject {
     private func loadBecapChallenges() {
         becapTemplates = [
             BecapChallengeTemplate(id: "plank_template",
-                                   title: "Créer gainage quotidien",
+                                   title: "Créer défi gainage",
                                    category: .sport,
                                    duration: 30,
                                    defaultNotifications: [480],
@@ -61,7 +61,7 @@ class HomeViewModel: ObservableObject {
                                    defaultConfiguration: .plank(PlankConfig(secondsPerDay: 60))),
 
             BecapChallengeTemplate(id: "reading_template",
-                                   title: "Créer lecture quotidienne",
+                                   title: "Créer défi lecture",
                                    category: .reading,
                                    duration: 21,
                                    defaultNotifications: [600],
@@ -69,7 +69,7 @@ class HomeViewModel: ObservableObject {
                                    defaultConfiguration: .reading(ReadingConfig(pagesPerDay: 20))),
 
             BecapChallengeTemplate(id: "food_template",
-                                   title: "Créer nutrition quotidienne",
+                                   title: "Créer défi nutrition",
                                    category: .food,
                                    duration: 14,
                                    defaultNotifications: [720],
