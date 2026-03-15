@@ -38,6 +38,7 @@ struct CalendarDetailView: View {
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
     @State private var navigateToCamera = false
+    @State private var selectedCalendarDate: Date?
 
     init(challenge: Challenge, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -120,7 +121,16 @@ struct CalendarDetailView: View {
                           onDelete: { viewModel.deletePost($0) },
                           onClose: { pagerInfo = nil })
         }
-        .onAppear { viewModel.fetchInfos() }
+        .onAppear {
+            viewModel.fetchInfos()
+            let today = startOfDay(Date())
+            let challengeStart = startOfDay(viewModel.challenge.startDate)
+            let challengeEnd = startOfDay(viewModel.challenge.lastDayDate)
+
+            if today >= challengeStart && today <= challengeEnd {
+                selectedCalendarDate = today
+            }
+        }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
         .onChange(of: viewModel.doneLoadingPosts) { isDone in
@@ -232,13 +242,14 @@ struct CalendarDetailView: View {
         return CalendarMonthGrid(
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
-            selectedDate: selectedGridCell?.date,
+            selectedDate: selectedCalendarDate,
             postCountByDay: postCountByDay,
             jokerCountByDay: jokerCountByDay,
             validatedDays: validatedDays,
             currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
                 let day = startOfDay(date)
+                selectedCalendarDate = day
 
                 if let cell = cells.first(where: { sameDay($0.date, day) }),
                    (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
@@ -371,6 +382,7 @@ struct CalendarDetailView: View {
         } label: {
             cameraButtonContent
         }
+        .disabled(!canCreatePostForSelectedDay)
     }
 
     private var cameraButtonContent: some View {
@@ -378,26 +390,61 @@ struct CalendarDetailView: View {
             Image(systemName: "camera.fill")
                 .font(.system(size: 20, weight: .bold))
 
-            Text("Créer un nouveau post")
+            Text(createPostButtonTitle)
                 .font(.system(.headline, design: .rounded).weight(.heavy))
         }
-        .foregroundColor(.black)
+        .foregroundColor(canCreatePostForSelectedDay ? .black : Color.white.opacity(0.85))
         .frame(maxWidth: .infinity)
         .frame(height: 58)
         .background(
-            LinearGradient(
-                colors: [
-                    Color(red: 1.0, green: 0.86, blue: 0.33),
-                    Color(red: 1.0, green: 0.75, blue: 0.18)
-                ],
-                startPoint: .leading,
-                endPoint: .trailing
-            )
+            Group {
+                if canCreatePostForSelectedDay {
+                    LinearGradient(
+                        colors: [
+                            Color(red: 1.0, green: 0.86, blue: 0.33),
+                            Color(red: 1.0, green: 0.75, blue: 0.18)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                } else {
+                    LinearGradient(
+                        colors: [
+                            Color(white: 0.55),
+                            Color(white: 0.42)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                }
+            }
         )
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .shadow(color: .black.opacity(0.35), radius: 12, x: 0, y: 8)
+        .shadow(color: .black.opacity(canCreatePostForSelectedDay ? 0.35 : 0.2), radius: 12, x: 0, y: 8)
         .padding(.horizontal, 18)
         .padding(.bottom, 18)
+    }
+
+    private var canCreatePostForSelectedDay: Bool {
+        guard let selectedCalendarDate else { return false }
+        return CAL.isDateInToday(selectedCalendarDate)
+    }
+
+    private var createPostButtonTitle: String {
+        switch viewModel.challenge.category {
+        case .dessin:
+            return "Poster un dessin"
+        case .sport:
+            return "Poster une séance de sport"
+        case .nourriture:
+            return "Poster un plat"
+        case .course:
+            return "Poster une course"
+        case .lecture:
+            return "Poster une lecture"
+        case .autre, .none:
+            return "Créer un nouveau post"
+        }
     }
 }
 
