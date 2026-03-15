@@ -10,36 +10,56 @@ import SwiftUI
 struct BecapTemplateCell: View {
     let template: BecapChallengeTemplate
 
+    private var gradientColors: [Color] {
+        switch template.type {
+        case .plank: return [Color(hex: "#F59E0B"), Color(hex: "#EF4444")]
+        case .reading: return [Color(hex: "#22C55E"), Color(hex: "#0EA5E9")]
+        case .food: return [Color(hex: "#F97316"), Color(hex: "#EC4899")]
+        }
+    }
+
+    private var iconName: String {
+        switch template.type {
+        case .plank: return "figure.strengthtraining.traditional"
+        case .reading: return "book.fill"
+        case .food: return "fork.knife"
+        }
+    }
+
     var body: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: iconName)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(.white)
+
+                Spacer()
+
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 24, weight: .semibold))
+                    .foregroundColor(.white.opacity(0.95))
+            }
 
             Spacer()
-
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 40))
-                .foregroundColor(.white)
 
             Text(template.title)
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .multilineTextAlignment(.center)
+                .font(.system(.headline, design: .rounded).weight(.heavy))
+                .multilineTextAlignment(.leading)
                 .foregroundColor(.white)
+                .lineLimit(2)
 
-            Text("Créer un défi")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundColor(.white.opacity(0.8))
-
-            Spacer()
+            Text("Défi Becap")
+                .font(.system(.subheadline, design: .rounded).weight(.medium))
+                .foregroundColor(.white.opacity(0.85))
         }
+        .padding(14)
         .frame(height: 170)
-        .frame(maxWidth: .infinity)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [
-                            Color.purple.opacity(0.85),
-                            Color.blue.opacity(0.85)
-                        ],
+                        colors: gradientColors.map { $0.opacity(0.92) },
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )

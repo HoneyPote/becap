@@ -31,6 +31,11 @@ struct CreateBecapChallengeView: View {
                         .padding(.horizontal)
                         .padding(.top, 36)
 
+                    // Challenge preview
+                    GlassCard {
+                        challengePreviewSection
+                    }
+
                     // Duration
                     GlassCard {
                         durationSetting
@@ -80,6 +85,61 @@ struct CreateBecapChallengeView: View {
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
 
             Spacer()
+        }
+    }
+
+    private var challengePreviewSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Comment ça va se passer ?")
+                .font(.system(.headline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+
+            Text(challengeDescription)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundColor(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Image(exampleImageName)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 140)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                )
+
+            Text(exampleCaption)
+                .font(.system(.caption, design: .rounded).weight(.medium))
+                .foregroundColor(.white.opacity(0.75))
+        }
+    }
+
+    private var challengeDescription: String {
+        switch viewModel.type {
+        case .plank:
+            return "Chaque jour, tu publies une preuve de ton gainage. L'objectif est de tenir la routine sans interruption pendant toute la durée du défi."
+        case .reading:
+            return "Chaque jour, tu partages une preuve de ta lecture (pages lues, extrait, photo). Le but est d'avancer régulièrement et de garder le rythme."
+        case .food:
+            return "Chaque jour, tu publies un repas équilibré. Tu peux configurer le nombre d'écarts autorisés pour rester motivé tout au long du défi."
+        }
+    }
+
+    private var exampleImageName: String {
+        switch viewModel.type {
+        case .plank: return "sportDefiCell"
+        case .reading: return "BookDefiCell"
+        case .food: return "foodDefiCell"
+        }
+    }
+
+    private var exampleCaption: String {
+        switch viewModel.type {
+        case .plank: return "Exemple : photo ou capture de séance de gainage."
+        case .reading: return "Exemple : photo du livre et des pages lues."
+        case .food: return "Exemple : photo d'un repas healthy du jour."
         }
     }
 
