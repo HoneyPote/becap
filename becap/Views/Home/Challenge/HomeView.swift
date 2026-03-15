@@ -199,9 +199,11 @@ struct HomeView: View {
     private var becapChallengeListSection: some View {
         Group {
             HStack(spacing: 10) {
-                Image(systemName: "sparkles")
-                    .font(.title2)
-                Text("DÉFIS SPÉCIAUX BECAP")
+                Image("list_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 30)
+                Text("DÉFIS BECAP")
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
             }
@@ -243,7 +245,7 @@ struct HomeView: View {
                 Text("Tu as déjà créé les 3 défis Becap disponibles ✅")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
-                    .padding(.horizontal, 14)
+                    .padding(.horizontal, 30)
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.top, 8)

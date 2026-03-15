@@ -79,7 +79,7 @@ struct CreateBecapChallengeView: View {
 
             Spacer()
 
-            Text("Créer un défi Becap de \(viewModel.challengeName)")
+            Text("Becap \(viewModel.challengeName)")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
@@ -129,9 +129,9 @@ struct CreateBecapChallengeView: View {
 
     private var exampleImageName: String {
         switch viewModel.type {
-        case .plank: return "sportDefiCell"
-        case .reading: return "BookDefiCell"
-        case .food: return "foodDefiCell"
+        case .plank: return "plank-template"
+        case .reading: return "reading-template"
+        case .food: return "food-Template"
         }
     }
 
