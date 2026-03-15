@@ -432,17 +432,17 @@ struct CalendarDetailView: View {
 
     private var createPostButtonTitle: String {
         switch viewModel.challenge.category {
-        case .dessin:
+        case .drawing:
             return "Poster un dessin"
         case .sport:
             return "Poster une séance de sport"
-        case .nourriture:
+        case .food:
             return "Poster un plat"
-        case .course:
+        case .running:
             return "Poster une course"
-        case .lecture:
+        case .reading:
             return "Poster une lecture"
-        case .autre, .none:
+        case .other, .none:
             return "Créer un nouveau post"
         }
     }
