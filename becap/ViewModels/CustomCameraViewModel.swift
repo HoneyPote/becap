@@ -42,6 +42,7 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
         }
     }
 
+    private let timeLapseSpeedMultiplier: Double = 4.0
     private let captureSession = AVCaptureSession()
     private let outputPhoto = AVCapturePhotoOutput()
     private let outputMovie = AVCaptureMovieFileOutput()
@@ -144,7 +145,8 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
             self.captureSession.addInput(videoInput)
 
 
-            if let audioDevice = AVCaptureDevice.default(for: .audio),
+            if self.shouldCaptureAudio(),
+               let audioDevice = AVCaptureDevice.default(for: .audio),
                let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
                self.captureSession.canAddInput(audioInput) {
                 self.captureSession.addInput(audioInput)
@@ -190,6 +192,14 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
             self.captureSession.commitConfiguration()
             self.currentCameraPosition = newCameraPosition
         }
+    }
+
+    private func shouldCaptureAudio() -> Bool {
+        let session = AVAudioSession.sharedInstance()
+        if session.category == .playAndRecord || session.mode == .voiceChat || session.mode == .videoChat {
+            return false
+        }
+        return true
     }
 
     private func capturePhoto() {
@@ -255,14 +265,42 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
                     didFinishRecordingTo outputFileURL: URL,
                     from connections: [AVCaptureConnection],
                     error: Error?) {
-        DispatchQueue.main.async {
-            if let error = error {
+        if let error = error {
+            DispatchQueue.main.async {
                 print("❌ Erreur enregistrement vidéo :", error)
-                return
             }
+            return
+        }
 
-            let thumbnail = self.generateThumbnail(for: outputFileURL)
-            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: thumbnail))
+        DispatchQueue.main.async {
+            self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL, thumbnailImage: nil))
+        }
+
+        generateThumbnailAsync(for: outputFileURL) { [weak self] thumbnail in
+            guard let self else { return }
+            DispatchQueue.main.async {
+                if case .video(let data) = self.capturedMedia, data.url == outputFileURL {
+                    self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: outputFileURL,
+                                                                               thumbnailImage: thumbnail))
+                }
+            }
+        }
+
+        createTimelapse(from: outputFileURL, speedMultiplier: timeLapseSpeedMultiplier) { [weak self] timelapseURL in
+            guard let self else { return }
+            let finalURL = timelapseURL ?? outputFileURL
+
+            self.generateThumbnailAsync(for: finalURL) { [weak self] thumbnail in
+                guard let self else { return }
+                if let timelapseURL, timelapseURL != outputFileURL {
+                    self.removeTemporaryFile(at: outputFileURL)
+                }
+
+                DispatchQueue.main.async {
+                    self.capturedMedia = .video(ChallengeRawMedia.VideoRawData(url: finalURL,
+                                                                               thumbnailImage: thumbnail))
+                }
+            }
         }
     }
 
@@ -281,6 +319,84 @@ extension CustomCameraViewModel: AVCapturePhotoCaptureDelegate, AVCaptureFileOut
         } catch {
             print("❌ Impossible de générer la miniature vidéo :", error)
             return nil
+        }
+    }
+
+    private func generateThumbnailAsync(for url: URL, completion: @escaping (UIImage?) -> Void) {
+        DispatchQueue.global(qos: .userInitiated).async {
+            let thumbnail = self.generateThumbnail(for: url)
+            completion(thumbnail)
+        }
+    }
+
+    private func createTimelapse(from url: URL,
+                                 speedMultiplier: Double,
+                                 completion: @escaping (URL?) -> Void) {
+        let asset = AVAsset(url: url)
+        guard let videoTrack = asset.tracks(withMediaType: .video).first else {
+            completion(nil)
+            return
+        }
+
+        let composition = AVMutableComposition()
+        guard let compositionVideoTrack = composition.addMutableTrack(withMediaType: .video,
+                                                                      preferredTrackID: kCMPersistentTrackID_Invalid) else {
+            completion(nil)
+            return
+        }
+
+        do {
+            let timeRange = CMTimeRange(start: .zero, duration: asset.duration)
+            try compositionVideoTrack.insertTimeRange(timeRange, of: videoTrack, at: .zero)
+            compositionVideoTrack.preferredTransform = videoTrack.preferredTransform
+
+            if let audioTrack = asset.tracks(withMediaType: .audio).first,
+               let compositionAudioTrack = composition.addMutableTrack(withMediaType: .audio,
+                                                                       preferredTrackID: kCMPersistentTrackID_Invalid) {
+                try compositionAudioTrack.insertTimeRange(timeRange, of: audioTrack, at: .zero)
+            }
+
+            let scaledDuration = CMTimeMultiplyByFloat64(asset.duration, multiplier: 1.0 / speedMultiplier)
+            composition.scaleTimeRange(timeRange, toDuration: scaledDuration)
+        } catch {
+            print("❌ Impossible de créer le timelapse :", error)
+            completion(nil)
+            return
+        }
+
+        guard let exportSession = AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality) else {
+            completion(nil)
+            return
+        }
+
+        let outputURL = URL(fileURLWithPath: NSTemporaryDirectory())
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mov")
+
+        exportSession.outputURL = outputURL
+        exportSession.outputFileType = .mov
+        exportSession.shouldOptimizeForNetworkUse = true
+
+        exportSession.exportAsynchronously {
+            switch exportSession.status {
+            case .completed:
+                completion(outputURL)
+            case .failed, .cancelled:
+                if let error = exportSession.error {
+                    print("❌ Échec export timelapse :", error)
+                }
+                completion(nil)
+            default:
+                completion(nil)
+            }
+        }
+    }
+
+    private func removeTemporaryFile(at url: URL) {
+        do {
+            try FileManager.default.removeItem(at: url)
+        } catch {
+            print("⚠️ Impossible de supprimer le fichier temporaire :", error)
         }
     }
 }
