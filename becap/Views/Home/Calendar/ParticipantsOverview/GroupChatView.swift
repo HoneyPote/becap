@@ -21,6 +21,8 @@ struct GroupChatView: View {
                 chatInput
                     .background(.thinMaterial)
             }
+            .background(chatBackground)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .onAppear { viewModel.onAppear() }
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
