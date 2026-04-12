@@ -232,6 +232,21 @@ class CalendarDetailViewModel: ObservableObject {
         }
     }
 
+    /// Récupère le mot du jour pour un challenge dessin et une date donnée.
+    func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
+        await challengeManager.fetchDailyPrompt(challengeId: challenge.id, date: date)
+    }
+
+    /// Vérifie si l'utilisateur courant a déjà vu le prompt du jour pour ce challenge.
+    func hasSeenDailyPrompt(for date: Date) async -> Bool {
+        await challengeManager.hasSeenDailyPrompt(challengeId: challenge.id, date: date)
+    }
+
+    /// Marque le prompt comme vu afin de ne l'afficher qu'une seule fois par jour.
+    func markPromptAsSeen(for date: Date) async {
+        await challengeManager.markDailyPromptAsSeen(challengeId: challenge.id, date: date)
+    }
+
     // MARK: - Private functions
 
     private func buildParticipants(from participantProgresses: [ParticipantProgress]?,
