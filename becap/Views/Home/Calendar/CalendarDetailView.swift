@@ -271,7 +271,7 @@ struct CalendarDetailView: View {
         selectedDate = day
 
         let isToday = Calendar.current.isDateInToday(day)
-        guard viewModel.challenge.category == .dessin, isToday else {
+        guard viewModel.challenge.category == .drawing, isToday else {
             openGrid(cell: cell)
             return
         }
@@ -333,7 +333,7 @@ struct CalendarDetailView: View {
             showJokerBubble = false
         }
 
-        guard viewModel.challenge.category == .dessin else {
+        guard viewModel.challenge.category == .drawing else {
             inlineDailyPromptWord = nil
             return
         }

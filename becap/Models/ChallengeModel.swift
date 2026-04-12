@@ -164,6 +164,7 @@ enum BecapChallengeType: String, Codable {
     case plank
     case reading
     case food
+    case drawing
 
     var defaultConfiguration: BecapChallengeConfiguration {
         switch self {
@@ -175,6 +176,9 @@ enum BecapChallengeType: String, Codable {
 
         case .food:
             return .food(FoodConfig(cheatMealsAllowed: 3))
+
+        case .drawing:
+            return .drawing(DrawingConfig(drawingsPerDay: 1))
         }
     }
 }
@@ -183,6 +187,7 @@ enum BecapChallengeConfiguration: Hashable {
     case plank(PlankConfig)
     case reading(ReadingConfig)
     case food(FoodConfig)
+    case drawing(DrawingConfig)
 
     enum CodingKeys: String, CodingKey {
         case type
@@ -193,6 +198,7 @@ enum BecapChallengeConfiguration: Hashable {
         case plank
         case reading
         case food
+        case drawing
     }
 
     var displayName: String {
@@ -200,6 +206,7 @@ enum BecapChallengeConfiguration: Hashable {
         case .plank: return "Gainage"
         case .reading: return "Lecture"
         case .food: return "Nourriture"
+        case .drawing: return "Dessin"
         }
     }
 
@@ -211,6 +218,8 @@ enum BecapChallengeConfiguration: Hashable {
             return config.pagesPerDay
         case .food(let config):
             return config.cheatMealsAllowed
+        case .drawing(let config):
+            return config.drawingsPerDay
         }
     }
 }
@@ -232,6 +241,10 @@ extension BecapChallengeConfiguration: Codable {
         case .food:
             let config = try container.decode(FoodConfig.self, forKey: .config)
             self = .food(config)
+
+        case .drawing:
+            let config = try container.decode(DrawingConfig.self, forKey: .config)
+            self = .drawing(config)
         }
     }
 
@@ -250,6 +263,10 @@ extension BecapChallengeConfiguration: Codable {
         case .food(let config):
             try container.encode(ConfigType.food, forKey: .type)
             try container.encode(config, forKey: .config)
+
+        case .drawing(let config):
+            try container.encode(ConfigType.drawing, forKey: .type)
+            try container.encode(config, forKey: .config)
         }
     }
 }
@@ -264,4 +281,8 @@ struct ReadingConfig: Codable, Hashable {
 
 struct FoodConfig: Codable, Hashable {
     var cheatMealsAllowed: Int
+}
+
+struct DrawingConfig: Codable, Hashable {
+    var drawingsPerDay: Int
 }
