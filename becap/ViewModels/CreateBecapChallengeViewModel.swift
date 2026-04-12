@@ -31,6 +31,8 @@ class CreateBecapChallengeViewModel: ObservableObject {
             "Lecture"
         case .food:
             "Nourriture"
+        case .drawing:
+            "Dessin"
         }
     }
 
@@ -39,6 +41,7 @@ class CreateBecapChallengeViewModel: ObservableObject {
         case .plank: .sport
         case .reading: .reading
         case .food: .food
+        case .drawing: .drawing
         }
     }
 

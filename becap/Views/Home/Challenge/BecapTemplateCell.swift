@@ -15,6 +15,7 @@ struct BecapTemplateCell: View {
         case .plank: return [Color(hex: "#F59E0B"), Color(hex: "#EF4444")]
         case .reading: return [Color(hex: "#22C55E"), Color(hex: "#0EA5E9")]
         case .food: return [Color(hex: "#F97316"), Color(hex: "#EC4899")]
+        case .drawing: return [Color(hex: "#A855F7"), Color(hex: "#3B82F6")]
         }
     }
 
@@ -23,6 +24,7 @@ struct BecapTemplateCell: View {
         case .plank: return "figure.strengthtraining.traditional"
         case .reading: return "book.fill"
         case .food: return "fork.knife"
+        case .drawing: return "pencil.and.outline"
         }
     }
 

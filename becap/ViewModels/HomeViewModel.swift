@@ -74,7 +74,15 @@ class HomeViewModel: ObservableObject {
                                    duration: 14,
                                    defaultNotifications: [720],
                                    type: .food,
-                                   defaultConfiguration: .food(FoodConfig(cheatMealsAllowed: 3)))
+                                   defaultConfiguration: .food(FoodConfig(cheatMealsAllowed: 3))),
+
+            BecapChallengeTemplate(id: "drawing_template",
+                                   title: "Créer défi dessin",
+                                   category: .drawing,
+                                   duration: 30,
+                                   defaultNotifications: [1140],
+                                   type: .drawing,
+                                   defaultConfiguration: .drawing(DrawingConfig(drawingsPerDay: 1)))
         ]
     }
 

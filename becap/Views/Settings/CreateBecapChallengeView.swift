@@ -124,6 +124,8 @@ struct CreateBecapChallengeView: View {
             return "Chaque jour, tu partages une preuve de ta lecture (pages lues, extrait, photo). Le but est d'avancer régulièrement et de garder le rythme."
         case .food:
             return "Chaque jour, tu publies un repas équilibré. Tu peux configurer le nombre d'écarts autorisés pour rester motivé tout au long du défi."
+        case .drawing:
+            return "Chaque jour, tu partages un dessin basé sur le mot du jour. L'objectif est de créer une routine créative simple et régulière."
         }
     }
 
@@ -132,6 +134,7 @@ struct CreateBecapChallengeView: View {
         case .plank: return "plank-template"
         case .reading: return "reading-template"
         case .food: return "food-Template"
+        case .drawing: return "draw-template"
         }
     }
 
@@ -140,6 +143,7 @@ struct CreateBecapChallengeView: View {
         case .plank: return "Exemple : photo ou capture de séance de gainage."
         case .reading: return "Exemple : photo du livre et des pages lues."
         case .food: return "Exemple : photo d'un repas healthy du jour."
+        case .drawing: return "Exemple : dessin du jour inspiré par le mot révélé."
         }
     }
 
@@ -199,6 +203,10 @@ struct CreateBecapChallengeView: View {
         case .food(let config):
             FoodConfigurationView(config: config,
                                   onChange: { viewModel.becapConfiguration = .food($0) })
+
+        case .drawing(let config):
+            DrawingConfigurationView(config: config,
+                                     onChange: { viewModel.becapConfiguration = .drawing($0) })
         }
     }
 
@@ -452,6 +460,33 @@ struct FoodConfigurationView: View {
             }
             .onChange(of: meals) { meals in
                 onChange(FoodConfig(cheatMealsAllowed: meals))
+            }
+        }
+    }
+}
+
+struct DrawingConfigurationView: View {
+    let config: DrawingConfig
+    let onChange: (DrawingConfig) -> Void
+
+    @State private var drawingsPerDay: Int
+
+    init(config: DrawingConfig, onChange: @escaping (DrawingConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _drawingsPerDay = State(initialValue: config.drawingsPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Dessins à publier par jour")
+                .font(.headline)
+
+            Stepper(value: $drawingsPerDay, in: 1...5) {
+                Text("\(drawingsPerDay) dessin\(drawingsPerDay > 1 ? "s" : "")")
+            }
+            .onChange(of: drawingsPerDay) { drawingsPerDay in
+                onChange(DrawingConfig(drawingsPerDay: drawingsPerDay))
             }
         }
     }
