@@ -340,6 +340,10 @@ private extension AVFileType {
             return "video/mp4"
         default:
             return "video/quicktime"
+        }
+    }
+}
+
 // MARK: - Daily prompts
 extension ChallengeService {
     func fetchDailyPrompt(challengeId: String, dateKeys: [String]) async throws -> DailyPrompt? {
