@@ -51,6 +51,7 @@ struct HomeView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
                         shareCreateChallengeSection
+                        becapChallengeListSection
                         challengeListSection
                     }
                     .padding(.horizontal)
@@ -166,7 +167,7 @@ struct HomeView: View {
                     .resizable()
                     .scaledToFit()
                     .frame(height: 30)
-                Text("LISTE DES DÉFIS")
+                Text("DÉFIS LIBRES")
                     .font(.system(.title, design: .rounded).weight(.heavy))
                     .textCase(.uppercase)
                     .foregroundColor(.white)
@@ -177,16 +178,77 @@ struct HomeView: View {
             .padding(.horizontal, 24)
             .multilineTextAlignment(.center)
 
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 22) {
-                ForEach(viewModel.challenges) { challenge in
-                    NavigationLink(destination: {
-                        CalendarDetailView(challenge: challenge)
-                            .onDisappear { viewModel.refreshChallenges() }
-                    }) {
-                        DefiCell(challenge: challenge,
-                                 onReport: { viewModel.presentReport(for: challenge) })
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(viewModel.challenges) { challenge in
+                        NavigationLink(destination: {
+                            CalendarDetailView(challenge: challenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        }) {
+                            DefiCell(challenge: challenge,
+                                     onReport: { viewModel.presentReport(for: challenge) })
+                            .frame(width: 190)
+                        }
                     }
                 }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private var becapChallengeListSection: some View {
+        Group {
+            HStack(spacing: 10) {
+                Image("list_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 30)
+                Text("DÉFIS BECAP")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 24)
+            .padding(.bottom, 14)
+            .foregroundColor(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(viewModel.becapChallenges) { becapChallenge in
+                        NavigationLink {
+                            CalendarDetailView(challenge: becapChallenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            DefiCell(challenge: becapChallenge.base, onReport: {})
+                                .frame(width: 190)
+                        }
+                    }
+
+                    ForEach(viewModel.becapTemplates.filter { template in
+                        !viewModel.becapChallenges.contains(where: {
+                            $0.type == template.type
+                        })
+                    }) { template in
+                        NavigationLink {
+                            CreateBecapChallengeView(type: template.type)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            BecapTemplateCell(template: template)
+                                .frame(width: 190)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
+            if viewModel.becapChallenges.count >= viewModel.becapTemplates.count {
+                Text("Tu as déjà créé les \(viewModel.becapTemplates.count) défis Becap disponibles ✅")
+                    .font(.system(.footnote, design: .rounded).weight(.semibold))
+                    .foregroundColor(.white.opacity(0.9))
+                    .padding(.horizontal, 30)
+                    .padding(.vertical, 10)
+                    .background(.ultraThinMaterial, in: Capsule())
+                    .padding(.top, 8)
             }
         }
     }

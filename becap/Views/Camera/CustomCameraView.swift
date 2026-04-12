@@ -9,12 +9,23 @@ import SwiftUI
 import AVFoundation
 
 struct CustomCameraView: View {
-    @StateObject private var viewModel = CustomCameraViewModel()
+    @StateObject private var viewModel: CustomCameraViewModel
     @Environment(\.dismiss) private var dismiss
 
     @State private var isCaptureButtonPressed: Bool = false
+    @State private var isTimelapseRingAnimating = false
 
     var onCapture: (ChallengeRawMedia) -> Void
+
+    init(challenge: any ChallengeRepresentable,
+         onCapture: @escaping (ChallengeRawMedia) -> Void) {
+        self.onCapture = onCapture
+        var becapData: BecapChallengeData? = nil
+        if let challenge = challenge as? BecapChallenge {
+            becapData = challenge.becapData
+        }
+        _viewModel = StateObject(wrappedValue: CustomCameraViewModel(becapData: becapData))
+    }
 
     var body: some View {
         ZStack {
@@ -30,6 +41,16 @@ struct CustomCameraView: View {
                     .frame(maxHeight: .infinity)
                     .background(Color.black)
                     .transition(.opacity)
+            }
+        }
+        .overlay {
+            if viewModel.mode == .plank, viewModel.isProcessingTimelapse {
+                timelapseProcessingOverlay
+            }
+        }
+        .overlay {
+            if viewModel.mode == .plank, let countdownValue = viewModel.prepCountdownValue {
+                countdownOverlay(value: countdownValue)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -111,27 +132,45 @@ struct CustomCameraView: View {
                 Spacer()
 
                 if viewModel.isRecordingVideo {
-                    Text(viewModel.videoRecordingTimer)
-                        .font(.system(size: 18, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.white)
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 14)
-                        .background(Color.black.opacity(0.5))
-                        .clipShape(Capsule())
-                        .padding(.top, 20)
-                        .transition(.opacity)
+                    VStack(spacing: 6) {
+                        if viewModel.mode == .plank, !viewModel.isInPrepCountdown {
+                            Text(viewModel.videoRecordingTimer)
+                                .font(.system(size: 22, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white)
+                        } else if viewModel.mode != .plank {
+                            Text(viewModel.videoRecordingTimer)
+                                .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                                .foregroundColor(.white)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .padding(.horizontal, 14)
+                    .background(Color.black.opacity(0.5))
+                    .clipShape(Capsule())
+                    .padding(.top, 20)
+                    .transition(.opacity)
                 }
 
                 Spacer()
 
                 if viewModel.showFlashButton {
-                    Image(systemName: viewModel.flashIconName)
-                        .font(.title2)
-                        .foregroundColor(.white)
-                        .padding(10)
-                        .background(Color.black.opacity(0.4))
-                        .clipShape(Circle())
-                        .onTapGesture { viewModel.toggleFlash() }
+                    HStack(spacing: 12) {
+                        Image(systemName: "camera.rotate")
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                            .onTapGesture { viewModel.switchCamera() }
+
+                        Image(systemName: viewModel.flashIconName)
+                            .font(.title2)
+                            .foregroundColor(.white)
+                            .padding(10)
+                            .background(Color.black.opacity(0.4))
+                            .clipShape(Circle())
+                            .onTapGesture { viewModel.toggleFlash() }
+                    }
                 }
             }
             .padding()
@@ -142,6 +181,17 @@ struct CustomCameraView: View {
                 Spacer()
 
                 ZStack {
+                    if viewModel.mode == .plank, viewModel.isRecordingVideo {
+                        Circle()
+                            .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
+                            .frame(width: 112, height: 112)
+                            .rotationEffect(.degrees(isTimelapseRingAnimating ? 360 : 0))
+                            .animation(.linear(duration: 1.6).repeatForever(autoreverses: false),
+                                       value: isTimelapseRingAnimating)
+                            .onAppear { isTimelapseRingAnimating = true }
+                            .onDisappear { isTimelapseRingAnimating = false }
+                    }
+
                     if viewModel.isRecordingVideo {
                         Circle()
                             .stroke(Color.white.opacity(0.8), lineWidth: 30)
@@ -176,6 +226,25 @@ struct CustomCameraView: View {
 
                 Spacer()
             }
+
+            if viewModel.mode == .plank, viewModel.isRecordingVideo {
+                VStack(spacing: 6) {
+                    HStack(spacing: 6) {
+                        Circle()
+                            .fill(Color.red)
+                            .frame(width: 8, height: 8)
+                        Text("REC")
+                            .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                            .foregroundColor(.white.opacity(0.9))
+                    }
+
+                    Text("Tiens jusqu’à la fin 💪")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundColor(.white.opacity(0.9))
+                }
+                .padding(.bottom, 20)
+                .transition(.opacity)
+            }
         }
     }
 
@@ -202,7 +271,40 @@ struct CustomCameraView: View {
                 default:
                     break
                 }
-             }
+            }
+    }
+
+    private var timelapseProcessingOverlay: some View {
+        ZStack {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+
+            VStack(spacing: 12) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    .scaleEffect(1.2)
+                Text("⏳ Création du timelapse…")
+                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white)
+            }
+            .padding(20)
+            .background(Color.black.opacity(0.6))
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+    }
+
+    private func countdownOverlay(value: Int) -> some View {
+        ZStack {
+            Color.black.opacity(0.2)
+                .ignoresSafeArea()
+
+            Text("\(value)")
+                .font(.system(size: 96, weight: .heavy, design: .rounded))
+                .foregroundColor(.green)
+                .shadow(color: .black.opacity(0.4), radius: 12, x: 0, y: 6)
+                .transition(.scale.combined(with: .opacity))
+                .animation(.spring(response: 0.4, dampingFraction: 0.7), value: value)
+        }
     }
 }
 
@@ -219,4 +321,5 @@ struct PulsatingEffect: ViewModifier {
             .onAppear { animate = true }
             .onDisappear { animate = false }
     }
+
 }

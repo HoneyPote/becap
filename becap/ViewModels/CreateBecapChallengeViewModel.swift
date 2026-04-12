@@ -1,29 +1,17 @@
 //
-//  NewChallengeViewModel.swift
+//  CreateBecapChallengeViewModel.swift
 //  becap
 //
-//  Created by Adam Mabrouki on 28/07/2025.
+//  Created by Victor Derveaux on 06/02/2026.
 //
 
 import SwiftUI
 
-class NewChallengeViewModel: ObservableObject {
-    @Published var name: String = ""
-    @Published var duration: Int = defaultDuration {
-        didSet { updateSuggestedJokersIfNeeded() }
-    }
-    @Published var category: ChallengeCategory = .other
+class CreateBecapChallengeViewModel: ObservableObject {
+    @Published var duration: Int = defaultDuration
     @Published var notificationTimes: [NotificationTime] = []
     @Published var isLoading: Bool = false
-    @Published var jokersNumber: Int = NewChallengeViewModel.suggestedJokerCount(for: defaultDuration) {
-        didSet {
-            if shouldIgnoreJokerUpdate {
-                shouldIgnoreJokerUpdate = false
-            } else if jokersNumber != oldValue {
-                userCustomizedJokerCount = true
-            }
-        }
-    }
+    @Published var becapConfiguration: BecapChallengeConfiguration
 
     private var userCustomizedJokerCount = false
     private var shouldIgnoreJokerUpdate = false
@@ -35,19 +23,39 @@ class NewChallengeViewModel: ObservableObject {
     private let notificationManager: NotificationManager
     private static let defaultDuration = 30
 
-    var trimmedName: String {
-        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    var challengeName: String {
+        switch type {
+        case .plank:
+            "Gainage"
+        case .reading:
+            "Lecture"
+        case .food:
+            "Nourriture"
+        case .drawing:
+            "Dessin"
+        }
     }
 
-    var isFormValid: Bool {
-        !trimmedName.isEmpty
+    var challengeCategory: ChallengeCategory {
+        switch type {
+        case .plank: .sport
+        case .reading: .reading
+        case .food: .food
+        case .drawing: .drawing
+        }
     }
 
-    init(userManager: UserManagerProtocol = UserManager.shared,
+    let type: BecapChallengeType
+
+    init(type: BecapChallengeType,
+         userManager: UserManagerProtocol = UserManager.shared,
          accountManager: AccountManager = AccountManager(),
          challengeManager: ChallengeManager = ChallengeManager.shared,
          alertManager: GlobalAlertManager = GlobalAlertManager.shared,
          notificationManager: NotificationManager = NotificationManager.shared) {
+        self.type = type
+        self.becapConfiguration = type.defaultConfiguration
+
         self.currentUser = userManager.currentUser
         self.accountManager = accountManager
         self.challengeManager = challengeManager
@@ -55,7 +63,7 @@ class NewChallengeViewModel: ObservableObject {
         self.notificationManager = notificationManager
     }
 
-    func createChallenge(completion: @escaping (Bool) -> Void) {
+    func createBecapChallenge(completion: @escaping (Bool) -> Void) {
         isLoading = true
 
         guard let currentUser, let currentUserId = currentUser.id else {
@@ -69,6 +77,11 @@ class NewChallengeViewModel: ObservableObject {
         Task {
             do {
                 guard let newChallenge = try await challengeManager.createChallenge(newChallenge)
+                else { return }
+
+                let newBecapData = buildNewBecapData(challengeId: newChallenge.id)
+
+                guard let newBecapChallengeData = try await challengeManager.createBecapChallengeData(newBecapData)
                 else { return }
 
                 try await challengeManager.createNewParticipantProgress(userId: currentUserId,
@@ -114,18 +127,25 @@ class NewChallengeViewModel: ObservableObject {
     // MARK: - Private functions
 
     private func buildNewChallenge(userId: String) -> Challenge {
+        // TODO: Make sure created code is not already taken by another challenge
         let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
 
-        return Challenge(title: name,
+        return Challenge(title: challengeName,
                          duration: duration,
                          startDate: Date(),
                          creatorUID: userId,
                          adminUids: [userId],
                          participantUids: [userId],
-                         category: category,
+                         category: challengeCategory,
                          defaultNotificationsConfig: notificationTimes.map { $0.minutes },
                          code: code,
-                         jokerConfiguration: jokersNumber)
+                         jokerConfiguration: 0)
+    }
+
+    private func buildNewBecapData(challengeId: String) -> BecapChallengeData {
+        BecapChallengeData(challengeId: challengeId,
+                           type: type,
+                           configuration: becapConfiguration)
     }
 
     private func sortNotificationTimes() {
@@ -150,30 +170,6 @@ class NewChallengeViewModel: ObservableObject {
                 }
                 alertManager.show(medals: medalsToday)
             }
-        }
-    }
-
-    private func updateSuggestedJokersIfNeeded() {
-        guard !userCustomizedJokerCount else { return }
-
-        shouldIgnoreJokerUpdate = true
-        jokersNumber = NewChallengeViewModel.suggestedJokerCount(for: duration)
-    }
-
-    private static func suggestedJokerCount(for duration: Int) -> Int {
-        switch duration {
-        case ..<7:
-            return 0
-        case 7:
-            return 1
-        case 8...14:
-            return 2
-        case 15...21:
-            return 3
-        case 22...35:
-            return 4
-        default:
-            return max(4, Int(round(Double(duration) / 7.0)))
         }
     }
 }

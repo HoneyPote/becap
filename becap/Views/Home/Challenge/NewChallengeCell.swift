@@ -24,7 +24,7 @@ struct NewChallengeCell: View {
                         .foregroundColor(.white)
                         .shadow(radius: 1, x: 0, y: 3)
 
-                    Text("Nouveau défi")
+                    Text("Défi libre")
                         .font(.headline)
                         .foregroundColor(.white)
                         .multilineTextAlignment(.center)

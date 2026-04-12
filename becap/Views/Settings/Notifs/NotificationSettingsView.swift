@@ -19,7 +19,7 @@ struct NotificationSettingsView: View {
     private let notificationColumns = [GridItem(.flexible(), spacing: 12),
                                        GridItem(.flexible(), spacing: 12)]
 
-    init(challenge: Challenge, currentPartipicant: ParticipantUIModel) {
+    init(challenge: any ChallengeRepresentable, currentPartipicant: ParticipantUIModel) {
         _viewModel = StateObject(wrappedValue: NotificationSettingsViewModel(currentChallenge: challenge, currentParticipant: currentPartipicant))
     }
 

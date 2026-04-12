@@ -10,7 +10,7 @@ import Foundation
 class GroupChatViewModel: ObservableObject {
     @Published var allMessages: [ChallengeChatMessage] = []
 
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     private let userManager: UserManager
     private let challengeManager: ChallengeManager
@@ -19,7 +19,7 @@ class GroupChatViewModel: ObservableObject {
     init(userManager: UserManager = UserManager.shared,
          challengeManager: ChallengeManager = ChallengeManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
-         challenge: Challenge) {
+         challenge: any ChallengeRepresentable) {
         self.userManager = userManager
         self.challengeManager = challengeManager
         self.challengeService = challengeService

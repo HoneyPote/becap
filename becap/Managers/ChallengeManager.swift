@@ -22,8 +22,17 @@ protocol ChallengeManagerProtocol {
     func joinChallenge(withCode code: String) async throws -> Challenge
     func removeParticipant(_ challengeId: String, userId: String) async throws
 
+    // Daily prompts
+    func fetchDailyPrompt(challengeId: String, date: Date) async -> DailyPrompt?
+    func hasSeenDailyPrompt(challengeId: String, date: Date) async -> Bool
+    func markDailyPromptAsSeen(challengeId: String, date: Date) async
+    
+
     // Posts
-    func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: any ChallengeRepresentable,
+                           descriptionText: String?,
+                           progressHandler: ((Double) -> Void)?) async throws
     func loadPosts(from challengeId: String) async throws -> [ChallengePost]
     func deletePost(_ post: ChallengePost) async throws
     func likePost(post: ChallengePost) async throws
@@ -35,12 +44,12 @@ protocol ChallengeManagerProtocol {
     func updateParticipantProgress(progress: ParticipantProgress) async throws -> ParticipantProgress
     func assignCreationMedalsToUser(_ userId: String) async
     func autoDeclareDailyJoker(for progress: ParticipantProgress) async throws
-    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress?
+    func autoDeclareMissedDayJokers(for challenge: any ChallengeRepresentable, progress: ParticipantProgress) async -> ParticipantProgress?
     func declareJokerOnPost(for post: ChallengePost, jokerState: PostJokerState) async throws
 
     // Notifications
-    func updateChallengeNotifications(for challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
-    func updateUserNotifications(for userId: String, challenge: Challenge, config: [Int], completion: ((Error?) -> Void)?)
+    func updateChallengeNotifications(for challenge: any ChallengeRepresentable, config: [Int], completion: ((Error?) -> Void)?)
+    func updateUserNotifications(for userId: String, challenge: any ChallengeRepresentable, config: [Int], completion: ((Error?) -> Void)?)
 
     // Chat
     func fetchChatMessages(for challengeId: String) async throws -> [ChallengeChatMessage]
@@ -76,6 +85,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
 
     @Published private(set) var currentUser: User?
     @Published private(set) var challenges: [Challenge] = []
+    @Published private(set) var becapChallenges: [BecapChallenge] = []
     @Published private(set) var posts: [String: [ChallengePost]] = [:]
 
     private var cancellables = Set<AnyCancellable>()
@@ -89,6 +99,34 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let defaults: UserDefaults
     private let chatLastReadPrefix = "challengeChatLastRead_"
     private let hasUnreadMessagePrefix = "challengeHasUnreadMessage_"
+    private let dailyPromptDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = .current
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let dailyPromptUTCDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter
+    }()
+    private let animalFallbackWords: [String] = [
+        "Panda", "Lion", "Tigre", "Koala", "Girafe", "Éléphant", "Loutre", "Renard",
+        "Hibou", "Dauphin", "Baleine", "Requin", "Pieuvre", "Tortue", "Pingouin", "Lama",
+        "Cerf", "Lapin", "Hérisson", "Écureuil", "Panthère", "Caméléon", "Flamant", "Cheval",
+        "Chouette", "Coccinelle", "Papillon", "Abeille", "Chat", "Chien", "Loup", "Ours"
+    ]
+    private let plantFallbackWords: [String] = [
+        "Rose", "Tulipe", "Tournesol", "Lavande", "Pivoine", "Orchidée", "Marguerite", "Jasmin",
+        "Bambou", "Fougère", "Cactus", "Baobab", "Chêne", "Érable", "Sapin", "Palmier",
+        "Menthe", "Basilic", "Romarin", "Aloe", "Lierre", "Lotus", "Coquelicot", "Nénuphar",
+        "Violette", "Muguet", "Camélia", "Hortensia", "Anémone", "Mimosa", "Glycine", "Iris"
+    ]
 
     init(userManager: UserManager = UserManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
@@ -120,25 +158,58 @@ extension ChallengeManager {
         }
     }
 
+    func createBecapChallengeData(_ data: BecapChallengeData) async throws -> BecapChallengeData? {
+        do {
+            let newBecapChallengeData = try await challengeService.addBecapChallengeData(data)
+
+            return newBecapChallengeData
+        }
+    }
+
     /// Récupère tous les défis, puis filtre ceux liés à l'utilisateur courant
     func fetchAndFilterChallenges() async throws {
         guard let currentUser, let currentUserId = currentUser.id else { return }
 
-        let filtered = try await fetchAllChallenges().filter { challenge in
-            challenge.creatorUID == currentUserId || challenge.participantUids.contains(currentUserId)
+        // 1️⃣ Fetch user challenges
+        let userChallenges = try await fetchAllChallenges().filter { challenge in
+            challenge.participantUids.contains(currentUserId)
         }
 
         // TODO: Temporary piece of code, to be removed when all the users have an existing participatingChallenges field in database
-        for filter in filtered {
-            try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: filter.id)
+        for challenge in userChallenges {
+            try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: challenge.id)
+        }
+
+        // 2️⃣ Fetch all becap datas
+        let becapDatas = try await fetchAllBecapDatas()
+
+        // 3️⃣ Create challenge/becap data pairs
+        let becapPairs: [(Challenge, BecapChallengeData)] = userChallenges.compactMap { challenge in
+            guard let data = becapDatas.first(where: { $0.challengeId == challenge.id }) else {
+                return nil
+            }
+            return (challenge, data)
+        }
+
+        // 4️⃣ Build BecapChallenges using becapPairs
+        let becapChallenges: [BecapChallenge] = becapPairs.map {
+            BecapChallenge(base: $0.0, becapData: $0.1)
+        }
+
+        // 5️⃣ Filter becap challenges from classical challenges
+        let becapChallengeIds = Set(becapChallenges.map { $0.id })
+        let classicChallenges = userChallenges.filter {
+            !becapChallengeIds.contains($0.id)
         }
 
         await MainActor.run {
-            self.challenges = filtered
-            print("✅ Défis filtrés pour \(currentUser.name):", filtered.map(\.title))
+            self.challenges = classicChallenges
+            self.becapChallenges = becapChallenges
+
+            print("Classical challenges :", classicChallenges.map(\.title))
+            print("BecapChallenges :", becapChallenges.map(\.base.title))
         }
     }
-
     func ensureMembership(in challengeId: String) async throws {
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
@@ -222,11 +293,54 @@ extension ChallengeManager {
         try await challengeService.blockParticipant(challengeId: challengeId, userId: userId)
     }
 
+    // Daily prompts
+    func fetchDailyPrompt(challengeId: String, date: Date) async -> DailyPrompt? {
+        do {
+            if let prompt = try await challengeService.fetchDailyPrompt(challengeId: challengeId,
+                                                                        dateKeys: dailyPromptKeys(for: date)) {
+                return prompt
+            }
+        } catch {
+            print("❌ fetchDailyPrompt manager error: \(error)")
+        }
+
+        return fallbackPrompt(challengeId: challengeId, date: date)
+    }
+
+    func hasSeenDailyPrompt(challengeId: String, date: Date) async -> Bool {
+        guard let currentUserId = currentUser?.id else { return true }
+
+        do {
+            return try await challengeService.hasSeenDailyPrompt(userId: currentUserId,
+                                                                 challengeId: challengeId,
+                                                                 dateKeys: [dailySeenKey(for: date)])
+        } catch {
+            print("❌ hasSeenDailyPrompt manager error: \(error)")
+            return false
+        }
+    }
+
+    func markDailyPromptAsSeen(challengeId: String, date: Date) async {
+        guard let currentUserId = currentUser?.id else { return }
+
+        do {
+            try await challengeService.markDailyPromptAsSeen(userId: currentUserId,
+                                                             challengeId: challengeId,
+                                                             dateKeys: [dailySeenKey(for: date)])
+        } catch {
+            print("❌ markDailyPromptAsSeen manager error: \(error)")
+        }
+    }
+
     // Challenges - Privates
 
     /// Récupère tous les défis présents dans Firestore sans filtrage
     private func fetchAllChallenges() async throws -> [Challenge] {
         return try await challengeService.fetchAllChallenges()
+    }
+
+    private func fetchAllBecapDatas() async throws -> [BecapChallengeData] {
+        return try await challengeService.fetchAllBecapData()
     }
 
     private func updateChallenge(_ challenge: Challenge) async throws {
@@ -320,7 +434,10 @@ extension ChallengeManager {
 
 // MARK: - Posts
 extension ChallengeManager {
-    func sendPostAndNotify(media: ChallengeRawMedia, challenge: Challenge, descriptionText: String?) async throws {
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: any ChallengeRepresentable,
+                           descriptionText: String?,
+                           progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
 
         guard let currentUser,
@@ -331,7 +448,8 @@ extension ChallengeManager {
         let uploadedPost = try await uploadPostToFirebase(media: media,
                                                           challengeId: challenge.id,
                                                           author: currentUser,
-                                                          description: descriptionText)
+                                                          description: descriptionText,
+                                                          progressHandler: progressHandler)
 
         var newProgress = progress
         if !dayAlreadyValidated(progress: newProgress, day: Date()) {
@@ -435,11 +553,16 @@ extension ChallengeManager {
 
     // Posts - Privates
 
-    private func uploadPostToFirebase(media: ChallengeRawMedia, challengeId: String, author: User, description: String? = "") async throws -> ChallengePost {
+    private func uploadPostToFirebase(media: ChallengeRawMedia,
+                                      challengeId: String,
+                                      author: User,
+                                      description: String? = "",
+                                      progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         let post = try await challengeService.uploadPost(rawMedia: media,
                                                          challengeId: challengeId,
                                                          author: author,
-                                                         description: description)
+                                                         description: description,
+                                                         progressHandler: progressHandler)
 
         await MainActor.run {
             savePostInLocal(post, to: challengeId)
@@ -531,7 +654,7 @@ extension ChallengeManager {
         await awardJokerMedalIfNeeded(progress: newProgress)
     }
 
-    func autoDeclareMissedDayJokers(for challenge: Challenge, progress: ParticipantProgress) async -> ParticipantProgress? {
+    func autoDeclareMissedDayJokers(for challenge: any ChallengeRepresentable, progress: ParticipantProgress) async -> ParticipantProgress? {
         guard let currentUserId = currentUser?.id, currentUserId == progress.id
         else { return nil }
 
@@ -817,7 +940,7 @@ extension ChallengeManager {
 
 // MARK: - Notifications
 extension ChallengeManager {
-    func updateChallengeNotifications(for challenge: Challenge,
+    func updateChallengeNotifications(for challenge: any ChallengeRepresentable,
                                       config: [Int],
                                       completion: ((Error?) -> Void)? = nil) {
         // Mise à jour locale dans la liste -> On garde ?
@@ -836,7 +959,7 @@ extension ChallengeManager {
     }
 
     func updateUserNotifications(for userId: String,
-                                 challenge: Challenge,
+                                 challenge: any ChallengeRepresentable,
                                  config: [Int],
                                  completion: ((Error?) -> Void)? = nil) {
         challengeService.updateUserNotifications(for: userId, challengeId: challenge.id, config: config) { error in
@@ -876,5 +999,32 @@ extension ChallengeManager {
                 }
             }
             .store(in: &cancellables)
+    }
+}
+
+private extension ChallengeManager {
+    func dailyPromptKeys(for date: Date) -> [String] {
+        let localKey = dailyPromptDateFormatter.string(from: date)
+        let utcKey = dailyPromptUTCDateFormatter.string(from: date)
+        if localKey == utcKey { return [localKey] }
+        return [localKey, utcKey]
+    }
+    func dailySeenKey(for date: Date) -> String {
+          dailyPromptDateFormatter.string(from: date)
+      }
+
+    func fallbackPrompt(challengeId: String, date: Date) -> DailyPrompt {
+        let dayKey = dailyPromptDateFormatter.string(from: date)
+        let seedString = "\(challengeId)_\(dayKey)"
+        let seed = abs(seedString.unicodeScalars.reduce(0) { partial, scalar in
+            partial &* 31 &+ Int(scalar.value)
+        })
+
+        let useAnimals = seed % 2 == 0
+        let words = useAnimals ? animalFallbackWords : plantFallbackWords
+        let index = words.isEmpty ? 0 : seed % words.count
+        let word = words.isEmpty ? "Panda" : words[index]
+
+        return DailyPrompt(word: word, theme: useAnimals ? "Animaux" : "Plantes")
     }
 }

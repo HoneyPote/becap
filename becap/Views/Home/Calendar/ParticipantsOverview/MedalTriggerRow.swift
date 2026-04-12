@@ -13,7 +13,7 @@ struct MedalTriggerRow: View {
     let medalCount: Int
     let participantName: String
     let progress: ParticipantProgress?
-    let challenge: Challenge?
+    let challenge: (any ChallengeRepresentable)?
     let onTap: () -> Void
 
     var body: some View {
@@ -64,7 +64,7 @@ struct MedalTriggerRow: View {
 struct MedalBubbleView: View {
     let medals: [UserMedal]
     var progress: ParticipantProgress? = nil
-    var challenge: Challenge? = nil
+    var challenge: (any ChallengeRepresentable)? = nil
 
     @State private var player: AVAudioPlayer?
 
@@ -138,7 +138,7 @@ struct MedalBubbleView: View {
 
 struct MedalProgressCard: View {
     let progress: ParticipantProgress
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     private var nextMedal: MedalDefinition? {
         MedalCatalog.nextStreakDefinition(for: progress, challenge: challenge)

@@ -15,7 +15,7 @@ struct ParticipantsOverviewView: View {
 
     let onChallengeQuit: () -> Void
 
-    init(challenge: Challenge, participants: [ParticipantUIModel], onChallengeQuit: @escaping () -> Void) {
+    init(challenge: any ChallengeRepresentable, participants: [ParticipantUIModel], onChallengeQuit: @escaping () -> Void) {
         self.onChallengeQuit = onChallengeQuit
         _viewModel = StateObject(wrappedValue: ParticipantOverviewViewModel(challenge: challenge,
                                                                             participants: participants))

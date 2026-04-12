@@ -9,14 +9,14 @@ import Foundation
 import SwiftUI
 
 struct ChallengeCameraContainerView: View {
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     @State private var capturedMedia: ChallengeRawMedia?
     @State private var showNewPostView = false
 
     var body: some View {
         ZStack {
-            CustomCameraView { media in
+            CustomCameraView(challenge: challenge) { media in
                 capturedMedia = media
 
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {

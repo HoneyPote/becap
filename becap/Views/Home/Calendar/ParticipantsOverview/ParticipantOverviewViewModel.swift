@@ -12,7 +12,7 @@ class ParticipantOverviewViewModel: ObservableObject {
     @Published var alertTitle: String = ""
     @Published var alertMessage: String = ""
 
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
     let participants: [ParticipantUIModel]
     let hasUnreadMessages: Bool
 
@@ -45,7 +45,7 @@ class ParticipantOverviewViewModel: ObservableObject {
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
          challengeService: ChallengeService = ChallengeService.shared,
          userManager: UserManager = UserManager.shared,
-         challenge: Challenge,
+         challenge: any ChallengeRepresentable,
          participants: [ParticipantUIModel]) {
         self.challengeManager = challengeManager
         self.challengeService = challengeService

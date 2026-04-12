@@ -1,27 +1,24 @@
 //
-//  NewChallengeView.swift
+//  CreateBecapChallengeView.swift
 //  becap
 //
-//  Created by Adam Mabrouki on 15/07/2025.
+//  Created by Victor Derveaux on 06/02/2026.
 //
 
 import SwiftUI
 
-struct NewChallengeView: View {
+struct CreateBecapChallengeView: View {
     @Environment(\.dismiss) var dismiss
-    @FocusState private var focusedField: Field?
 
-    @StateObject private var viewModel = NewChallengeViewModel()
+    @StateObject private var viewModel: CreateBecapChallengeViewModel
 
-    @Binding var challengeCreated: Bool
-
-    @State private var showNameError = false
+    @State private var challengeCreated: Bool = false
     @State private var editedNotifTime: Date = Date()
     @State private var editedNotifIndex: Int?
     @State private var isEditTimeSheetOpen: Bool = false
 
-    private enum Field: Hashable {
-        case name
+    init(type: BecapChallengeType) {
+        _viewModel = StateObject(wrappedValue: CreateBecapChallengeViewModel(type: type))
     }
 
     var body: some View {
@@ -34,14 +31,9 @@ struct NewChallengeView: View {
                         .padding(.horizontal)
                         .padding(.top, 36)
 
-                    // Name
+                    // Challenge preview
                     GlassCard {
-                        nameSetting
-                    }
-
-                    // Category
-                    GlassCard {
-                        categorySetting
+                        challengePreviewSection
                     }
 
                     // Duration
@@ -49,14 +41,13 @@ struct NewChallengeView: View {
                         durationSetting
                     }
 
-                    // Jokers
-                    GlassCard {
-                        jokerSetting
-                    }
-
                     // Notifications
                     GlassCard {
                         notificationsSetting
+                    }
+
+                    GlassCard {
+                        configurationSection
                     }
 
                     // Creation button
@@ -70,27 +61,7 @@ struct NewChallengeView: View {
                 .padding(.bottom, 32)
             }
         }
-        .interactiveDismissDisabled()
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarLeading) {
-                Button {
-                    dismiss()
-                } label: {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .padding(8)
-                        .background(.ultraThinMaterial.opacity(0.35))
-                        .clipShape(Circle())
-                }
-            }
-            ToolbarItem(placement: .principal) {
-                Text("Défi libre")
-                    .font(.system(.title2, design: .rounded).weight(.heavy))
-                    .foregroundColor(.white)
-            }
-        }
+        .navigationBarBackButtonHidden()
     }
 
     private var header: some View {
@@ -108,7 +79,7 @@ struct NewChallengeView: View {
 
             Spacer()
 
-            Text("Créer un défi libre")
+            Text("Becap \(viewModel.challengeName)")
                 .font(.system(.largeTitle, design: .rounded).weight(.heavy))
                 .foregroundColor(.white)
                 .shadow(color: .black.opacity(0.22), radius: 8, x: 0, y: 4)
@@ -117,78 +88,62 @@ struct NewChallengeView: View {
         }
     }
 
-    private var nameSetting: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Nom du défi")
+    private var challengePreviewSection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Comment ça va se passer ?")
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundColor(.white)
 
-            VStack(alignment: .leading, spacing: 6) {
-                TextField("Nom", text: $viewModel.name)
-                    .padding(16)
-                    .background(.ultraThinMaterial)
-                    .cornerRadius(14)
-                    .font(.system(.body, design: .rounded))
-                    .textInputAutocapitalization(.words)
-                    .disableAutocorrection(true)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(showNameError && viewModel.trimmedName.isEmpty ? Color.red.opacity(0.9) : Color.white.opacity(0.18), lineWidth: 1)
-                    )
-                    .shadow(color: .black.opacity(0.12), radius: 10, x: 0, y: 6)
-                    .focused($focusedField, equals: .name)
-                    .onChange(of: viewModel.name) { newValue in
-                        if !newValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            showNameError = false
-                        }
-                    }
-                    .submitLabel(.done)
-                    .onSubmit {
-                        showNameError = viewModel.trimmedName.isEmpty
-                    }
+            Text(challengeDescription)
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundColor(.white.opacity(0.9))
+                .fixedSize(horizontal: false, vertical: true)
 
-                if showNameError && viewModel.trimmedName.isEmpty {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundColor(.red.opacity(0.85))
-                        Text("Le nom du défi est obligatoire.")
-                            .font(.system(.footnote, design: .rounded))
-                            .foregroundColor(.red.opacity(0.9))
-                    }
-                    .transition(.opacity)
-                }
-            }
+            Image(exampleImageName)
+                .resizable()
+                .scaledToFill()
+                .frame(height: 140)
+                .frame(maxWidth: .infinity)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 14, style: .continuous)
+                        .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                )
+
+            Text(exampleCaption)
+                .font(.system(.caption, design: .rounded).weight(.medium))
+                .foregroundColor(.white.opacity(0.75))
         }
     }
 
-    private var categorySetting: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            Text("Type de défi")
-                .font(.system(.headline, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
+    private var challengeDescription: String {
+        switch viewModel.type {
+        case .plank:
+            return "Chaque jour, tu publies une preuve de ton gainage. L'objectif est de tenir la routine sans interruption pendant toute la durée du défi."
+        case .reading:
+            return "Chaque jour, tu partages une preuve de ta lecture (pages lues, extrait, photo). Le but est d'avancer régulièrement et de garder le rythme."
+        case .food:
+            return "Chaque jour, tu publies un repas équilibré. Tu peux configurer le nombre d'écarts autorisés pour rester motivé tout au long du défi."
+        case .drawing:
+            return "Chaque jour, tu partages un dessin basé sur le mot du jour. L'objectif est de créer une routine créative simple et régulière."
+        }
+    }
 
-            Menu {
-                ForEach(ChallengeCategory.allCases, id: \.self) { category in
-                    Button(category.displayName) {
-                        viewModel.category = category
-                    }
-                }
-            } label: {
-                HStack {
-                    Text(viewModel.category.displayName)
-                        .font(.system(.body, design: .rounded))
-                        .foregroundColor(.white)
-                    Spacer()
-                    Image(systemName: "chevron.down")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.7))
-                }
-                .padding(14)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.ultraThinMaterial)
-                .cornerRadius(12)
-            }
+    private var exampleImageName: String {
+        switch viewModel.type {
+        case .plank: return "plank-template"
+        case .reading: return "reading-template"
+        case .food: return "food-Template"
+        case .drawing: return "draw-template"
+        }
+    }
+
+    private var exampleCaption: String {
+        switch viewModel.type {
+        case .plank: return "Exemple : photo ou capture de séance de gainage."
+        case .reading: return "Exemple : photo du livre et des pages lues."
+        case .food: return "Exemple : photo d'un repas healthy du jour."
+        case .drawing: return "Exemple : dessin du jour inspiré par le mot révélé."
         }
     }
 
@@ -234,42 +189,24 @@ struct NewChallengeView: View {
         }
     }
 
-    private var jokerSetting: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Jokers disponibles")
-                    .font(.system(.headline, design: .rounded).weight(.bold))
-                    .foregroundColor(.white)
-                Spacer()
-                Text("\(viewModel.jokersNumber)")
-                    .font(.system(.title3, design: .rounded).weight(.semibold))
-                    .foregroundColor(.white.opacity(0.85))
-            }
+    @ViewBuilder
+    private var configurationSection: some View {
+        switch viewModel.becapConfiguration {
+        case .plank(let config):
+            PlankConfigurationView(config: config,
+                                   onChange: { viewModel.becapConfiguration = .plank($0) })
 
-            Stepper(value: $viewModel.jokersNumber,
-                    in: 0...max(0, viewModel.duration)) {
-                Text("Nombre de jokers pour le défi")
-                    .foregroundColor(.white.opacity(0.9))
-            }
+        case .reading(let config):
+            ReadingConfigurationView(config: config,
+                                     onChange: { viewModel.becapConfiguration = .reading($0) })
 
-            HStack(spacing: 8) {
-                let iconCount = min(max(viewModel.jokersNumber, 1), 8)
-                ForEach(0..<iconCount, id: \.self) { index in
-                    let isActive = index < min(viewModel.jokersNumber, iconCount)
-                    JokerIconView(size: 28, isDimmed: !isActive)
-                        .opacity(viewModel.jokersNumber == 0 ? 0.25 : 1.0)
-                }
+        case .food(let config):
+            FoodConfigurationView(config: config,
+                                  onChange: { viewModel.becapConfiguration = .food($0) })
 
-                if viewModel.jokersNumber > iconCount {
-                    Text("+\(viewModel.jokersNumber - iconCount)")
-                        .font(.system(.footnote, design: .rounded).weight(.semibold))
-                        .foregroundColor(.white.opacity(0.6))
-                }
-            }
-
-            Text("Les jokers permettent de sauver un jour sans post. Les participants peuvent voter pour valider un joker sur une publication si la majorité l'estime nécessaire.")
-                .font(.footnote)
-                .foregroundColor(.white.opacity(0.65))
+        case .drawing(let config):
+            DrawingConfigurationView(config: config,
+                                     onChange: { viewModel.becapConfiguration = .drawing($0) })
         }
     }
 
@@ -285,15 +222,7 @@ struct NewChallengeView: View {
                 .padding(.vertical, 16)
             } else {
                 Button(action: {
-                    if viewModel.trimmedName.isEmpty {
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            showNameError = true
-                            focusedField = .name
-                        }
-                        return
-                    }
-
-                    viewModel.createChallenge() { success in
+                    viewModel.createBecapChallenge() { success in
                         if success {
                             challengeCreated = true
                             dismiss()
@@ -332,14 +261,13 @@ struct NewChallengeView: View {
                     .cornerRadius(18)
                     .shadow(color: Color.black.opacity(0.25), radius: 16, x: 0, y: 10)
                 }
-                .opacity(viewModel.isFormValid ? 1 : 0.65)
             }
         }
     }
 }
 
 // MARK: Notifications setting
-extension NewChallengeView {
+extension CreateBecapChallengeView {
     private var notificationsSetting: some View {
         let notifSettingColumns = [GridItem(.flexible(), spacing: 12),
                                    GridItem(.flexible(), spacing: 12)]
@@ -452,5 +380,114 @@ extension NewChallengeView {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+struct PlankConfigurationView: View {
+    let config: PlankConfig
+    let onChange: (PlankConfig) -> Void
+
+    @State private var seconds: Int
+
+    init(config: PlankConfig, onChange: @escaping (PlankConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _seconds = State(initialValue: config.secondsPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Durée du gainage par jour")
+                .font(.headline)
+
+            Stepper(value: $seconds, in: 10...600, step: 10) {
+                Text("\(seconds) secondes")
+            }
+            .onChange(of: seconds) { seconds in
+                onChange(PlankConfig(secondsPerDay: seconds))
+            }
+        }
+    }
+}
+
+
+struct ReadingConfigurationView: View {
+    let config: ReadingConfig
+    let onChange: (ReadingConfig) -> Void
+
+    @State private var pages: Int
+
+    init(config: ReadingConfig, onChange: @escaping (ReadingConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _pages = State(initialValue: config.pagesPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Pages à lire par jour")
+                .font(.headline)
+
+            Stepper(value: $pages, in: 1...200) {
+                Text("\(pages) pages")
+            }
+            .onChange(of: pages) { pages in
+                onChange(ReadingConfig(pagesPerDay: pages))
+            }
+        }
+    }
+}
+
+struct FoodConfigurationView: View {
+    let config: FoodConfig
+    let onChange: (FoodConfig) -> Void
+
+    @State private var meals: Int
+
+    init(config: FoodConfig, onChange: @escaping (FoodConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _meals = State(initialValue: config.cheatMealsAllowed)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Repas à respecter par jour")
+                .font(.headline)
+
+            Stepper(value: $meals, in: 1...6) {
+                Text("\(meals) repas")
+            }
+            .onChange(of: meals) { meals in
+                onChange(FoodConfig(cheatMealsAllowed: meals))
+            }
+        }
+    }
+}
+
+struct DrawingConfigurationView: View {
+    let config: DrawingConfig
+    let onChange: (DrawingConfig) -> Void
+
+    @State private var drawingsPerDay: Int
+
+    init(config: DrawingConfig, onChange: @escaping (DrawingConfig) -> Void) {
+        self.config = config
+        self.onChange = onChange
+        _drawingsPerDay = State(initialValue: config.drawingsPerDay)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("Dessins à publier par jour")
+                .font(.headline)
+
+            Stepper(value: $drawingsPerDay, in: 1...5) {
+                Text("\(drawingsPerDay) dessin\(drawingsPerDay > 1 ? "s" : "")")
+            }
+            .onChange(of: drawingsPerDay) { drawingsPerDay in
+                onChange(DrawingConfig(drawingsPerDay: drawingsPerDay))
+            }
+        }
     }
 }

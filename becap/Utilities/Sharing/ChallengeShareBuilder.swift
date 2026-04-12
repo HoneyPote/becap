@@ -1,13 +1,18 @@
+//
+//  ChallengeShareBuilder.swift
+//  becap
+//
+//  Created by Adam Mabrouki on 29/10/2025.
+//
+
 import Foundation
-#if canImport(UIKit)
 import UIKit
-#endif
 
 enum ChallengeShareBuilder {
     private static let deepLinkScheme = "becap"
     private static let deepLinkHost = "challenge"
 
-    static func makeShareItems(for challenge: Challenge) -> [Any]? {
+    static func makeShareItems(for challenge: any ChallengeRepresentable) -> [Any]? {
         let linkURL = deepLinkURL(for: challenge)
 
         var parts: [String] = [
@@ -24,7 +29,6 @@ enum ChallengeShareBuilder {
 
         let message = parts.joined(separator: "\n")
 
-        #if canImport(UIKit)
         var items: [Any] = []
 
         if let image = UIImage(named: "epicPic") {
@@ -51,12 +55,9 @@ enum ChallengeShareBuilder {
         if let linkURL { items.append(linkURL) }
 
         return items.isEmpty ? nil : items
-        #else
-        return [message, linkURL as Any].compactMap { $0 }
-        #endif
     }
 
-    private static func deepLinkURL(for challenge: Challenge) -> URL? {
+    private static func deepLinkURL(for challenge: any ChallengeRepresentable) -> URL? {
         var components = URLComponents()
         components.scheme = deepLinkScheme
         components.host = deepLinkHost

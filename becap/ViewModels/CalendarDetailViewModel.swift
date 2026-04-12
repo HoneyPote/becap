@@ -83,7 +83,7 @@ class CalendarDetailViewModel: ObservableObject {
     private let accountManager: AccountManager
     private let challengeManager: ChallengeManager
 
-    let challenge: Challenge
+    let challenge: any ChallengeRepresentable
 
     var currentParticipant: ParticipantUIModel? {
         participants.first(where: { $0.userId == currentUserId })
@@ -118,12 +118,12 @@ class CalendarDetailViewModel: ObservableObject {
         return !hasValidatedToday
     }
 
-    init(accountManager: AccountManager = AccountManager(),
-         challengeManager: ChallengeManager = ChallengeManager.shared,
-         challenge: Challenge) {
+    init(challenge: any ChallengeRepresentable,
+         accountManager: AccountManager = AccountManager(),
+         challengeManager: ChallengeManager = ChallengeManager.shared) {
+        self.challenge = challenge
         self.accountManager = accountManager
         self.challengeManager = challengeManager
-        self.challenge = challenge
     }
 
     func fetchInfos() {
@@ -230,6 +230,21 @@ class CalendarDetailViewModel: ObservableObject {
                 print("❌ Failed to declare joker for today: \(error)")
             }
         }
+    }
+
+    /// Récupère le mot du jour pour un challenge dessin et une date donnée.
+    func fetchDailyPrompt(for date: Date) async -> DailyPrompt? {
+        await challengeManager.fetchDailyPrompt(challengeId: challenge.id, date: date)
+    }
+
+    /// Vérifie si l'utilisateur courant a déjà vu le prompt du jour pour ce challenge.
+    func hasSeenDailyPrompt(for date: Date) async -> Bool {
+        await challengeManager.hasSeenDailyPrompt(challengeId: challenge.id, date: date)
+    }
+
+    /// Marque le prompt comme vu afin de ne l'afficher qu'une seule fois par jour.
+    func markPromptAsSeen(for date: Date) async {
+        await challengeManager.markDailyPromptAsSeen(challengeId: challenge.id, date: date)
     }
 
     // MARK: - Private functions

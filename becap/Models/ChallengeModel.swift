@@ -5,8 +5,79 @@
 //  Created by Victor Derveaux on 23/07/2025.
 //
 
-import Foundation
 import FirebaseFirestore
+
+// MARK: - Challenge representable protocol
+protocol ChallengeRepresentable: Identifiable, Hashable {
+    var id: String { get }
+    var title: String { get }
+    var duration: Int { get }
+    var startDate: Date { get }
+    var category: ChallengeCategory? { get }
+    var defaultNotificationsConfig: [Int] { get }
+    var creatorUID: String { get }
+    var adminUids: [String] { get }
+    var participantUids: [String] { get }
+    var code: String? { get }
+    var jokerConfiguration: Int { get }
+}
+
+extension ChallengeRepresentable {
+    private var calendar: Calendar { Calendar.current }
+
+    var lastDayDate: Date {
+        calendar.date(byAdding: .day, value: max(duration - 1, 0), to: startDate) ?? startDate
+    }
+
+    var endDate: Date {
+        Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
+    }
+
+    func isLastDay(on date: Date = Date()) -> Bool {
+        calendar.isDate(lastDayDate, inSameDayAs: date)
+    }
+
+    var isLastDayToday: Bool { isLastDay() }
+
+    var calendarBackgroundImageName: String {
+        if isLastDayToday {
+            return "sunset"
+        }
+
+        return category?.calendarBackgroundImageName ?? "photoBg"
+    }
+
+    var status: ChallengeStatus {
+        Date() > endDate ? .finished : .active
+    }
+}
+
+// MARK: - Base challenge
+struct Challenge: ChallengeRepresentable, Identifiable, Codable, Hashable {
+    @DocumentID private var _id: String?
+    var id: String {
+        _id ?? ""
+    }
+    var title: String
+    var duration: Int
+    var startDate: Date
+    var creatorUID: String
+    var adminUids: [String]
+    var participantUids: [String]
+    var category: ChallengeCategory? = nil
+    var defaultNotificationsConfig: [Int]
+    var code: String?
+    var jokerConfiguration: Int
+
+    func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(title)
+    }
+
+    static func == (lhs: Challenge, rhs: Challenge) -> Bool {
+        lhs.id == rhs.id && lhs.title == rhs.title
+    }
+}
 
 enum ChallengeCategory: String, Codable, CaseIterable, Identifiable, Hashable {
     case sport
@@ -52,256 +123,166 @@ enum ChallengeStatus: String {
     case finished = "Terminé"
 }
 
-struct Challenge: Identifiable, Codable, Hashable {
-    @DocumentID private var _id: String?
-    var id: String {
-        _id ?? ""
-    }
-    var title: String
-    var duration: Int
-    var startDate: Date
-    var creatorUID: String
-    var adminUids: [String]
-    var participantUids: [String]
-    var category: ChallengeCategory? = nil
-    var defaultNotificationsConfig: [Int]
-    var code: String?
-    var jokerConfiguration: Int
 
-    var endDate: Date {
-        Calendar.current.date(byAdding: .day, value: duration, to: startDate) ?? startDate
-    }
+// MARK: - Becap challenges
+struct BecapChallenge: ChallengeRepresentable {
+    let base: Challenge
+    let becapData: BecapChallengeData
 
-    var status: ChallengeStatus {
-        Date() > endDate ? .finished : .active
-    }
+    var id: String { base.id }
+    var title: String { base.title }
+    var duration: Int { base.duration }
+    var startDate: Date { base.startDate }
+    var category: ChallengeCategory? { base.category }
+    var defaultNotificationsConfig: [Int] { base.defaultNotificationsConfig }
+    var creatorUID: String { base.creatorUID }
+    var adminUids: [String] { base.adminUids }
+    var participantUids: [String] { base.participantUids }
+    var code: String? { base.code }
+    var jokerConfiguration: Int { base.jokerConfiguration }
 
+    var type: BecapChallengeType { becapData.type }
+    var configuration: BecapChallengeConfiguration { becapData.configuration }
 
-    // Hashable synthétique via les propriétés, mais tu peux aussi customiser si besoin :
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
         hasher.combine(title)
     }
 
-    static func ==(lhs: Challenge, rhs: Challenge) -> Bool {
+    static func == (lhs: BecapChallenge, rhs: BecapChallenge) -> Bool {
         lhs.id == rhs.id && lhs.title == rhs.title
     }
 }
 
-extension Challenge {
-    private var calendar: Calendar { Calendar.current }
+struct BecapChallengeData: Codable {
+    var challengeId: String
+    var type: BecapChallengeType
+    var configuration: BecapChallengeConfiguration
+}
 
-    var lastDayDate: Date {
-        calendar.date(byAdding: .day,
-                       value: max(duration - 1, 0),
-                       to: startDate) ?? startDate
-    }
+enum BecapChallengeType: String, Codable {
+    case plank
+    case reading
+    case food
+    case drawing
 
-    func isLastDay(on date: Date = Date()) -> Bool {
-        calendar.isDate(lastDayDate, inSameDayAs: date)
-    }
+    var defaultConfiguration: BecapChallengeConfiguration {
+        switch self {
+        case .plank:
+            return .plank(PlankConfig(secondsPerDay: 60))
 
-    var isLastDayToday: Bool { isLastDay() }
+        case .reading:
+            return .reading(ReadingConfig(pagesPerDay: 10))
 
-    var calendarBackgroundImageName: String {
-        if isLastDayToday {
-            return "sunset"
+        case .food:
+            return .food(FoodConfig(cheatMealsAllowed: 3))
+
+        case .drawing:
+            return .drawing(DrawingConfig(drawingsPerDay: 1))
         }
-
-        return category?.calendarBackgroundImageName ?? "photoBg"
     }
 }
 
-struct ChallengePost: Identifiable, Codable, Hashable {
-    @DocumentID private var _id: String?
-    var id: String {
-        _id ?? ""
-    }
-    var challengeId: String              // ID du défi (parent)
-    var authorUid: String                // UID Firebase de l'auteur
-    var authorName: String               // Nom ou prénom affiché
-    var description: String?             // Description optionnelle (légende)
-    var date: Date                       // Date de prise ou de soumission
-
-    var likes: [String]?
-    var jokerState: PostJokerState?
-
-    var media: ChallengeMedia
-
-    init(challengeId: String,
-         authorUid: String,
-         authorName: String,
-         description: String?,
-         date: Date,
-         likes: [String]? = nil,
-         jokerState: PostJokerState? = nil,
-         media: ChallengeMedia) {
-        self.challengeId = challengeId
-        self.authorUid = authorUid
-        self.authorName = authorName
-        self.description = description
-        self.date = date
-        self.likes = likes
-        self.jokerState = jokerState
-        self.media = media
-    }
-
-    static func == (lhs: ChallengePost, rhs: ChallengePost) -> Bool {
-        lhs.id == rhs.id
-    }
-    func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
-enum ChallengeRawMedia: Equatable {
-    case image(UIImage)
-    case video(VideoRawData)
-
-    struct VideoRawData: Equatable {
-        var url: URL
-        var thumbnailImage: UIImage?
-    }
-}
-
-enum ChallengeMedia: Codable, Hashable {
-    case image(url: String)
-    case video(VideoData)
-
-    struct VideoData: Codable, Hashable {
-        var videoURL: String
-        var thumbnailURL: String?
-    }
+enum BecapChallengeConfiguration: Hashable {
+    case plank(PlankConfig)
+    case reading(ReadingConfig)
+    case food(FoodConfig)
+    case drawing(DrawingConfig)
 
     enum CodingKeys: String, CodingKey {
         case type
-        case imageURL
-        case video
+        case config
     }
 
-    enum MediaType: String, Codable {
-        case image
-        case video
+    enum ConfigType: String, Codable {
+        case plank
+        case reading
+        case food
+        case drawing
     }
 
-    // MARK: - Codable
+    var displayName: String {
+        switch self {
+        case .plank: return "Gainage"
+        case .reading: return "Lecture"
+        case .food: return "Nourriture"
+        case .drawing: return "Dessin"
+        }
+    }
+
+    var primaryValue: Int {
+        switch self {
+        case .plank(let config):
+            return config.secondsPerDay
+        case .reading(let config):
+            return config.pagesPerDay
+        case .food(let config):
+            return config.cheatMealsAllowed
+        case .drawing(let config):
+            return config.drawingsPerDay
+        }
+    }
+}
+
+extension BecapChallengeConfiguration: Codable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let type = try container.decode(MediaType.self, forKey: .type)
+        let type = try container.decode(ConfigType.self, forKey: .type)
 
         switch type {
-        case .image:
-            let imageURL = try container.decode(String.self, forKey: .imageURL)
-            self = .image(url: imageURL)
-        case .video:
-            let videoData = try container.decode(VideoData.self, forKey: .video)
-            self = .video(videoData)
+        case .plank:
+            let config = try container.decode(PlankConfig.self, forKey: .config)
+            self = .plank(config)
+
+        case .reading:
+            let config = try container.decode(ReadingConfig.self, forKey: .config)
+            self = .reading(config)
+
+        case .food:
+            let config = try container.decode(FoodConfig.self, forKey: .config)
+            self = .food(config)
+
+        case .drawing:
+            let config = try container.decode(DrawingConfig.self, forKey: .config)
+            self = .drawing(config)
         }
     }
 
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
+
         switch self {
-        case .image(let url):
-            try container.encode(MediaType.image, forKey: .type)
-            try container.encode(url, forKey: .imageURL)
-        case .video(let videoData):
-            try container.encode(MediaType.video, forKey: .type)
-            try container.encode(videoData, forKey: .video)
-        }
-    }
+        case .plank(let config):
+            try container.encode(ConfigType.plank, forKey: .type)
+            try container.encode(config, forKey: .config)
 
-    // MARK: - Helpers
+        case .reading(let config):
+            try container.encode(ConfigType.reading, forKey: .type)
+            try container.encode(config, forKey: .config)
 
-    var thumbnailImageUrl: String? {
-        switch self {
-        case .image(let url):
-            return url
-        case .video(let data):
-            return data.thumbnailURL
+        case .food(let config):
+            try container.encode(ConfigType.food, forKey: .type)
+            try container.encode(config, forKey: .config)
+
+        case .drawing(let config):
+            try container.encode(ConfigType.drawing, forKey: .type)
+            try container.encode(config, forKey: .config)
         }
     }
 }
 
-struct ChallengeNotification: Codable {
-    var dayIndex: Int
-    var times: [Date] // Format "HH:mm" ou utiliser Date si tu préfères
+struct PlankConfig: Codable, Hashable {
+    var secondsPerDay: Int
 }
 
-struct PostDeepLink: Equatable {
-    let challengeId: String
-    let postId: String
+struct ReadingConfig: Codable, Hashable {
+    var pagesPerDay: Int
 }
 
-import SwiftUI
-
-final class DeepLinkRouter: ObservableObject {
-    @Published var pendingCalendarChallengeId: String? = nil
-    @Published var pendingPostLink: PostDeepLink? = nil
-
-    private let notificationCenter: NotificationCenter
-    private var notificationObserver: NSObjectProtocol?
-
-    init(notificationCenter: NotificationCenter = .default) {
-        self.notificationCenter = notificationCenter
-        notificationObserver = notificationCenter.addObserver(forName: .deepLinkRouterHandleExternalURL,
-                                                              object: nil,
-                                                              queue: .main) { [weak self] notification in
-            guard let url = notification.userInfo?["url"] as? URL else { return }
-            self?.handle(url: url)
-        }
-    }
-
-    deinit {
-        if let observer = notificationObserver {
-            notificationCenter.removeObserver(observer)
-        }
-    }
-
-    // Appelle ceci depuis .onOpenURL
-    func handle(url: URL) {
-        guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              comps.scheme?.lowercased() == "becap" else { return }
-
-        let host = comps.host?.lowercased()
-
-        switch host {
-        case "challenge", "join":
-            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
-            DispatchQueue.main.async {
-                if let challengeId, !challengeId.isEmpty {
-                    self.pendingCalendarChallengeId = challengeId
-                }
-            }
-
-        case "photo":
-            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
-            let postId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value
-
-            guard let challengeId, !challengeId.isEmpty,
-                  let postId, !postId.isEmpty else { return }
-
-            DispatchQueue.main.async {
-                // Définir d'abord la cible photo pour que les observateurs disposent
-                // de l'identifiant avant que le challenge ne déclenche la navigation.
-                self.pendingPostLink = PostDeepLink(challengeId: challengeId, postId: postId)
-                self.pendingCalendarChallengeId = challengeId
-            }
-
-        default:
-            break
-        }
-    }
-
-    func clearChallengeNavigation() {
-        pendingCalendarChallengeId = nil
-    }
-
-    func clearPostNavigation() {
-        pendingPostLink = nil
-    }
+struct FoodConfig: Codable, Hashable {
+    var cheatMealsAllowed: Int
 }
 
-extension Notification.Name {
-    static let deepLinkRouterHandleExternalURL = Notification.Name("DeepLinkRouter.HandleExternalURL")
+struct DrawingConfig: Codable, Hashable {
+    var drawingsPerDay: Int
 }

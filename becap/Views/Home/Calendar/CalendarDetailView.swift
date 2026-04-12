@@ -38,9 +38,13 @@ struct CalendarDetailView: View {
     @State private var jokerBubbleSize = CGSize(width: 240, height: 160)
     @State private var jokerButtonFrame: CGRect = .zero
     @State private var navigateToCamera = false
-    @State private var selectedCalendarDate: Date?
+    @State private var selectedDate: Date?
+    @State private var showDailyPromptReveal = false
+    @State private var dailyPromptWord: String?
+    @State private var inlineDailyPromptWord: String?
+    @State private var pendingPromptCell: CalendarDetailCell?
 
-    init(challenge: Challenge, initialPostId: String? = nil) {
+    init(challenge: any ChallengeRepresentable, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
         _pendingInitialPostId = State(initialValue: initialPostId)
     }
@@ -112,6 +116,16 @@ struct CalendarDetailView: View {
         }
         .overlay {
             jockerOverlay
+        }
+        .overlay {
+            if showDailyPromptReveal,
+               let promptWord = dailyPromptWord {
+                DailyPromptRevealView(word: promptWord) {
+                    completeDailyPromptReveal()
+                }
+                .transition(.opacity.combined(with: .scale(scale: 1.02)))
+                .zIndex(3)
+            }
         }
         .sheet(item: $pagerInfo) { info in
             PostPagerView(posts: info.posts,
@@ -242,7 +256,7 @@ struct CalendarDetailView: View {
         return CalendarMonthGrid(
             startDate: viewModel.challenge.startDate,
             days: viewModel.challenge.duration,
-            selectedDate: selectedCalendarDate,
+            selectedDate: selectedDate ?? selectedGridCell?.date,
             postCountByDay: postCountByDay,
             jokerCountByDay: jokerCountByDay,
             validatedDays: validatedDays,
@@ -251,24 +265,120 @@ struct CalendarDetailView: View {
                 let day = startOfDay(date)
                 selectedCalendarDate = day
 
-                if let cell = cells.first(where: { sameDay($0.date, day) }),
-                   (!cell.posts.isEmpty || !cell.jokers.isEmpty) {
-                    withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
-                        selectedGridCell = cell
-                        showJokerBubble = false
-                    }
+                guard let cell = cells.first(where: { sameDay($0.date, day) }) else {
+                    return
                 }
+
+                handleDateSelection(day: day, cell: cell)
             }
         )
         .padding(.horizontal, 14)
     }
 
+
+
+    private func handleDateSelection(day: Date, cell: CalendarDetailCell) {
+        selectedDate = day
+
+        let isToday = Calendar.current.isDateInToday(day)
+        guard viewModel.challenge.category == .drawing, isToday else {
+            openGrid(cell: cell)
+            return
+        }
+
+        Task {
+            let alreadySeen = await viewModel.hasSeenDailyPrompt(for: day)
+
+            if alreadySeen {
+                await MainActor.run {
+                    openGrid(cell: cell)
+                }
+                return
+            }
+
+            guard let prompt = await viewModel.fetchDailyPrompt(for: day),
+                  !prompt.word.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                await MainActor.run {
+                    openGrid(cell: cell)
+                }
+                return
+            }
+
+            await MainActor.run {
+                pendingPromptCell = cell
+                dailyPromptWord = prompt.word.uppercased()
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.88)) {
+                    selectedGridCell = nil
+                    showJokerBubble = false
+                    showDailyPromptReveal = true
+                }
+            }
+        }
+    }
+
+    private func completeDailyPromptReveal() {
+        let revealDate = selectedDate
+        let revealCell = pendingPromptCell
+
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
+            showDailyPromptReveal = false
+            dailyPromptWord = nil
+            pendingPromptCell = nil
+        }
+
+        if let revealDate {
+            Task { await viewModel.markPromptAsSeen(for: revealDate) }
+        }
+
+        if let revealCell {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.18) {
+                openGrid(cell: revealCell)
+            }
+        }
+    }
+
+    private func openGrid(cell: CalendarDetailCell) {
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.9)) {
+            selectedGridCell = cell
+            showJokerBubble = false
+        }
+
+        guard viewModel.challenge.category == .drawing else {
+            inlineDailyPromptWord = nil
+            return
+        }
+
+        let date = cell.date
+        inlineDailyPromptWord = nil
+
+        let today = startOfDay(Date())
+        guard startOfDay(date) <= today else {
+            return
+        }
+
+        Task {
+            let prompt = await viewModel.fetchDailyPrompt(for: date)
+            let sanitizedWord = prompt?.word.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            await MainActor.run {
+                guard let selectedGridCell,
+                      sameDay(selectedGridCell.date, date) else {
+                    return
+                }
+
+                inlineDailyPromptWord = sanitizedWord.isEmpty ? nil : sanitizedWord.uppercased()
+            }
+        }
+    }
+
     private func buildGridPosts(cell: CalendarDetailCell) -> some View {
         GridPostsInline(cell: cell,
+                        dailyPromptWord: inlineDailyPromptWord,
                         getParticipant: { viewModel.getParticipant(for: $0) },
                         onClose: {
             withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
                 selectedGridCell = nil
+                inlineDailyPromptWord = nil
             }
         },
                         onOpenPager: { info in

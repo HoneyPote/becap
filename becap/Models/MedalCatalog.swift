@@ -150,7 +150,7 @@ enum MedalCatalog {
         return thresholds.map { streakMedalDefinition(for: $0) }
     }
 
-    static func streakDefinitions(for challenge: Challenge) -> [MedalDefinition] {
+    static func streakDefinitions(for challenge: any ChallengeRepresentable) -> [MedalDefinition] {
         streakDefinitions(maxDays: challenge.duration)
     }
 
@@ -257,7 +257,7 @@ enum MedalCatalog {
         return defaultDefinitions.first { $0.name == name }
     }
 
-    static func nextStreakDefinition(for progress: ParticipantProgress, challenge: Challenge) -> MedalDefinition? {
+    static func nextStreakDefinition(for progress: ParticipantProgress, challenge: any ChallengeRepresentable) -> MedalDefinition? {
         let definitions = streakDefinitions(for: challenge)
             .sorted { ($0.streakDays ?? 0) < ($1.streakDays ?? 0) }
         return definitions.first { ($0.streakDays ?? 0) > progress.currentStreak }

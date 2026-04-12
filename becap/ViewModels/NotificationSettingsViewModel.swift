@@ -18,7 +18,7 @@ class NotificationSettingsViewModel: ObservableObject {
 
     private let challengeManager: ChallengeManager
 
-    let currentChallenge: Challenge
+    let currentChallenge: any ChallengeRepresentable
     let currentParticipant: ParticipantUIModel
 
     var updatedChallengeConfig: [Int] {
@@ -30,7 +30,7 @@ class NotificationSettingsViewModel: ObservableObject {
     }
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         currentChallenge: Challenge,
+         currentChallenge: any ChallengeRepresentable,
          currentParticipant: ParticipantUIModel) {
         self.challengeManager = challengeManager
         self.currentChallenge = currentChallenge

@@ -22,3 +22,7 @@ extension Date {
         return (comps.hour ?? 0) * 60 + (comps.minute ?? 0)
     }
 }
+
+extension Notification.Name {
+    static let deepLinkRouterHandleExternalURL = Notification.Name("DeepLinkRouter.HandleExternalURL")
+}

@@ -7,7 +7,7 @@ struct GroupChatView: View {
     @State private var messageDraft: String = ""
     @FocusState private var isInputFocused: Bool
 
-    init(challenge: Challenge) {
+    init(challenge: any ChallengeRepresentable) {
         _viewModel = StateObject(wrappedValue: GroupChatViewModel(challenge: challenge))
     }
 
@@ -21,6 +21,8 @@ struct GroupChatView: View {
                 chatInput
                     .background(.thinMaterial)
             }
+            .background(chatBackground)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
             .onAppear { viewModel.onAppear() }
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
