@@ -241,8 +241,8 @@ struct HomeView: View {
                 .padding(.horizontal, 4)
             }
 
-            if viewModel.becapChallenges.count >= 3 {
-                Text("Tu as déjà créé les 3 défis Becap disponibles ✅")
+            if viewModel.becapChallenges.count >= viewModel.becapTemplates.count {
+                Text("Tu as déjà créé les \(viewModel.becapTemplates.count) défis Becap disponibles ✅")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
                     .padding(.horizontal, 30)
