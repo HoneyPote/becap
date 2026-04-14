@@ -142,7 +142,7 @@ struct CalendarDetailView: View {
             let challengeEnd = startOfDay(viewModel.challenge.lastDayDate)
 
             if today >= challengeStart && today <= challengeEnd {
-                selectedCalendarDate = today
+                selectedDate = today
             }
         }
         .refreshable { viewModel.fetchInfos() }
@@ -263,7 +263,7 @@ struct CalendarDetailView: View {
             currentUserJokerDays: currentUserJokerDays,
             onSelectDate: { date in
                 let day = startOfDay(date)
-                selectedCalendarDate = day
+                selectedDate = day
 
                 guard let cell = cells.first(where: { sameDay($0.date, day) }) else {
                     return
@@ -536,8 +536,8 @@ struct CalendarDetailView: View {
     }
 
     private var canCreatePostForSelectedDay: Bool {
-        guard let selectedCalendarDate else { return false }
-        return CAL.isDateInToday(selectedCalendarDate)
+        guard let selectedDate else { return false }
+        return CAL.isDateInToday(selectedDate)
     }
 
     private var createPostButtonTitle: String {
