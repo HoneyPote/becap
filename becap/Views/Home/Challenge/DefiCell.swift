@@ -10,6 +10,18 @@ import SwiftUI
 struct DefiCell: View {
     let challenge: Challenge
     let onReport: () -> Void
+    let onRestart: (() -> Void)?
+    let isRestarting: Bool
+
+    init(challenge: Challenge,
+         onReport: @escaping () -> Void,
+         onRestart: (() -> Void)? = nil,
+         isRestarting: Bool = false) {
+        self.challenge = challenge
+        self.onReport = onReport
+        self.onRestart = onRestart
+        self.isRestarting = isRestarting
+    }
 
     private let corner: CGFloat = 18
 
@@ -74,6 +86,12 @@ struct DefiCell: View {
                 .background(.black.opacity(0.22), in: Capsule())
             }
             .padding(10)
+
+            if challenge.status == .finished, let onRestart {
+                restartButton(action: onRestart)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                    .padding(12)
+            }
         }
         .frame(height: 170)
         .clipShape(shape) 
@@ -88,6 +106,35 @@ struct DefiCell: View {
             }
         }
         .padding(4)
+        .buttonStyle(.plain)
+    }
+
+    private func restartButton(action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isRestarting {
+                    ProgressView()
+                        .tint(.white)
+                        .scaleEffect(0.85)
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 14, weight: .heavy, design: .rounded))
+                }
+
+                Text("Restart")
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
+            }
+            .foregroundColor(.white)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 10)
+            .background(.black.opacity(0.55), in: Capsule())
+            .overlay(
+                Capsule()
+                    .stroke(.white.opacity(0.45), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+        }
+        .disabled(isRestarting)
         .buttonStyle(.plain)
     }
 

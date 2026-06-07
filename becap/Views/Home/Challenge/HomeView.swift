@@ -66,6 +66,10 @@ struct HomeView: View {
                 if viewModel.showReportSuccessToast {
                     reportSuccessToast
                 }
+
+                if viewModel.showRestartSuccessToast {
+                    restartSuccessToast
+                }
             }
             .background(
                 Image(homeBackgroundImageName)
@@ -146,6 +150,14 @@ struct HomeView: View {
         .alert("Quitter ce défi ?", isPresented: $viewModel.showQuitAlert) {
             quitChallengeConfirmationAlert
         }
+        .alert("Relance impossible", isPresented: Binding(
+            get: { viewModel.restartBecapErrorMessage != nil },
+            set: { if !$0 { viewModel.restartBecapErrorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { viewModel.restartBecapErrorMessage = nil }
+        } message: {
+            Text(viewModel.restartBecapErrorMessage ?? "Une erreur inattendue est survenue. Veuillez réessayer plus tard.")
+        }
     }
 
     private var shareCreateChallengeSection: some View {
@@ -219,8 +231,13 @@ struct HomeView: View {
                             CalendarDetailView(challenge: becapChallenge)
                                 .onDisappear { viewModel.refreshChallenges() }
                         } label: {
-                            DefiCell(challenge: becapChallenge.base, onReport: {})
-                                .frame(width: 190)
+                            DefiCell(challenge: becapChallenge.base,
+                                     onReport: {},
+                                     onRestart: viewModel.canRestart(becapChallenge) ? {
+                                        viewModel.restartBecapChallenge(becapChallenge)
+                                     } : nil,
+                                     isRestarting: viewModel.isRestarting(becapChallenge))
+                            .frame(width: 190)
                         }
                     }
 
@@ -242,7 +259,7 @@ struct HomeView: View {
             }
 
             if viewModel.becapChallenges.count >= viewModel.becapTemplates.count {
-                Text("Tu as déjà créé les \(viewModel.becapTemplates.count) défis Becap disponibles ✅")
+                Text("Tu peux relancer un défi Becap terminé avec Restart ✅")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
                     .padding(.horizontal, 30)
@@ -313,6 +330,21 @@ struct HomeView: View {
         }
         .transition(.move(edge: .top).combined(with: .opacity))
         .zIndex(11)
+    }
+
+    private var restartSuccessToast: some View {
+        VStack {
+            Spacer()
+            ToastView(message: "Défi Becap relancé 🎉", type: .success)
+                .padding(.bottom, 40)
+                .onAppear {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                        withAnimation { viewModel.showRestartSuccessToast = false }
+                    }
+                }
+        }
+        .transition(.move(edge: .top).combined(with: .opacity))
+        .zIndex(12)
     }
 }
 
