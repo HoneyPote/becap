@@ -135,7 +135,7 @@ final class NotificationService: NSObject {
     // MARK: - LIKE notification
     func sendLikeNotification(to authorUid: String,
                               from userName: String,
-                              challenge: Challenge,
+                              challenge: any ChallengeRepresentable,
                               postId: String) async {
         if authorUid == userManager.currentUser?.id {
             print("ℹ️ sendLikeNotification ignoré: l’auteur est l’utilisateur courant")
@@ -168,7 +168,7 @@ final class NotificationService: NSObject {
     // MARK: - COMMENT notification
     func sendCommentNotification(to authorUid: String,
                                  from userName: String,
-                                 challenge: Challenge,
+                                 challenge: any ChallengeRepresentable,
                                  commentText: String,
                                  postId: String) async {
         if authorUid == userManager.currentUser?.id {

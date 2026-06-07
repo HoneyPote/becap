@@ -496,7 +496,10 @@ extension ChallengeManager {
             }
         }
 
-        guard let challenge = self.challenges.first(where: { $0.id == post.challengeId }) else { return }
+        guard let challenge = challengeRepresentable(for: post.challengeId) else {
+            print("⚠️ Like notification skipped: challenge introuvable pour id=\(post.challengeId)")
+            return
+        }
 
         await self.notificationService.sendLikeNotification(to: post.authorUid,
                                                             from: currentUser.name,
@@ -541,7 +544,10 @@ extension ChallengeManager {
             }
         }
 
-        guard let challenge = self.challenges.first(where: { $0.id == post.challengeId }) else { return }
+        guard let challenge = challengeRepresentable(for: post.challengeId) else {
+            print("⚠️ Comment notification skipped: challenge introuvable pour id=\(post.challengeId)")
+            return
+        }
 
         await notificationService.sendCommentNotification(to: post.authorUid,
                                                           from: currentUser.name,
@@ -573,6 +579,14 @@ extension ChallengeManager {
 
     private func savePostInLocal(_ post: ChallengePost, to challengeId: String) {
         posts[challengeId, default: []].append(post)
+    }
+
+    private func challengeRepresentable(for challengeId: String) -> (any ChallengeRepresentable)? {
+        if let challenge = challenges.first(where: { $0.id == challengeId }) {
+            return challenge
+        }
+
+        return becapChallenges.first(where: { $0.id == challengeId })
     }
 }
 
