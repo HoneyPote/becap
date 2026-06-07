@@ -64,7 +64,8 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     private let outputMovie = AVCaptureMovieFileOutput()
     private let outputVideoData = AVCaptureVideoDataOutput()
     private let videoDataOutputQueue = DispatchQueue(label: "camera.video.data.queue")
-    private let captureSessionQueueLabel: String = "camera.session.queue"
+    private let captureSessionQueue = DispatchQueue(label: "camera.session.queue")
+    private var isSessionConfigured = false
     private var plankDuration: TimeInterval = 120
     private let plankPreparationDuration: TimeInterval = 5
     private var currentProcessId = UUID()
@@ -94,17 +95,19 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     func startCaptureSession() {
-        DispatchQueue(label: captureSessionQueueLabel).async {
-            guard !self.captureSession.isRunning else { return }
+        captureSessionQueue.async {
+            guard self.isSessionConfigured, !self.captureSession.isRunning else { return }
             self.captureSession.startRunning()
         }
     }
 
     func stopCaptureSession() {
-        DispatchQueue(label: captureSessionQueueLabel).async {
+        captureSessionQueue.async {
             guard self.captureSession.isRunning else { return }
             self.captureSession.stopRunning()
-            self.capturedMedia = nil
+            DispatchQueue.main.async {
+                self.capturedMedia = nil
+            }
         }
     }
 
@@ -176,22 +179,27 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     // Privates
 
     private func configureCaptureSession() {
-        DispatchQueue(label: captureSessionQueueLabel).async {
+        captureSessionQueue.async {
             self.captureSession.beginConfiguration()
+            defer {
+                self.captureSession.commitConfiguration()
+            }
+
             self.captureSession.sessionPreset = .high
 
             guard let videoDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
                   let videoInput = try? AVCaptureDeviceInput(device: videoDevice),
-                  self.captureSession.canAddInput(videoInput) else { return }
+                  self.captureSession.canAddInput(videoInput) else {
+                print("❌ Impossible de configurer l'entrée caméra")
+                return
+            }
             self.captureSession.addInput(videoInput)
 
-
-            if self.shouldCaptureAudio(),
-               let audioDevice = AVCaptureDevice.default(for: .audio),
-               let audioInput = try? AVCaptureDeviceInput(device: audioDevice),
-               self.captureSession.canAddInput(audioInput) {
-                self.captureSession.addInput(audioInput)
-            }
+            // Do not attach the microphone to the capture session. Challenge posts only
+            // need visual evidence (photo/video/timelapse), and requesting the audio
+            // device can block or crash the camera when iOS is already using the mic
+            // for a phone/FaceTime/voice call. Keeping the camera video-only makes the
+            // calendar drawing flow safe while the user is on a call.
 
             if self.captureSession.canAddOutput(self.outputPhoto) {
                 self.captureSession.addOutput(self.outputPhoto)
@@ -223,14 +231,17 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
                 device.unlockForConfiguration()
             }
 
-            self.captureSession.commitConfiguration()
+            self.isSessionConfigured = true
             self.startCaptureSession()
         }
     }
 
     private func updateCameraCaptureSession() {
-        DispatchQueue(label: captureSessionQueueLabel).async {
+        captureSessionQueue.async {
             self.captureSession.beginConfiguration()
+            defer {
+                self.captureSession.commitConfiguration()
+            }
 
             for input in self.captureSession.inputs.compactMap({ $0 as? AVCaptureDeviceInput }) {
                 if input.device.hasMediaType(.video) {
@@ -242,20 +253,16 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
 
             guard let newDevice = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: newCameraPosition),
                   let newDeviceInput = try? AVCaptureDeviceInput(device: newDevice),
-                  self.captureSession.canAddInput(newDeviceInput) else { return }
+                  self.captureSession.canAddInput(newDeviceInput) else {
+                print("❌ Impossible de basculer la caméra")
+                return
+            }
 
             self.captureSession.addInput(newDeviceInput)
-            self.captureSession.commitConfiguration()
-            self.currentCameraPosition = newCameraPosition
+            DispatchQueue.main.async {
+                self.currentCameraPosition = newCameraPosition
+            }
         }
-    }
-
-    private func shouldCaptureAudio() -> Bool {
-        let session = AVAudioSession.sharedInstance()
-        if session.category == .playAndRecord || session.mode == .voiceChat || session.mode == .videoChat {
-            return false
-        }
-        return true
     }
 
     private func capturePhoto() {
