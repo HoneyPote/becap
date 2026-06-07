@@ -40,12 +40,16 @@ class HomeViewModel: ObservableObject {
     @Published var isSubmittingReport = false
     @Published var reportErrorMessage: String?
     @Published var showReportSuccessToast = false
+    @Published var showRestartSuccessToast = false
+    @Published var restartBecapErrorMessage: String?
+    @Published private var restartingBecapChallengeIds: Set<String> = []
 
     private var cancellables = Set<AnyCancellable>()
     private var challengeToQuit: Challenge?
 
     private let challengeManager: ChallengeManager
     private let reportManager: ReportManagerProtocol
+    private let notificationManager: NotificationManager
 
     var becapTemplates: [BecapChallengeTemplate] = []
 
@@ -87,9 +91,11 @@ class HomeViewModel: ObservableObject {
     }
 
     init(challengeManager: ChallengeManager = ChallengeManager.shared,
-         reportManager: ReportManagerProtocol = ReportManager.shared) {
+         reportManager: ReportManagerProtocol = ReportManager.shared,
+         notificationManager: NotificationManager = NotificationManager.shared) {
         self.challengeManager = challengeManager
         self.reportManager = reportManager
+        self.notificationManager = notificationManager
 
         loadBecapChallenges()
         observeChallengesChanges()
@@ -117,6 +123,62 @@ class HomeViewModel: ObservableObject {
         Task {
             do {
                 try await challengeManager.removeParticipant(challenge.id, userId: currentUserId)
+            }
+        }
+    }
+
+
+    func canRestart(_ becapChallenge: BecapChallenge) -> Bool {
+        becapChallenge.base.status == .finished && !becapChallenges.contains {
+            $0.type == becapChallenge.type && $0.base.status == .active
+        }
+    }
+
+    func isRestarting(_ becapChallenge: BecapChallenge) -> Bool {
+        restartingBecapChallengeIds.contains(becapChallenge.id)
+    }
+
+    func restartBecapChallenge(_ becapChallenge: BecapChallenge) {
+        guard canRestart(becapChallenge),
+              !isRestarting(becapChallenge),
+              let currentUserId = challengeManager.currentUser?.id
+        else { return }
+
+        restartingBecapChallengeIds.insert(becapChallenge.id)
+        restartBecapErrorMessage = nil
+
+        let newChallenge = buildRestartedBecapChallenge(from: becapChallenge, userId: currentUserId)
+
+        Task {
+            do {
+                guard let createdChallenge = try await challengeManager.createChallenge(newChallenge) else {
+                    await finishBecapRestart(for: becapChallenge.id, didSucceed: false)
+                    return
+                }
+
+                let becapData = BecapChallengeData(challengeId: createdChallenge.id,
+                                                   type: becapChallenge.type,
+                                                   configuration: becapChallenge.configuration)
+
+                guard try await challengeManager.createBecapChallengeData(becapData) != nil else {
+                    await finishBecapRestart(for: becapChallenge.id, didSucceed: false)
+                    return
+                }
+
+                try await challengeManager.createNewParticipantProgress(userId: currentUserId,
+                                                                        challenge: createdChallenge)
+
+                await challengeManager.assignCreationMedalsToUser(currentUserId)
+                try await challengeManager.fetchAndFilterChallenges()
+
+                await MainActor.run {
+                    self.notificationManager.scheduleDailyNotifications(for: createdChallenge,
+                                                                        config: createdChallenge.defaultNotificationsConfig)
+                }
+
+                await finishBecapRestart(for: becapChallenge.id, didSucceed: true)
+            } catch {
+                await finishBecapRestart(for: becapChallenge.id, didSucceed: false)
             }
         }
     }
@@ -150,6 +212,33 @@ class HomeViewModel: ObservableObject {
         challengeToReport = nil
         isSubmittingReport = false
         reportErrorMessage = nil
+    }
+
+
+    private func buildRestartedBecapChallenge(from becapChallenge: BecapChallenge, userId: String) -> Challenge {
+        let code = String((0..<6).compactMap { _ in "0123456789".randomElement() })
+
+        return Challenge(title: becapChallenge.title,
+                         duration: becapChallenge.duration,
+                         startDate: Date(),
+                         creatorUID: userId,
+                         adminUids: [userId],
+                         participantUids: [userId],
+                         category: becapChallenge.category,
+                         defaultNotificationsConfig: becapChallenge.defaultNotificationsConfig,
+                         code: code,
+                         jokerConfiguration: becapChallenge.jokerConfiguration)
+    }
+
+    @MainActor
+    private func finishBecapRestart(for challengeId: String, didSucceed: Bool) {
+        restartingBecapChallengeIds.remove(challengeId)
+
+        if didSucceed {
+            showRestartSuccessToast = true
+        } else {
+            restartBecapErrorMessage = "Impossible de relancer ce défi Becap. Veuillez réessayer."
+        }
     }
 
     func submitReport(reason: ContentReportReason, details: String) {
