@@ -431,6 +431,38 @@ struct NewPostView: View {
             }
         }
     }
+
+    private var backgroundView: some View {
+        ZStack {
+            #if DEBUG
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .ignoresSafeArea()
+            Color.black.opacity(0.12)
+                .ignoresSafeArea()
+            #else
+            // Filler: covers edges at any ratio
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .blur(radius: 12)
+                .ignoresSafeArea()
+
+            // Sharp layer, slightly zoomed out
+            Image("iphone_wallpaper_cliff")
+                .resizable()
+                .scaledToFill()
+                .offset(x: -25) // 0.85–0.95 depending on taste
+                .ignoresSafeArea()
+
+            // Global dark veil
+            Color.black.opacity(0.15)
+                .ignoresSafeArea()
+            #endif
+        }
+        .allowsHitTesting(false)
+    }
 }
 
 struct ChallengeChip: View {

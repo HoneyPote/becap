@@ -408,10 +408,11 @@ extension ChallengeService {
 
         var challengeMedia: ChallengeMedia?
 
+        let challengeMedia: ChallengeMedia
         switch rawMedia {
         case .image(let uiImage):
-            let firestoreImageUrl = try await saveImageToStorage(image: uiImage, challengeId: challengeId, authorId: authorId)
-            challengeMedia = .image(url: firestoreImageUrl.absoluteString)
+            let url = try await saveImageToStorage(image: uiImage, challengeId: challengeId, authorId: authorId)
+            challengeMedia = .image(url: url.absoluteString)
         case .video(let data):
             let firestoreVideoUrls = try await saveVideoToStorage(data: data,
                                                                   challengeId: challengeId,
@@ -422,18 +423,17 @@ extension ChallengeService {
             challengeMedia = .video(videoData)
         }
 
-        guard let challengeMedia else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
+        let base = ChallengePost(
+            challengeId: challengeId,
+            authorUid: authorId,
+            authorName: author.name,
+            description: description,
+            date: Date(),
+            media: challengeMedia
+        )
 
-        let post = ChallengePost(challengeId: challengeId,
-                                 authorUid: authorId,
-                                 authorName: author.name,
-                                 description: description,
-                                 date: Date(),
-                                 media: challengeMedia)
-
-        try savePostToFirebase(post, challengeId: challengeId)
-
-        return post
+        // ✅ retourne DIRECTEMENT un post avec id non vide
+        return try await savePostToFirebase(base, challengeId: challengeId)
     }
 
     func fetchPost(challengeId: String, postId: String) async throws -> ChallengePost? {
@@ -464,7 +464,7 @@ extension ChallengeService {
 
     // Privates
 
-    private func savePostToFirebase(_ post: ChallengePost, challengeId: String) throws {
+    private func savePostToFirebase(_ post: ChallengePost, challengeId: String) async throws -> ChallengePost {
         let docRef = firestoreDB
             .collection(collecChallenges)
             .document(challengeId)
@@ -472,6 +472,10 @@ extension ChallengeService {
             .document()
 
         try docRef.setData(from: post)
+
+        // ✅ récupère immédiatement le document avec @DocumentID rempli
+        let snap = try await docRef.getDocument()
+        return try snap.data(as: ChallengePost.self)
     }
 
     private func saveVideoToStorage(data: ChallengeRawMedia.VideoRawData,

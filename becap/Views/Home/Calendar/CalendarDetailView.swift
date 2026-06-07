@@ -131,6 +131,7 @@ struct CalendarDetailView: View {
             PostPagerView(posts: info.posts,
                           startIndex: info.index,
                           challenge: viewModel.challenge,
+                          postScores: viewModel.postScores,
                           getParticipant: { viewModel.getParticipant(for: $0) },
                           onDelete: { viewModel.deletePost($0) },
                           onClose: { pagerInfo = nil })

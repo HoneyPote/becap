@@ -55,8 +55,13 @@ extension ChallengeRepresentable {
 // MARK: - Base challenge
 struct Challenge: ChallengeRepresentable, Identifiable, Codable, Hashable {
     @DocumentID private var _id: String?
+
+    /// ID canonique du post (stocké dans Firestore)
+    var postId: String?
+
+    /// Identifiable
     var id: String {
-        _id ?? ""
+        postId ?? _id ?? ""
     }
     var title: String
     var duration: Int

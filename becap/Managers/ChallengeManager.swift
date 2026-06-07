@@ -39,6 +39,11 @@ protocol ChallengeManagerProtocol {
     func unlikePost(post: ChallengePost) async throws
     func commentPost(post: ChallengePost, content: String) async throws
 
+    // Scores & leaderboard
+    func fetchPostScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard]
+    func fetchScoreLeaderboard(for challengeId: String,
+                               granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation]
+
     // Reward flow
     func createNewParticipantProgress(userId: String, challenge: Challenge) async throws
     func updateParticipantProgress(progress: ParticipantProgress) async throws -> ParticipantProgress
@@ -95,6 +100,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
     private let accountManager: AccountManager
     private let notificationService: NotificationService
     private let rewardService: RewardService
+    private let scoringService: ScoringServiceProtocol
     private let alertManager: GlobalAlertManager
     private let defaults: UserDefaults
     private let chatLastReadPrefix = "challengeChatLastRead_"
@@ -133,6 +139,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
          accountManager: AccountManager = AccountManager(),
          notifificationService: NotificationService = NotificationService.shared,
          rewardService: RewardService = RewardService.shared,
+         scoringService: ScoringServiceProtocol = ScoringService.shared,
          alertManager: GlobalAlertManager = GlobalAlertManager.shared,
          defaults: UserDefaults = .standard) {
         self.userManager = userManager
@@ -140,6 +147,7 @@ class ChallengeManager: ChallengeManagerProtocol, ObservableObject {
         self.accountManager = accountManager
         self.notificationService = notifificationService
         self.rewardService = rewardService
+        self.scoringService = scoringService
         self.alertManager = alertManager
         self.defaults = defaults
 
@@ -573,6 +581,40 @@ extension ChallengeManager {
 
     private func savePostInLocal(_ post: ChallengePost, to challengeId: String) {
         posts[challengeId, default: []].append(post)
+    }
+
+    private func isCulinaryChallenge(_ challenge: Challenge) -> Bool {
+        if let category = challenge.category {
+            return category == .nourriture
+        }
+
+        let loweredTitle = challenge.title.lowercased()
+        return loweredTitle.contains("cuisine") || loweredTitle.contains("nourriture") || loweredTitle.contains("food")
+    }
+
+    @discardableResult
+    private func triggerScoring(for post: ChallengePost, in challenge: Challenge) async -> String? {
+        do {
+            let entryId = try await scoringService.enqueueScoreEntry(for: post, in: challenge)
+            await scoringService.processEntry(entryId: entryId)
+            NotificationCenter.default.post(name: .scoresDidUpdate, object: challenge.id)
+            return entryId
+        } catch {
+            print("❌ [Scoring] \(error)")
+            return nil
+        }
+    }
+}
+
+// MARK: - Scores
+extension ChallengeManager {
+    func fetchPostScoreCards(for challengeId: String, postIds: [String]) async throws -> [String: ScoreCard] {
+        try await scoringService.fetchScoreCards(for: challengeId, postIds: postIds)
+    }
+
+    func fetchScoreLeaderboard(for challengeId: String,
+                               granularity: ScoreAggregation.Granularity) async throws -> [ScoreAggregation] {
+        try await scoringService.fetchAggregations(for: challengeId, granularity: granularity)
     }
 }
 
