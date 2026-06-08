@@ -22,7 +22,6 @@ struct GroupChatView: View {
                     .background(.thinMaterial)
             }
             .background(chatBackground)
-            .ignoresSafeArea(.keyboard, edges: .bottom)
             .onAppear { viewModel.onAppear() }
             .navigationTitle("Chat du groupe")
             .navigationBarTitleDisplayMode(.inline)
@@ -83,6 +82,7 @@ struct GroupChatView: View {
             .onAppear {
                 scrollToBottom(proxy: proxy, animated: false)
             }
+            .scrollDismissesKeyboard(.interactively)
         }
     }
 
@@ -138,6 +138,7 @@ struct GroupChatView: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
+        .padding(.bottom, 4)
     }
 
     private var isSendDisabled: Bool {

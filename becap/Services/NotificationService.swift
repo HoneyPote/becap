@@ -235,7 +235,7 @@ final class NotificationService: NSObject {
     }
 
     // MARK: - Group chat notifications
-    func sendGroupChatMessageNotification(challenge: Challenge,
+    func sendGroupChatMessageNotification(challenge: any ChallengeRepresentable,
                                           senderName: String,
                                           messageContent: String) async {
         let selfUid = userManager.currentUser?.id
@@ -267,7 +267,7 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
-    func sendGroupChatReactionNotification(challenge: Challenge,
+    func sendGroupChatReactionNotification(challenge: any ChallengeRepresentable,
                                            messageOwnerId: String,
                                            reactorName: String,
                                            reaction: String) async {
