@@ -91,7 +91,7 @@ final class ShareChallengeViewModel: ObservableObject {
             await MainActor.run {
                 selectedChallenge = resolvedChallenge
                 joinCodeInput = ""
-                joinedChallenge = resolvedChallenge
+                self.joinedChallenge = resolvedChallenge
                 presentAlert(title: "Défi rejoint", message: "Tu as bien rejoint \"\(resolvedChallenge.title)\".")
             }
         } catch {
