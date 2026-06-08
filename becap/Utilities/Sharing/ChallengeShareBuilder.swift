@@ -9,11 +9,12 @@ import Foundation
 import UIKit
 
 enum ChallengeShareBuilder {
-    private static let deepLinkScheme = "becap"
-    private static let deepLinkHost = "challenge"
+    private static let publicLinkScheme = "https"
+    private static let publicLinkHost = "becap.app"
+    private static let challengePath = "/challenge"
 
     static func makeShareItems(for challenge: any ChallengeRepresentable) -> [Any]? {
-        let linkURL = deepLinkURL(for: challenge)
+        let linkURL = shareLinkURL(for: challenge)
 
         var parts: [String] = [
             "✨ Découvre \"\(challenge.title)\" sur Becap",
@@ -21,7 +22,7 @@ enum ChallengeShareBuilder {
             "Un calendrier collaboratif pour garder le cap ensemble et célébrer vos réussites quotidiennes."
         ]
 
-        if let linkURL { parts += ["", "➡️ Accès direct : \(linkURL.absoluteString)"] }
+        if let linkURL { parts += ["", "➡️ Lien d’invitation : \(linkURL.absoluteString)"] }
 
         if let challengeCode = challenge.code, !challengeCode.isEmpty {
             parts += ["", "🔢 Code du défi : \(challengeCode)"]
@@ -52,17 +53,14 @@ enum ChallengeShareBuilder {
 
         items.append(message)
 
-        if let linkURL { items.append(linkURL) }
-
         return items.isEmpty ? nil : items
     }
 
-    private static func deepLinkURL(for challenge: any ChallengeRepresentable) -> URL? {
+    private static func shareLinkURL(for challenge: any ChallengeRepresentable) -> URL? {
         var components = URLComponents()
-        components.scheme = deepLinkScheme
-        components.host = deepLinkHost
-        components.path = ""
-
+        components.scheme = publicLinkScheme
+        components.host = publicLinkHost
+        components.path = challengePath
         components.queryItems = [URLQueryItem(name: "challengeId", value: challenge.id)]
         return components.url
     }
