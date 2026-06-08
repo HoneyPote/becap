@@ -234,6 +234,40 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
+
+    // MARK: - New participant notification
+    func sendNewParticipantNotification(challenge: Challenge,
+                                        newParticipantName: String,
+                                        newParticipantId: String) async {
+        let externalIds = Array(Set(challenge.participantUids.filter { $0 != newParticipantId }))
+
+        if externalIds.isEmpty {
+            print("ℹ️ sendNewParticipantNotification ignoré: aucun participant à prévenir")
+            return
+        }
+
+        let playerIds = (try? await fetchOneSignalPushIds(userIds: externalIds, excludeCurrentUser: false)) ?? []
+        let headings = ["en": "New teammate 🎉", "fr": "Nouveau participant 🎉"]
+        let contents = ["en": "\(newParticipantName) joined \"\(challenge.title)\"!",
+                        "fr": "\(newParticipantName) a rejoint \"\(challenge.title)\" !"]
+
+        let deepLink = makeChallengeDeepLink(challengeId: challenge.id)
+        let additionalData: [String: Any] = [
+            "type": "challenge_joined",
+            "challengeId": challenge.id,
+            "newParticipantId": newParticipantId
+        ]
+
+        sendForUser(externalIds: externalIds,
+                    playerIds: playerIds,
+                    headings: headings,
+                    contents: contents,
+                    userIdForCleanup: externalIds.first ?? "",
+                    context: "sendNewParticipantNotification",
+                    additionalData: additionalData,
+                    appUrl: deepLink)
+    }
+
     // MARK: - Group chat notifications
     func sendGroupChatMessageNotification(challenge: Challenge,
                                           senderName: String,

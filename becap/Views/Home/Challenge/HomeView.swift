@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // TODO: Faire un bouton réutilisable pour les challenges de partage et création
 struct HomeView: View {
@@ -21,6 +22,8 @@ struct HomeView: View {
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPostId: String?
     @State private var deepLinkJoinError: String?
+    @State private var showDeepLinkJoinCelebration = false
+    @State private var joinedChallengeTitle: String?
 
     var body: some View {
         NavigationStack {
@@ -69,6 +72,13 @@ struct HomeView: View {
 
                 if viewModel.showRestartSuccessToast {
                     restartSuccessToast
+                }
+            }
+            .overlay {
+                if showDeepLinkJoinCelebration {
+                    challengeJoinedCelebration
+                        .transition(.scale(scale: 0.86).combined(with: .opacity))
+                        .zIndex(20)
                 }
             }
             .background(
@@ -317,6 +327,64 @@ struct HomeView: View {
         .zIndex(10)
     }
 
+    private var challengeJoinedCelebration: some View {
+        ZStack {
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                ZStack {
+                    ForEach(0..<10, id: \.self) { index in
+                        Circle()
+                            .fill(index.isMultiple(of: 2) ? Color.yellow.opacity(0.78) : Color.white.opacity(0.82))
+                            .frame(width: index.isMultiple(of: 2) ? 10 : 7, height: index.isMultiple(of: 2) ? 10 : 7)
+                            .offset(y: -56)
+                            .rotationEffect(.degrees(Double(index) * 36))
+                    }
+
+                    Image(systemName: "party.popper.fill")
+                        .font(.system(size: 52, weight: .heavy, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(colors: [.yellow, .orange, .pink],
+                                           startPoint: .topLeading,
+                                           endPoint: .bottomTrailing)
+                        )
+                        .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 6)
+                }
+                .frame(width: 140, height: 110)
+
+                VStack(spacing: 8) {
+                    Text("Félicitations !")
+                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                        .foregroundColor(.white)
+
+                    Text("Tu as rejoint le défi" + formattedJoinedChallengeTitle)
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white.opacity(0.86))
+                }
+            }
+            .padding(.vertical, 34)
+            .padding(.horizontal, 28)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 14)
+            .padding(.horizontal, 26)
+        }
+    }
+
+    private var formattedJoinedChallengeTitle: String {
+        guard let joinedChallengeTitle, !joinedChallengeTitle.isEmpty else {
+            return " !"
+        }
+
+        return " « \(joinedChallengeTitle) » !"
+    }
+
     private var reportSuccessToast: some View {
         VStack {
             Spacer()
@@ -387,7 +455,14 @@ extension HomeView {
 
         Task { [challengeId] in
             do {
-                try await viewModel.ensureMembershipIfNeeded(for: challengeId)
+                let didJoinChallenge = try await viewModel.ensureMembershipIfNeeded(for: challengeId)
+
+                if didJoinChallenge {
+                    await MainActor.run {
+                        let title = viewModel.challenges.first(where: { $0.id == challengeId })?.title
+                        presentChallengeJoinedCelebration(challengeTitle: title)
+                    }
+                }
             } catch {
                 await MainActor.run {
                     deepLinkJoinError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -400,6 +475,23 @@ extension HomeView {
 
         if !hasLoadedChallengesForPendingDeepLink {
             viewModel.refreshChallenges()
+        }
+    }
+
+    private func presentChallengeJoinedCelebration(challengeTitle: String?) {
+        joinedChallengeTitle = challengeTitle
+
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.68)) {
+            showDeepLinkJoinCelebration = true
+        }
+
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                showDeepLinkJoinCelebration = false
+            }
         }
     }
 

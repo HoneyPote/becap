@@ -17,7 +17,7 @@ protocol ChallengeManagerProtocol {
     // Challenge
     func createChallenge(_ challenge: Challenge) async throws -> Challenge?
     func fetchAndFilterChallenges() async throws
-    func ensureMembership(in challengeId: String) async throws
+    func ensureMembership(in challengeId: String) async throws -> Bool
     func deleteChallenge(_ challengeId: String) async throws
     func joinChallenge(withCode code: String) async throws -> Challenge
     func removeParticipant(_ challengeId: String, userId: String) async throws
@@ -210,10 +210,10 @@ extension ChallengeManager {
             print("BecapChallenges :", becapChallenges.map(\.base.title))
         }
     }
-    func ensureMembership(in challengeId: String) async throws {
+    func ensureMembership(in challengeId: String) async throws -> Bool {
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
-            return
+            return false
         }
 
         guard let currentUser, let currentUserId = currentUser.id else {
@@ -231,6 +231,8 @@ extension ChallengeManager {
         try await manageJoiningChallenge(joinedChallenge,
                                          currentUserId: currentUserId,
                                          isNewToChallenge: isNewToChallenge)
+
+        return isNewToChallenge
     }
 
     func joinChallenge(withCode code: String) async throws -> Challenge {
@@ -265,6 +267,13 @@ extension ChallengeManager {
 
         try await challengeService.addParticipant(challengeId: challenge.id, userId: currentUserId)
         try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: challenge.id)
+
+        if isNewToChallenge {
+            await notificationService.sendNewParticipantNotification(challenge: challenge,
+                                                                     newParticipantName: currentUser?.name ?? "Un nouveau participant",
+                                                                     newParticipantId: currentUserId)
+        }
+
         try await fetchAndFilterChallenges()
     }
 
