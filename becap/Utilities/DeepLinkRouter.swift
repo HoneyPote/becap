@@ -35,39 +35,79 @@ final class DeepLinkRouter: ObservableObject {
         }
     }
 
-    // Appelle ceci depuis .onOpenURL
+    // Appelle ceci depuis .onOpenURL et .onContinueUserActivity.
     func handle(url: URL) {
         guard let comps = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              comps.scheme?.lowercased() == "becap" else { return }
+              let route = route(from: comps) else { return }
 
-        let host = comps.host?.lowercased()
-
-        switch host {
-        case "challenge", "join":
-            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
+        switch route {
+        case .challenge(let challengeId):
             DispatchQueue.main.async {
-                if let challengeId, !challengeId.isEmpty {
-                    self.pendingCalendarChallengeId = challengeId
-                }
+                self.pendingCalendarChallengeId = challengeId
             }
 
-        case "photo":
-            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
-            let postId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value
-
-            guard let challengeId, !challengeId.isEmpty,
-                  let postId, !postId.isEmpty else { return }
-
+        case .photo(let challengeId, let postId):
             DispatchQueue.main.async {
                 // Définir d'abord la cible photo pour que les observateurs disposent
                 // de l'identifiant avant que le challenge ne déclenche la navigation.
                 self.pendingPostLink = PostDeepLink(challengeId: challengeId, postId: postId)
                 self.pendingCalendarChallengeId = challengeId
             }
-
-        default:
-            break
         }
+    }
+
+    private enum Route {
+        case challenge(String)
+        case photo(challengeId: String, postId: String)
+    }
+
+    private func route(from comps: URLComponents) -> Route? {
+        switch comps.scheme?.lowercased() {
+        case "becap":
+            return routeFromCustomScheme(comps)
+        case "https":
+            return routeFromUniversalLink(comps)
+        default:
+            return nil
+        }
+    }
+
+    private func routeFromCustomScheme(_ comps: URLComponents) -> Route? {
+        switch comps.host?.lowercased() {
+        case "challenge", "join":
+            return challengeRoute(from: comps)
+        case "photo":
+            return photoRoute(from: comps)
+        default:
+            return nil
+        }
+    }
+
+    private func routeFromUniversalLink(_ comps: URLComponents) -> Route? {
+        guard ["becap.app", "www.becap.app"].contains(comps.host?.lowercased() ?? "") else { return nil }
+
+        switch comps.path.lowercased() {
+        case "/challenge", "/join":
+            return challengeRoute(from: comps)
+        case "/photo":
+            return photoRoute(from: comps)
+        default:
+            return nil
+        }
+    }
+
+    private func challengeRoute(from comps: URLComponents) -> Route? {
+        guard let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value,
+              !challengeId.isEmpty else { return nil }
+        return .challenge(challengeId)
+    }
+
+    private func photoRoute(from comps: URLComponents) -> Route? {
+        guard let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value,
+              !challengeId.isEmpty,
+              let postId = comps.queryItems?.first(where: { $0.name == "photoId" })?.value,
+              !postId.isEmpty else { return nil }
+        return .photo(challengeId: challengeId, postId: postId)
     }
 
     func clearChallengeNavigation() {

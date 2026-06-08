@@ -8,5 +8,10 @@
 	<array>
 		<string>group.honeypote.becap.onesignal</string>
 	</array>
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:becap.app</string>
+		<string>applinks:www.becap.app</string>
+	</array>
 </dict>
 </plist>
