@@ -235,7 +235,7 @@ final class NotificationService: NSObject {
     }
 
     // MARK: - Group chat notifications
-    func sendGroupChatMessageNotification(challenge: Challenge,
+    func sendGroupChatMessageNotification(challenge: any ChallengeRepresentable,
                                           senderName: String,
                                           messageContent: String) async {
         let selfUid = userManager.currentUser?.id
@@ -251,7 +251,7 @@ final class NotificationService: NSObject {
         let contents = ["en": "\(senderName): \(messageContent)",
                         "fr": "\(senderName) : \(messageContent)"]
 
-        let deepLink = makeChallengeDeepLink(challengeId: challenge.id)
+        let deepLink = makeChatDeepLink(challengeId: challenge.id)
         let additionalData: [String: Any] = [
             "type": "group_chat_message",
             "challengeId": challenge.id
@@ -267,7 +267,7 @@ final class NotificationService: NSObject {
                     appUrl: deepLink)
     }
 
-    func sendGroupChatReactionNotification(challenge: Challenge,
+    func sendGroupChatReactionNotification(challenge: any ChallengeRepresentable,
                                            messageOwnerId: String,
                                            reactorName: String,
                                            reaction: String) async {
@@ -282,7 +282,7 @@ final class NotificationService: NSObject {
         let contents = ["en": "\(reactorName) reacted \(reaction) to your message in \"\(challenge.title)\"",
                         "fr": "\(reactorName) a réagi \(reaction) à ton message dans \"\(challenge.title)\""]
 
-        let deepLink = makeChallengeDeepLink(challengeId: challenge.id)
+        let deepLink = makeChatDeepLink(challengeId: challenge.id)
         let additionalData: [String: Any] = [
             "type": "group_chat_reaction",
             "challengeId": challenge.id
@@ -341,6 +341,15 @@ final class NotificationService: NSObject {
         comps.queryItems = [URLQueryItem(name: "challengeId", value: challengeId)]
 
         return comps.url?.absoluteString ?? "becap://challenge?challengeId=\(challengeId)"
+    }
+
+    private func makeChatDeepLink(challengeId: String) -> String {
+        var comps = URLComponents()
+        comps.scheme = "becap"
+        comps.host = "chat"
+        comps.queryItems = [URLQueryItem(name: "challengeId", value: challengeId)]
+
+        return comps.url?.absoluteString ?? "becap://chat?challengeId=\(challengeId)"
     }
 
     private func dispatchDeepLinkURL(_ urlString: String) {
@@ -452,6 +461,8 @@ extension NotificationService: OSNotificationClickListener {
            !postId.isEmpty,
            type.hasPrefix("photo_") {
             dispatchDeepLinkURL(makePostDeepLink(challengeId: challengeId, postId: postId))
+        } else if type.hasPrefix("group_chat") {
+            dispatchDeepLinkURL(makeChatDeepLink(challengeId: challengeId))
         } else {
             dispatchDeepLinkURL(makeChallengeDeepLink(challengeId: challengeId))
         }
