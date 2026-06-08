@@ -16,6 +16,7 @@ struct CalendarMonthGrid: View {
     let jokerCountByDay: [Date: Int]
     let validatedDays: Set<Date>
     let currentUserJokerDays: Set<Date>
+    let showsFirstDayPromptHint: Bool
     let onSelectDate: (Date) -> Void
 
     private let calendar = Calendar.current
@@ -30,6 +31,7 @@ struct CalendarMonthGrid: View {
          jokerCountByDay: [Date: Int],
          validatedDays: Set<Date>,
          currentUserJokerDays: Set<Date>,
+         showsFirstDayPromptHint: Bool = false,
          onSelectDate: @escaping (Date) -> Void) {
         self.startDate = startDate
         self.days = max(days, 0)
@@ -38,6 +40,7 @@ struct CalendarMonthGrid: View {
         self.jokerCountByDay = jokerCountByDay
         self.validatedDays = validatedDays
         self.currentUserJokerDays = currentUserJokerDays
+        self.showsFirstDayPromptHint = showsFirstDayPromptHint
         self.onSelectDate = onSelectDate
 
         let calendar = Calendar.current
@@ -112,7 +115,8 @@ struct CalendarMonthGrid: View {
                     currentUserUsedJoker: currentUserUsedJoker,
                     isValidated: isValidated,
                     isToday: calendar.isDateInToday(day),
-                    isSelected: isSelected) {
+                    isSelected: isSelected,
+                    showsFirstDayPromptHint: showsFirstDayPromptHint && item.dayNumber == 1) {
                 if hasPosts || hasJokerUsage {
                     Haptics.lightTap()
                 }

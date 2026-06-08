@@ -23,6 +23,7 @@ struct DayCell: View {
     let isValidated: Bool
     let isToday: Bool
     let isSelected: Bool
+    var showsFirstDayPromptHint: Bool = false
     let tap: () -> Void
 
     var body: some View {
@@ -53,6 +54,13 @@ struct DayCell: View {
                         .foregroundColor(titleColor)
                 }
                 .padding(.bottom, 5)
+
+                if showsFirstDayPromptHint {
+                    FirstDayTapHint()
+                        .offset(x: 18, y: 28)
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
             }
             .frame(height: 72)
         }
@@ -100,5 +108,30 @@ private extension DayCell {
             return .white
         }
         return date > Date() ? .white.opacity(0.55) : .white
+    }
+}
+
+private struct FirstDayTapHint: View {
+    @State private var animateTap = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(Color.white.opacity(0.78), lineWidth: 2)
+                .frame(width: 30, height: 30)
+                .scaleEffect(animateTap ? 1.5 : 0.65)
+                .opacity(animateTap ? 0 : 0.9)
+                .animation(.easeOut(duration: 1).repeatForever(autoreverses: false),
+                           value: animateTap)
+
+            Image(systemName: "hand.tap.fill")
+                .font(.system(size: 20, weight: .bold))
+                .foregroundColor(.white)
+                .shadow(color: .black.opacity(0.35), radius: 4, x: 0, y: 3)
+                .scaleEffect(animateTap ? 0.92 : 1.08)
+                .animation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true),
+                           value: animateTap)
+        }
+        .onAppear { animateTap = true }
     }
 }
