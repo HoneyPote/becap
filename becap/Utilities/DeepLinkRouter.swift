@@ -15,6 +15,7 @@ struct PostDeepLink: Equatable {
 final class DeepLinkRouter: ObservableObject {
     @Published var pendingCalendarChallengeId: String? = nil
     @Published var pendingPostLink: PostDeepLink? = nil
+    @Published var pendingChatChallengeId: String? = nil
 
     private let notificationCenter: NotificationCenter
     private var notificationObserver: NSObjectProtocol?
@@ -65,6 +66,16 @@ final class DeepLinkRouter: ObservableObject {
                 self.pendingCalendarChallengeId = challengeId
             }
 
+        case "chat":
+            let challengeId = comps.queryItems?.first(where: { $0.name == "challengeId" })?.value
+
+            DispatchQueue.main.async {
+                if let challengeId, !challengeId.isEmpty {
+                    self.pendingChatChallengeId = challengeId
+                    self.pendingCalendarChallengeId = challengeId
+                }
+            }
+
         default:
             break
         }
@@ -76,5 +87,9 @@ final class DeepLinkRouter: ObservableObject {
 
     func clearPostNavigation() {
         pendingPostLink = nil
+    }
+
+    func clearChatNavigation() {
+        pendingChatChallengeId = nil
     }
 }

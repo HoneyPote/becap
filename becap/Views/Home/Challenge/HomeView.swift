@@ -16,7 +16,7 @@ struct HomeView: View {
     @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
-    @State private var deepLinkedChallenge: Challenge?
+    @State private var deepLinkedChallenge: (any ChallengeRepresentable)?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
@@ -440,7 +440,7 @@ extension HomeView {
         }
     }
 
-    private func calendarDetailIdentity(for challenge: Challenge, postId: String?) -> String {
+    private func calendarDetailIdentity(for challenge: any ChallengeRepresentable, postId: String?) -> String {
         let base = challenge.id
         if let postId, !postId.isEmpty {
             return "\(base)|photo:\(postId)"
@@ -450,7 +450,7 @@ extension HomeView {
 
     private func beginResolvingDeepLink(for challengeId: String) {
         isResolvingDeepLink = true
-        hasLoadedChallengesForPendingDeepLink = viewModel.challenges.contains(where: { $0.id == challengeId })
+        hasLoadedChallengesForPendingDeepLink = challengeForDeepLink(withId: challengeId) != nil
         attemptNavigationToChallenge(withId: challengeId)
 
         Task { [challengeId] in
@@ -496,7 +496,9 @@ extension HomeView {
     }
 
     private func attemptNavigationToChallenge(withId challengeId: String) {
-        if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
+        let challenge = challengeForDeepLink(withId: challengeId)
+
+        if let challenge {
             deepLinkedChallenge = challenge
             if let link = deepLinkRouter.pendingPostLink,
                link.challengeId == challengeId {
@@ -510,6 +512,14 @@ extension HomeView {
             deepLinkRouter.clearChallengeNavigation()
             deepLinkRouter.clearPostNavigation()
         }
+    }
+
+    private func challengeForDeepLink(withId challengeId: String) -> (any ChallengeRepresentable)? {
+        if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
+            return challenge
+        }
+
+        return viewModel.becapChallenges.first(where: { $0.id == challengeId })
     }
 }
 

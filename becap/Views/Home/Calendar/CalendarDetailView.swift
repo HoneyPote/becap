@@ -24,12 +24,14 @@ struct PagerInfo: Identifiable {
 // MARK: - Main View
 struct CalendarDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject private var viewModel: CalendarDetailViewModel
 
     @State private var selectedParticipant: ParticipantUIModel?
     @State private var selectedGridCell: CalendarDetailCell?
     @State private var showNotifSheet = false
     @State private var showParticipantsSheet = false
+    @State private var showGroupChatSheet = false
     @State private var isShareSheetPresented = false
     @State private var shareItems: [Any] = []
     @State private var pagerInfo: PagerInfo?
@@ -137,6 +139,7 @@ struct CalendarDetailView: View {
         }
         .onAppear {
             viewModel.fetchInfos()
+            openChatIfNeeded()
             let today = startOfDay(Date())
             let challengeStart = startOfDay(viewModel.challenge.startDate)
             let challengeEnd = startOfDay(viewModel.challenge.lastDayDate)
@@ -147,6 +150,9 @@ struct CalendarDetailView: View {
         }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
+        .onChange(of: deepLinkRouter.pendingChatChallengeId) { _ in
+            openChatIfNeeded()
+        }
         .onChange(of: viewModel.doneLoadingPosts) { isDone in
             if isDone {
                 openInitialPostIfNeeded()
@@ -447,6 +453,9 @@ struct CalendarDetailView: View {
                                              participants: viewModel.participants,
                                              onChallengeQuit: { dismiss() })
                 }
+                .sheet(isPresented: $showGroupChatSheet) {
+                    GroupChatView(challenge: viewModel.challenge)
+                }
                 .sheet(isPresented: $isShareSheetPresented) {
                     if !shareItems.isEmpty {
                         ShareSheet(activityItems: shareItems)
@@ -456,6 +465,15 @@ struct CalendarDetailView: View {
             .padding(.horizontal, 14)
             .padding(.top, 12)
         }
+    }
+
+
+    private func openChatIfNeeded() {
+        guard deepLinkRouter.pendingChatChallengeId == viewModel.challenge.id else { return }
+
+        showParticipantsSheet = false
+        showGroupChatSheet = true
+        deepLinkRouter.clearChatNavigation()
     }
 
     // MARK: - Filter

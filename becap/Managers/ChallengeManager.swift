@@ -386,11 +386,14 @@ extension ChallengeManager {
 
         try await challengeService.addChatMessage(message, to: challengeId)
 
-        if let challenge = challenges.first(where: { $0.id == challengeId }) {
-            await notificationService.sendGroupChatMessageNotification(challenge: challenge,
-                                                                       senderName: currentUser.name,
-                                                                       messageContent: trimmedContent)
+        guard let challenge = challengeRepresentable(for: challengeId) else {
+            print("⚠️ Group chat notification skipped: challenge introuvable pour id=\(challengeId)")
+            return
         }
+
+        await notificationService.sendGroupChatMessageNotification(challenge: challenge,
+                                                                   senderName: currentUser.name,
+                                                                   messageContent: trimmedContent)
     }
 
     func markChatAsRead(for challengeId: String) {
@@ -418,7 +421,7 @@ extension ChallengeManager {
         await awardSocialMedalIfNeeded(type: .firstReaction, challengeId: challengeId)
 
         guard message.senderId != userId,
-              let challenge = challenges.first(where: { $0.id == challengeId }),
+              let challenge = challengeRepresentable(for: challengeId),
               let reactorName = currentUser?.name
         else { return }
 
