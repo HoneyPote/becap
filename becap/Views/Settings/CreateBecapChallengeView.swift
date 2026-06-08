@@ -13,6 +13,8 @@ struct CreateBecapChallengeView: View {
     @StateObject private var viewModel: CreateBecapChallengeViewModel
 
     @State private var challengeCreated: Bool = false
+    @State private var shareItems: [Any] = []
+    @State private var isShareSheetPresented: Bool = false
     @State private var editedNotifTime: Date = Date()
     @State private var editedNotifIndex: Int?
     @State private var isEditTimeSheetOpen: Bool = false
@@ -62,6 +64,15 @@ struct CreateBecapChallengeView: View {
             }
         }
         .navigationBarBackButtonHidden()
+        .sheet(isPresented: $isShareSheetPresented, onDismiss: {
+            if challengeCreated {
+                dismiss()
+            }
+        }) {
+            if !shareItems.isEmpty {
+                ShareSheet(activityItems: shareItems)
+            }
+        }
     }
 
     private var header: some View {
@@ -222,9 +233,14 @@ struct CreateBecapChallengeView: View {
                 .padding(.vertical, 16)
             } else {
                 Button(action: {
-                    viewModel.createBecapChallenge() { success in
-                        if success {
-                            challengeCreated = true
+                    viewModel.createBecapChallenge { createdChallenge in
+                        guard let createdChallenge else { return }
+
+                        challengeCreated = true
+                        if let items = ChallengeShareBuilder.makeShareItems(for: createdChallenge) {
+                            shareItems = items
+                            isShareSheetPresented = true
+                        } else {
                             dismiss()
                         }
                     }
@@ -277,7 +293,9 @@ extension CreateBecapChallengeView {
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundColor(.white)
 
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                notificationExplanation
+
                 LazyVGrid(columns: notifSettingColumns, spacing: 12) {
                     ForEach(Array(viewModel.notificationTimes.enumerated()), id: \.element.id) { index, item in
                         notificationTimeCell(item.fullDate, index: index)
@@ -313,6 +331,28 @@ extension CreateBecapChallengeView {
             .presentationDetents([.height(150)])
             .presentationDragIndicator(.hidden)
         }
+    }
+
+
+    private var notificationExplanation: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("Pour tout le défi", systemImage: "bell.and.waves.left.and.right.fill")
+                .font(.system(.subheadline, design: .rounded).weight(.bold))
+                .foregroundColor(.white)
+
+            Text("Les heures ajoutées ici deviennent les rappels par défaut du défi : elles seront proposées à tous les participants. Chacun pourra ensuite les copier, les modifier ou créer ses propres rappels dans l’onglet Notifications.")
+                .font(.system(.footnote, design: .rounded))
+                .foregroundColor(.white.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
     }
 
     private func notificationTimeCell(_ date: Date, index: Int) -> some View {

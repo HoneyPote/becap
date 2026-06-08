@@ -133,6 +133,8 @@ struct NotificationSettingsView: View {
                     .foregroundColor(.white.opacity(0.7))
             }
 
+            notificationScopeExplanation(scope: scope)
+
             if isEditable {
                 actionButtons(scope: scope)
             }
@@ -157,6 +159,50 @@ struct NotificationSettingsView: View {
                 .stroke(Color.white.opacity(0.15), lineWidth: 1)
         )
         .allowsHitTesting(isEditable)
+    }
+
+
+    private func notificationScopeExplanation(scope: NotificationConfigScope) -> some View {
+        let title: String
+        let message: String
+        let icon: String
+
+        switch scope {
+        case .challenge:
+            title = "Pour tout le monde"
+            message = "Ces heures sont les rappels par défaut du défi. Si un admin les modifie, elles servent de référence commune pour les participants."
+            icon = "person.3.fill"
+        case .user:
+            title = "Rien que pour moi"
+            message = "Ces rappels sont personnels : tu peux les modifier sans changer les notifications des autres participants."
+            icon = "person.fill"
+        }
+
+        return HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white.opacity(0.9))
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.74))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+        )
     }
 
     private func actionButtons(scope: NotificationConfigScope) -> some View {
