@@ -45,6 +45,7 @@ struct CalendarDetailView: View {
     @State private var dailyPromptWord: String?
     @State private var inlineDailyPromptWord: String?
     @State private var pendingPromptCell: CalendarDetailCell?
+    @State private var showFirstDayPromptHint = false
 
     init(challenge: any ChallengeRepresentable, initialPostId: String? = nil) {
         _viewModel = StateObject(wrappedValue: CalendarDetailViewModel(challenge: challenge))
@@ -147,6 +148,8 @@ struct CalendarDetailView: View {
             if today >= challengeStart && today <= challengeEnd {
                 selectedDate = today
             }
+
+            prepareFirstDayPromptHintIfNeeded(today: today, challengeStart: challengeStart)
         }
         .refreshable { viewModel.fetchInfos() }
         .navigationBarHidden(true)
@@ -267,9 +270,16 @@ struct CalendarDetailView: View {
             jokerCountByDay: jokerCountByDay,
             validatedDays: validatedDays,
             currentUserJokerDays: currentUserJokerDays,
+            showsFirstDayPromptHint: showFirstDayPromptHint,
             onSelectDate: { date in
                 let day = startOfDay(date)
                 selectedDate = day
+
+                if sameDay(day, viewModel.challenge.startDate) {
+                    withAnimation(.easeOut(duration: 0.2)) {
+                        showFirstDayPromptHint = false
+                    }
+                }
 
                 guard let cell = cells.first(where: { sameDay($0.date, day) }) else {
                     return
@@ -278,10 +288,40 @@ struct CalendarDetailView: View {
                 handleDateSelection(day: day, cell: cell)
             }
         )
+        .overlay(alignment: .top) {
+            if showFirstDayPromptHint {
+                FirstDayPromptInstructionView()
+                    .padding(.top, 90)
+                    .padding(.horizontal, 22)
+                    .allowsHitTesting(false)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
         .padding(.horizontal, 14)
     }
 
+    private func prepareFirstDayPromptHintIfNeeded(today: Date, challengeStart: Date) {
+        guard viewModel.challenge.category == .drawing,
+              sameDay(today, challengeStart) else {
+            showFirstDayPromptHint = false
+            return
+        }
 
+        Task {
+            let alreadySeen = await viewModel.hasSeenDailyPrompt(for: challengeStart)
+
+            await MainActor.run {
+                guard sameDay(startOfDay(Date()), challengeStart) else {
+                    showFirstDayPromptHint = false
+                    return
+                }
+
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.86).delay(0.45)) {
+                    showFirstDayPromptHint = !alreadySeen
+                }
+            }
+        }
+    }
 
     private func handleDateSelection(day: Date, cell: CalendarDetailCell) {
         selectedDate = day
@@ -328,6 +368,7 @@ struct CalendarDetailView: View {
 
         withAnimation(.spring(response: 0.45, dampingFraction: 0.9)) {
             showDailyPromptReveal = false
+            showFirstDayPromptHint = false
             dailyPromptWord = nil
             pendingPromptCell = nil
         }
@@ -766,6 +807,64 @@ extension CalendarDetailView {
 
         DispatchQueue.main.async {
             jokerButtonFrame = normalized
+        }
+    }
+}
+
+private struct FirstDayPromptInstructionView: View {
+    @State private var isBouncing = false
+    @State private var isGlowing = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(Color.yellow.opacity(0.22))
+                    .frame(width: 44, height: 44)
+                    .scaleEffect(isGlowing ? 1.18 : 0.88)
+                    .opacity(isGlowing ? 0.18 : 0.75)
+                    .animation(.easeInOut(duration: 1.15).repeatForever(autoreverses: true),
+                               value: isGlowing)
+
+                Text("✨")
+                    .font(.system(size: 24))
+                    .offset(y: isBouncing ? -3 : 3)
+                    .animation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true),
+                               value: isBouncing)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Premier mot à révéler")
+                    .font(.system(.subheadline, design: .rounded).weight(.heavy))
+                    .foregroundColor(.white)
+
+                Text("Clique sur le jour 1 du calendrier pour découvrir le mot à dessiner.")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.82))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Image(systemName: "arrow.down.left")
+                .font(.system(size: 18, weight: .black))
+                .foregroundColor(.yellow.opacity(0.95))
+                .offset(x: isBouncing ? -4 : 1, y: isBouncing ? 5 : -1)
+                .animation(.easeInOut(duration: 0.62).repeatForever(autoreverses: true),
+                           value: isBouncing)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.28), lineWidth: 0.8)
+                )
+        )
+        .shadow(color: .black.opacity(0.28), radius: 14, x: 0, y: 10)
+        .onAppear {
+            isBouncing = true
+            isGlowing = true
         }
     }
 }
