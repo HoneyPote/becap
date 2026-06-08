@@ -127,13 +127,13 @@ class HomeViewModel: ObservableObject {
         }
     }
 
-    func ensureMembershipIfNeeded(for challengeId: String) async throws {
+    func ensureMembershipIfNeeded(for challengeId: String) async throws -> Bool {
         if challengeManager.challenges.contains(where: { $0.id == challengeId }) {
             try await challengeManager.fetchAndFilterChallenges()
-            return
+            return false
         }
 
-        try await challengeManager.ensureMembership(in: challengeId)
+        return try await challengeManager.ensureMembership(in: challengeId)
     }
 
     func cancelQuit() {
