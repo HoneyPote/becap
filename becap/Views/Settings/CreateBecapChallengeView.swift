@@ -7,14 +7,18 @@
 
 import SwiftUI
 
+private struct ChallengeShareSheetPayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
 struct CreateBecapChallengeView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var viewModel: CreateBecapChallengeViewModel
 
-    @State private var challengeCreated: Bool = false
-    @State private var shareItems: [Any] = []
-    @State private var isShareSheetPresented: Bool = false
+    @State private var shareSheetPayload: ChallengeShareSheetPayload?
+    @State private var shouldDismissAfterShare: Bool = false
     @State private var editedNotifTime: Date = Date()
     @State private var editedNotifIndex: Int?
     @State private var isEditTimeSheetOpen: Bool = false
@@ -64,14 +68,12 @@ struct CreateBecapChallengeView: View {
             }
         }
         .navigationBarBackButtonHidden()
-        .sheet(isPresented: $isShareSheetPresented, onDismiss: {
-            if challengeCreated {
+        .sheet(item: $shareSheetPayload, onDismiss: {
+            if shouldDismissAfterShare {
                 dismiss()
             }
-        }) {
-            if !shareItems.isEmpty {
-                ShareSheet(activityItems: shareItems)
-            }
+        }) { payload in
+            ShareSheet(activityItems: payload.items)
         }
     }
 
@@ -236,13 +238,13 @@ struct CreateBecapChallengeView: View {
                     viewModel.createBecapChallenge { createdChallenge in
                         guard let createdChallenge else { return }
 
-                        challengeCreated = true
-                        if let items = ChallengeShareBuilder.makeShareItems(for: createdChallenge) {
-                            shareItems = items
-                            isShareSheetPresented = true
-                        } else {
+                        guard let items = ChallengeShareBuilder.makeShareItems(for: createdChallenge) else {
                             dismiss()
+                            return
                         }
+
+                        shouldDismissAfterShare = true
+                        shareSheetPayload = ChallengeShareSheetPayload(items: items)
                     }
                 }) {
                     HStack(spacing: 12) {
@@ -251,7 +253,7 @@ struct CreateBecapChallengeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Créer le défi")
                                 .font(.system(.headline, design: .rounded).weight(.bold))
-                            Text("Lancez le défi et partagez-le avec le monde !")
+                            Text("Lancez le défi : le partage s’ouvrira automatiquement.")
                                 .font(.system(.caption, design: .rounded))
                                 .foregroundColor(.white.opacity(0.85))
                                 .multilineTextAlignment(.leading)
@@ -335,15 +337,17 @@ extension CreateBecapChallengeView {
 
 
     private var notificationExplanation: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Label("Pour tout le défi", systemImage: "bell.and.waves.left.and.right.fill")
-                .font(.system(.subheadline, design: .rounded).weight(.bold))
-                .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 12) {
+            notificationExplanationRow(title: "Pour tout le monde",
+                                       message: "Les heures ajoutées à la création deviennent les rappels par défaut du défi. Elles seront visibles et proposées à tous les participants.",
+                                       icon: "person.3.fill")
 
-            Text("Les heures ajoutées ici deviennent les rappels par défaut du défi : elles seront proposées à tous les participants. Chacun pourra ensuite les copier, les modifier ou créer ses propres rappels dans l’onglet Notifications.")
-                .font(.system(.footnote, design: .rounded))
-                .foregroundColor(.white.opacity(0.78))
-                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+                .overlay(Color.white.opacity(0.18))
+
+            notificationExplanationRow(title: "Pour moi",
+                                       message: "Après la création, chacun peut aller dans l’onglet Notifications pour copier ces heures, les modifier ou ajouter ses propres rappels sans impacter le groupe.",
+                                       icon: "person.fill")
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -353,6 +357,26 @@ extension CreateBecapChallengeView {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .stroke(Color.white.opacity(0.18), lineWidth: 1)
         )
+    }
+
+    private func notificationExplanationRow(title: String, message: String, icon: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white.opacity(0.9))
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.78))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 
     private func notificationTimeCell(_ date: Date, index: Int) -> some View {
