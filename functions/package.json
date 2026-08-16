@@ -6,7 +6,8 @@
     "node": "22"
   },
   "scripts": {
-    "check": "node --check index.js"
+    "check": "node --check index.js && node verify-export.js",
+    "deploy:score": "firebase deploy --only functions:scoreChallengePhoto"
   },
   "dependencies": {
     "firebase-functions": "^6.0.1"
