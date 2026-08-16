@@ -8,6 +8,7 @@
 import SwiftUI
 import AVFoundation
 
+@MainActor
 class NewPostViewModel: ObservableObject {
     @Published var selectedMedia: ChallengeRawMedia?
     @Published var descriptionText: String = ""
@@ -65,14 +66,12 @@ class NewPostViewModel: ObservableObject {
             do {
                 let score: MultimodalScore?
                 if case .image(let image) = media {
-                    await MainActor.run { self.isScoringPhoto = true }
+                    self.isScoringPhoto = true
                     score = try await scoringService.score(image: image,
                                                            challengeTitle: currentChallenge.title,
                                                            category: currentChallenge.category)
-                    await MainActor.run {
-                        self.multimodalScore = score
-                        self.isScoringPhoto = false
-                    }
+                    self.multimodalScore = score
+                    self.isScoringPhoto = false
                 } else {
                     score = nil
                 }
@@ -87,27 +86,24 @@ class NewPostViewModel: ObservableObject {
                                                                  }
                                                              })
 
-                await MainActor.run {
-                    self.playSuccessSoundAndHaptic()
-                    self.selectedMedia = nil
-                    self.multimodalScore = nil
-                    self.descriptionText = ""
-                    self.updateToast("Ton post a été partagé avec succès !", type: .success)
-                    self.isUploadingPost = false
-					self.isScoringPhoto = false
-					self.uploadProgress = 0
+                self.playSuccessSoundAndHaptic()
+                self.selectedMedia = nil
+                self.multimodalScore = nil
+                self.descriptionText = ""
+                self.updateToast("Ton post a été partagé avec succès !", type: .success)
+                self.isUploadingPost = false
+                self.isScoringPhoto = false
+                self.uploadProgress = 0
 
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                        hasUploaded(true)
-                    }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    hasUploaded(true)
                 }
             } catch let error {
-                await MainActor.run {
-                    self.updateToast("Publication impossible : \(error.localizedDescription)", type: .error)
-                    self.isUploadingPost = false
-					self.uploadProgress = 0
-                    hasUploaded(false)
-                }
+                self.updateToast("Publication impossible : \(error.localizedDescription)", type: .error)
+                self.isUploadingPost = false
+                self.isScoringPhoto = false
+                self.uploadProgress = 0
+                hasUploaded(false)
             }
         }
     }

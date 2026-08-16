@@ -37,21 +37,8 @@ final class MultimodalScoringService: MultimodalScoring {
     }
 
     func score(image: UIImage, challengeTitle: String, category: ChallengeCategory?) async throws -> MultimodalScore {
-        let resizedImage = image.resized(toMaxWidth: 1024)
-        guard let imageData = resizedImage.jpegData(compressionQuality: 0.72) else {
-            throw MultimodalScoringError.invalidImage
-        }
-
         let prompt = scoringPrompt(challengeTitle: challengeTitle, category: category)
-        let payload = ResponsesRequest(prompt: prompt,
-                                       imageURL: "data:image/jpeg;base64,\(imageData.base64EncodedString())")
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        // La fonction coupe elle-même l'appel OpenAI après 75 secondes. Cette
-        // marge permet au client de recevoir son erreur HTTP plutôt qu'un timeout réseau opaque.
-        request.timeoutInterval = 105
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try JSONEncoder().encode(payload)
+        let request = try makeRequest(image: image, prompt: prompt)
 
         let data: Data
         let response: URLResponse
@@ -70,8 +57,17 @@ final class MultimodalScoringService: MultimodalScoring {
         }
 
         do {
-            let response = try JSONDecoder().decode(ResponsesResponse.self, from: data)
-            let outputText = response.output
+            let decoder = JSONDecoder()
+
+            // Accept the compact response returned by newer versions of the
+            // Cloud Function as well as the proxied OpenAI response used by the
+            // first deployed version.
+            if let score = try? decoder.decode(MultimodalScore.self, from: data) {
+                return score
+            }
+
+            let response = try decoder.decode(ResponsesResponse.self, from: data)
+            let outputText = response.outputText ?? (response.output ?? [])
                 .compactMap(\.content)
                 .flatMap { $0 }
                 .compactMap(\.text)
@@ -83,6 +79,30 @@ final class MultimodalScoringService: MultimodalScoring {
         } catch {
             if let scoringError = error as? MultimodalScoringError { throw scoringError }
             throw MultimodalScoringError.invalidResponse
+        }
+    }
+
+    private func makeRequest(image: UIImage, prompt: String) throws -> URLRequest {
+        // Keep temporary bitmap/JPEG/base64 allocations inside an autorelease
+        // pool so they are reclaimed before URLSession waits for the response.
+        try autoreleasepool {
+            let resizedImage = image.resized(toMaxWidth: 768)
+            guard let imageData = resizedImage.jpegData(compressionQuality: 0.68) else {
+                throw MultimodalScoringError.invalidImage
+            }
+
+            let payload = ResponsesRequest(
+                prompt: prompt,
+                imageURL: "data:image/jpeg;base64,\(imageData.base64EncodedString())"
+            )
+            var request = URLRequest(url: endpoint)
+            request.httpMethod = "POST"
+            // La fonction coupe elle-même l'appel OpenAI après 75 secondes. Cette
+            // marge permet au client de recevoir son erreur HTTP plutôt qu'un timeout réseau opaque.
+            request.timeoutInterval = 105
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONEncoder().encode(payload)
+            return request
         }
     }
 
@@ -178,9 +198,15 @@ final class MultimodalScoringService: MultimodalScoring {
     }
 
     private struct ResponsesResponse: Decodable {
-        let output: [Output]
+        let output: [Output]?
+        let outputText: String?
         struct Output: Decodable { let content: [Content]? }
         struct Content: Decodable { let text: String? }
+
+        enum CodingKeys: String, CodingKey {
+            case output
+            case outputText = "output_text"
+        }
     }
 
     private struct APIErrorEnvelope: Decodable {

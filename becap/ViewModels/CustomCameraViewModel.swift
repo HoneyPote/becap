@@ -91,7 +91,16 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
 
     deinit {
         videoTimer?.invalidate()
-        stopCaptureSession()
+
+        // Never call stopCaptureSession() from deinit: that method dispatches an
+        // escaping closure which used to capture `self` while `self` was already
+        // being destroyed. The Swift runtime can abort in that situation with no
+        // useful app-level error. Retain only the AVFoundation object instead.
+        let session = captureSession
+        captureSessionQueue.async {
+            guard session.isRunning else { return }
+            session.stopRunning()
+        }
     }
 
     func startCaptureSession() {
@@ -102,11 +111,12 @@ final class CustomCameraViewModel: NSObject, ObservableObject {
     }
 
     func stopCaptureSession() {
+        let session = captureSession
         captureSessionQueue.async {
-            guard self.captureSession.isRunning else { return }
-            self.captureSession.stopRunning()
-            DispatchQueue.main.async {
-                self.capturedMedia = nil
+            guard session.isRunning else { return }
+            session.stopRunning()
+            DispatchQueue.main.async { [weak self] in
+                self?.capturedMedia = nil
             }
         }
     }

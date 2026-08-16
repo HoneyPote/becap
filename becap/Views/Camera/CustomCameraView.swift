@@ -116,11 +116,13 @@ struct CustomCameraView: View {
                     .padding(.bottom, 20)
                     .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
                     .onTapGesture {
+                        // This view used to remain merely offset behind NewPostView,
+                        // so the capture session kept allocating video buffers while
+                        // the photo was encoded, scored and uploaded. Stop it before
+                        // handing the media off to keep the app below the iOS memory
+                        // limit (jetsam terminations do not produce a Swift crash).
+                        viewModel.stopCaptureSession()
                         onCapture(media)
-
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                            viewModel.resetCamera()
-                        }
                     }
             }
         }
