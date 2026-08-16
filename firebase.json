@@ -1,0 +1,9 @@
+{
+  "functions": {
+    "source": "functions",
+    "runtime": "nodejs22",
+    "predeploy": [
+      "cd \"$RESOURCE_DIR\" && node verify-export.js"
+    ]
+  }
+}
