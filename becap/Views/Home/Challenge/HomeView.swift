@@ -16,6 +16,7 @@ struct HomeView: View {
     @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
+    @State private var showRestartHint = true
     @State private var deepLinkedChallenge: (any ChallengeRepresentable)?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
@@ -56,6 +57,7 @@ struct HomeView: View {
                         shareCreateChallengeSection
                         becapChallengeListSection
                         challengeListSection
+                        finishedChallengeListSection
                     }
                     .padding(.horizontal)
                 }
@@ -202,7 +204,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(viewModel.challenges) { challenge in
+                    ForEach(viewModel.challenges.filter { $0.status == .active }) { challenge in
                         NavigationLink(destination: {
                             CalendarDetailView(challenge: challenge)
                                 .onDisappear { viewModel.refreshChallenges() }
@@ -236,7 +238,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(viewModel.becapChallenges) { becapChallenge in
+                    ForEach(viewModel.becapChallenges.filter { $0.base.status == .active }) { becapChallenge in
                         NavigationLink {
                             CalendarDetailView(challenge: becapChallenge)
                                 .onDisappear { viewModel.refreshChallenges() }
@@ -253,7 +255,7 @@ struct HomeView: View {
 
                     ForEach(viewModel.becapTemplates.filter { template in
                         !viewModel.becapChallenges.contains(where: {
-                            $0.type == template.type
+                            $0.type == template.type && $0.base.status == .active
                         })
                     }) { template in
                         NavigationLink {
@@ -268,7 +270,61 @@ struct HomeView: View {
                 .padding(.horizontal, 4)
             }
 
-            if viewModel.becapChallenges.count >= viewModel.becapTemplates.count {
+        }
+    }
+
+    @ViewBuilder
+    private var finishedChallengeListSection: some View {
+        let finishedChallenges = viewModel.challenges.filter { $0.status == .finished }
+        let finishedBecapChallenges = viewModel.becapChallenges.filter { $0.base.status == .finished }
+
+        if !finishedChallenges.isEmpty || !finishedBecapChallenges.isEmpty {
+            HStack(spacing: 10) {
+                Image("list_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 30)
+                Text("DÉFIS TERMINÉS")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 34)
+            .padding(.bottom, 14)
+            .foregroundColor(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(finishedChallenges) { challenge in
+                        NavigationLink {
+                            CalendarDetailView(challenge: challenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            DefiCell(challenge: challenge,
+                                     onReport: { viewModel.presentReport(for: challenge) })
+                            .frame(width: 190)
+                        }
+                    }
+
+                    ForEach(finishedBecapChallenges) { becapChallenge in
+                        NavigationLink {
+                            CalendarDetailView(challenge: becapChallenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            DefiCell(challenge: becapChallenge.base,
+                                     onReport: {},
+                                     onRestart: viewModel.canRestart(becapChallenge) ? {
+                                         viewModel.restartBecapChallenge(becapChallenge)
+                                     } : nil,
+                                     isRestarting: viewModel.isRestarting(becapChallenge))
+                            .frame(width: 190)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
+            if !finishedBecapChallenges.isEmpty, showRestartHint {
                 Text("Tu peux relancer un défi Becap terminé avec Restart ✅")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
@@ -276,6 +332,12 @@ struct HomeView: View {
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.top, 8)
+                    .transition(.opacity)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                            withAnimation { showRestartHint = false }
+                        }
+                    }
             }
         }
     }
