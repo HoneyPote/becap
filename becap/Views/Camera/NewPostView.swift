@@ -37,6 +37,11 @@ struct NewPostView: View {
                 }
                 .padding(.top, -15)
 
+                if let score = viewModel.multimodalScore {
+                    BecapScoreCard(score: score)
+                        .padding(.top, -15)
+                }
+
                 uploadSection
                     .padding(.top, -15)
             }

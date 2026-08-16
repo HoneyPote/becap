@@ -17,8 +17,11 @@ class NewPostViewModel: ObservableObject {
     @Published var isUploadingPost: Bool = false
     @Published var uploadProgress: Double = 0
     @Published var videoThubmnail: UIImage?
+    @Published var multimodalScore: MultimodalScore?
+    @Published var isScoringPhoto = false
 
     private let challengeManager: ChallengeManager
+    private let scoringService: MultimodalScoring
     let currentUser: User?
     let currentChallenge: any ChallengeRepresentable
 
@@ -28,6 +31,7 @@ class NewPostViewModel: ObservableObject {
     }
     var uploadButtonLabel: String {
         if isUploadingPost {
+            if isScoringPhoto { return "Analyse de la photo..." }
             return "Publication en cours..."
         }
 
@@ -37,11 +41,13 @@ class NewPostViewModel: ObservableObject {
     init(challenge: any ChallengeRepresentable,
          rawMedia: ChallengeRawMedia?,
          userManager: UserManager = UserManager.shared,
-         challengeManager: ChallengeManager = ChallengeManager.shared) {
+         challengeManager: ChallengeManager = ChallengeManager.shared,
+         scoringService: MultimodalScoring = MultimodalScoringService.shared) {
         self.currentChallenge = challenge
         self.selectedMedia = rawMedia
         self.currentUser = userManager.currentUser
         self.challengeManager = challengeManager
+        self.scoringService = scoringService
     }
 
     func uploadMedia(hasUploaded: @escaping (Bool) -> Void) {
@@ -57,9 +63,24 @@ class NewPostViewModel: ObservableObject {
 
         Task {
             do {
+                let score: MultimodalScore?
+                if case .image(let image) = media {
+                    await MainActor.run { self.isScoringPhoto = true }
+                    score = try await scoringService.score(image: image,
+                                                           challengeTitle: currentChallenge.title,
+                                                           category: currentChallenge.category)
+                    await MainActor.run {
+                        self.multimodalScore = score
+                        self.isScoringPhoto = false
+                    }
+                } else {
+                    score = nil
+                }
+
                 try await challengeManager.sendPostAndNotify(media: media,
                                                              challenge: currentChallenge,
                                                              descriptionText: descriptionText,
+                                                             aiScore: score,
                                                              progressHandler: { [weak self] progress in
                                                                  DispatchQueue.main.async {
                                                                      self?.uploadProgress = progress
@@ -69,9 +90,11 @@ class NewPostViewModel: ObservableObject {
                 await MainActor.run {
                     self.playSuccessSoundAndHaptic()
                     self.selectedMedia = nil
+                    self.multimodalScore = nil
                     self.descriptionText = ""
                     self.updateToast("Ton post a été partagé avec succès !", type: .success)
                     self.isUploadingPost = false
+					self.isScoringPhoto = false
 					self.uploadProgress = 0
 
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
@@ -80,7 +103,7 @@ class NewPostViewModel: ObservableObject {
                 }
             } catch let error {
                 await MainActor.run {
-                    self.updateToast("Erreur d'URL: \(error.localizedDescription)", type: .error)
+                    self.updateToast("Publication impossible : \(error.localizedDescription)", type: .error)
                     self.isUploadingPost = false
 					self.uploadProgress = 0
                     hasUploaded(false)
@@ -100,6 +123,7 @@ class NewPostViewModel: ObservableObject {
 
     func eraseMedia() {
         selectedMedia = nil
+        multimodalScore = nil
     }
 
     // MARK: - Private functions
