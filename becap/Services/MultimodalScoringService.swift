@@ -47,8 +47,9 @@ final class MultimodalScoringService: MultimodalScoring {
                                        imageURL: "data:image/jpeg;base64,\(imageData.base64EncodedString())")
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
-        // Une analyse d'image peut dépasser les 30 secondes sur un réseau mobile.
-        request.timeoutInterval = 90
+        // La fonction coupe elle-même l'appel OpenAI après 75 secondes. Cette
+        // marge permet au client de recevoir son erreur HTTP plutôt qu'un timeout réseau opaque.
+        request.timeoutInterval = 105
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(payload)
 

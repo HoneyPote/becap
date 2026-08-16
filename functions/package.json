@@ -1,0 +1,14 @@
+{
+  "name": "becap-functions",
+  "private": true,
+  "main": "index.js",
+  "engines": {
+    "node": "22"
+  },
+  "scripts": {
+    "check": "node --check index.js"
+  },
+  "dependencies": {
+    "firebase-functions": "^6.0.1"
+  }
+}
