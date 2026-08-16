@@ -112,6 +112,23 @@ struct PostPagerView: View {
             imageView(for: postVM)
                 .clipShape(RoundedRectangle(cornerRadius: 20))
 
+            if let score = postVM.post.aiScore {
+                HStack(spacing: 8) {
+                    Image(systemName: "sparkles")
+                    Text("Score ChatGPT")
+                        .fontWeight(.semibold)
+                    Spacer()
+                    Text("\(score.score)/100")
+                        .font(.headline.monospacedDigit().weight(.bold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .background(Color.white.opacity(0.12), in: Capsule())
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("Score ChatGPT : \(score.score) sur 100")
+            }
+
             if !commentSectionIsShown {
                 if let participant = getParticipant(postVM.post.authorUid) {
                     let challengeMedals = participant.userMedals.filter { $0.challengeId == viewModel.challenge.id }

@@ -449,6 +449,7 @@ extension ChallengeManager {
     func sendPostAndNotify(media: ChallengeRawMedia,
                            challenge: any ChallengeRepresentable,
                            descriptionText: String?,
+                           aiScore: MultimodalScore? = nil,
                            progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
 
@@ -461,6 +462,7 @@ extension ChallengeManager {
                                                           challengeId: challenge.id,
                                                           author: currentUser,
                                                           description: descriptionText,
+                                                          aiScore: aiScore,
                                                           progressHandler: progressHandler)
 
         var newProgress = progress
@@ -575,11 +577,13 @@ extension ChallengeManager {
                                       challengeId: String,
                                       author: User,
                                       description: String? = "",
+                                      aiScore: MultimodalScore? = nil,
                                       progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         let post = try await challengeService.uploadPost(rawMedia: media,
                                                          challengeId: challengeId,
                                                          author: author,
                                                          description: description,
+                                                         aiScore: aiScore,
                                                          progressHandler: progressHandler)
 
         await MainActor.run {

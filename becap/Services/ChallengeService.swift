@@ -36,6 +36,7 @@ protocol ChallengeServiceProtocol {
                     challengeId: String,
                     author: User,
                     description: String?,
+                    aiScore: MultimodalScore?,
                     progressHandler: ((Double) -> Void)?) async throws -> ChallengePost
     func deletePost(_ post: ChallengePost) async throws
     func listenToPost(challengeId: String, postId: String, onUpdate: @escaping (ChallengePost?) -> Void)
@@ -403,6 +404,7 @@ extension ChallengeService {
                     challengeId: String,
                     author: User,
                     description: String?,
+                    aiScore: MultimodalScore?,
                     progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         guard let authorId = author.id else { throw ChallengeServiceError.invalidImageData("Invalid image data") }
 
@@ -429,6 +431,7 @@ extension ChallengeService {
                                  authorName: author.name,
                                  description: description,
                                  date: Date(),
+                                 aiScore: aiScore,
                                  media: challengeMedia)
 
         try savePostToFirebase(post, challengeId: challengeId)
