@@ -4,7 +4,6 @@ import UIKit
 enum MultimodalScoringError: LocalizedError {
     case invalidImage
     case invalidResponse
-    case missingAPIKey
     case timeout
     case server(statusCode: Int, message: String?)
 
@@ -12,7 +11,6 @@ enum MultimodalScoringError: LocalizedError {
         switch self {
         case .invalidImage: return "La photo ne peut pas être analysée."
         case .invalidResponse: return "La réponse du service de scoring est invalide."
-        case .missingAPIKey: return "La clé OpenAI est absente d’Info.plist (OPENAI_API_KEY)."
         case .timeout: return "L’analyse de la photo a pris trop de temps. Vérifie ta connexion puis réessaie."
         case .server(let statusCode, let message):
             return message ?? "Le service de scoring a répondu avec le code \(statusCode)."
@@ -24,33 +22,24 @@ protocol MultimodalScoring {
     func score(image: UIImage, challengeTitle: String, category: ChallengeCategory?) async throws -> MultimodalScore
 }
 
-/// Analyse la photo avec l'API Responses d'OpenAI en utilisant la clé configurée
-/// dans Info.plist. En production, cet appel devrait être déplacé côté serveur
-/// afin de ne pas distribuer une clé secrète dans l'application.
+/// Analyse la photo via la Cloud Function. La clé OpenAI reste exclusivement
+/// côté serveur et n'est jamais lue ni envoyée par l'application.
 final class MultimodalScoringService: MultimodalScoring {
     static let shared = MultimodalScoringService()
 
     private let session: URLSession
     private let endpoint: URL
-    private let apiKeyProvider: () -> String?
 
     init(session: URLSession = .shared,
-         endpoint: URL = URL(string: "https://api.openai.com/v1/responses")!,
-         apiKeyProvider: @escaping () -> String? = MultimodalScoringService.infoPlistAPIKey) {
+         endpoint: URL = URL(string: "https://us-central1-honeypote-becap.cloudfunctions.net/scoreChallengePhoto")!) {
         self.session = session
         self.endpoint = endpoint
-        self.apiKeyProvider = apiKeyProvider
     }
 
     func score(image: UIImage, challengeTitle: String, category: ChallengeCategory?) async throws -> MultimodalScore {
         let resizedImage = image.resized(toMaxWidth: 1024)
         guard let imageData = resizedImage.jpegData(compressionQuality: 0.72) else {
             throw MultimodalScoringError.invalidImage
-        }
-
-        guard let apiKey = apiKeyProvider()?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !apiKey.isEmpty else {
-            throw MultimodalScoringError.missingAPIKey
         }
 
         let prompt = scoringPrompt(challengeTitle: challengeTitle, category: category)
@@ -61,7 +50,6 @@ final class MultimodalScoringService: MultimodalScoring {
         // Une analyse d'image peut dépasser les 30 secondes sur un réseau mobile.
         request.timeoutInterval = 90
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.httpBody = try JSONEncoder().encode(payload)
 
         let data: Data
@@ -125,13 +113,6 @@ final class MultimodalScoringService: MultimodalScoring {
         \(categoryRules)
         Réponds en français avec un commentaire bref, précis, professionnel et bienveillant qui justifie concrètement la note.
         """
-    }
-
-    private static func infoPlistAPIKey() -> String? {
-        // OPENAI_API_KEY est le nom recommandé. L'ancien nom reste accepté pour
-        // ne pas casser une configuration déjà ajoutée manuellement.
-        let keys = ["OPENAI_API_KEY", "OpenAIAPIKey"]
-        return keys.compactMap { Bundle.main.object(forInfoDictionaryKey: $0) as? String }.first
     }
 
     private struct ResponsesRequest: Encodable {
