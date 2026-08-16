@@ -446,10 +446,23 @@ extension ChallengeManager {
 
 // MARK: - Posts
 extension ChallengeManager {
+    /// Conserve la signature historique exigée par `ChallengeManagerProtocol`.
+    /// Les appels qui ne demandent pas de scoring continuent ainsi à compiler.
     func sendPostAndNotify(media: ChallengeRawMedia,
                            challenge: any ChallengeRepresentable,
                            descriptionText: String?,
-                           aiScore: MultimodalScore? = nil,
+                           progressHandler: ((Double) -> Void)?) async throws {
+        try await sendPostAndNotify(media: media,
+                                    challenge: challenge,
+                                    descriptionText: descriptionText,
+                                    aiScore: nil,
+                                    progressHandler: progressHandler)
+    }
+
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: any ChallengeRepresentable,
+                           descriptionText: String?,
+                           aiScore: MultimodalScore?,
                            progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
 
