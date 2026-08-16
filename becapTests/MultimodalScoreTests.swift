@@ -63,6 +63,35 @@ struct MultimodalScoreTests {
         #expect(result.score == 8)
         #expect(result.detectedElements == ["livre"])
     }
+
+    @Test func scoringAcceptsCompactCloudFunctionResponse() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ScoringURLProtocol.self]
+        let session = URLSession(configuration: configuration)
+        let endpoint = URL(string: "https://example.test/scoreChallengePhoto")!
+        let service = MultimodalScoringService(session: session, endpoint: endpoint)
+
+        ScoringURLProtocol.requestHandler = { _ in
+            let response = #"{"score":7,"detected_elements":["repas"],"feedback":"Repas visible"}"#.data(using: .utf8)!
+            return (HTTPURLResponse(url: endpoint, statusCode: 200, httpVersion: nil, headerFields: nil)!, response)
+        }
+
+        let image = UIGraphicsImageRenderer(size: CGSize(width: 2, height: 2)).image { _ in }
+        let result = try await service.score(image: image, challengeTitle: "Cuisiner", category: .food)
+
+        #expect(result.score == 7)
+        #expect(result.feedback == "Repas visible")
+    }
+
+    @Test func resizingLimitsPortraitImagesWithoutUpscaling() {
+        let portrait = UIGraphicsImageRenderer(size: CGSize(width: 1_200, height: 3_000)).image { _ in }
+        let resizedPortrait = portrait.resized(toMaxWidth: 768)
+        #expect(resizedPortrait.size.width == 307.2)
+        #expect(resizedPortrait.size.height == 768)
+
+        let small = UIGraphicsImageRenderer(size: CGSize(width: 100, height: 200)).image { _ in }
+        #expect(small.resized(toMaxWidth: 768) === small)
+    }
 }
 
 private final class ScoringURLProtocol: URLProtocol {

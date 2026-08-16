@@ -92,8 +92,16 @@ extension View {
 }
 extension UIImage {
     func resized(toMaxWidth width: CGFloat) -> UIImage {
-        let aspectRatio = size.height / size.width
-        let newSize = CGSize(width: width, height: width * aspectRatio)
+        guard width > 0, size.width > 0, size.height > 0 else { return self }
+
+        // Limit both dimensions and never enlarge an already-small image. Camera
+        // images may be portrait (or even panoramic); limiting only their width
+        // could allocate a very tall bitmap and make iOS terminate the app for
+        // excessive memory use without reporting a Swift crash in Xcode.
+        let scale = min(1, width / max(size.width, size.height))
+        guard scale < 1 else { return self }
+
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
         let renderer = UIGraphicsImageRenderer(size: newSize)
 
         return renderer.image { _ in
