@@ -21,6 +21,7 @@ struct ChallengePost: Identifiable, Codable, Hashable {
 
     var likes: [String]?
     var jokerState: PostJokerState?
+    var aiScore: MultimodalScore?
 
     var media: ChallengeMedia
 
@@ -31,6 +32,7 @@ struct ChallengePost: Identifiable, Codable, Hashable {
          date: Date,
          likes: [String]? = nil,
          jokerState: PostJokerState? = nil,
+         aiScore: MultimodalScore? = nil,
          media: ChallengeMedia) {
         self.challengeId = challengeId
         self.authorUid = authorUid
@@ -39,6 +41,7 @@ struct ChallengePost: Identifiable, Codable, Hashable {
         self.date = date
         self.likes = likes
         self.jokerState = jokerState
+        self.aiScore = aiScore
         self.media = media
     }
 
@@ -118,4 +121,3 @@ enum ChallengeMedia: Codable, Hashable {
         }
     }
 }
-

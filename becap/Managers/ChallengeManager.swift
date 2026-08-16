@@ -17,7 +17,7 @@ protocol ChallengeManagerProtocol {
     // Challenge
     func createChallenge(_ challenge: Challenge) async throws -> Challenge?
     func fetchAndFilterChallenges() async throws
-    func ensureMembership(in challengeId: String) async throws
+    func ensureMembership(in challengeId: String) async throws -> Bool
     func deleteChallenge(_ challengeId: String) async throws
     func joinChallenge(withCode code: String) async throws -> Challenge
     func removeParticipant(_ challengeId: String, userId: String) async throws
@@ -210,10 +210,10 @@ extension ChallengeManager {
             print("BecapChallenges :", becapChallenges.map(\.base.title))
         }
     }
-    func ensureMembership(in challengeId: String) async throws {
+    func ensureMembership(in challengeId: String) async throws -> Bool {
         if challenges.contains(where: { $0.id == challengeId }) {
             try await fetchAndFilterChallenges()
-            return
+            return false
         }
 
         guard let currentUser, let currentUserId = currentUser.id else {
@@ -231,6 +231,8 @@ extension ChallengeManager {
         try await manageJoiningChallenge(joinedChallenge,
                                          currentUserId: currentUserId,
                                          isNewToChallenge: isNewToChallenge)
+
+        return isNewToChallenge
     }
 
     func joinChallenge(withCode code: String) async throws -> Challenge {
@@ -265,6 +267,13 @@ extension ChallengeManager {
 
         try await challengeService.addParticipant(challengeId: challenge.id, userId: currentUserId)
         try await challengeService.addParticipatingChallenge(to: currentUserId, challengeId: challenge.id)
+
+        if isNewToChallenge {
+            await notificationService.sendNewParticipantNotification(challenge: challenge,
+                                                                     newParticipantName: currentUser?.name ?? "Un nouveau participant",
+                                                                     newParticipantId: currentUserId)
+        }
+
         try await fetchAndFilterChallenges()
     }
 
@@ -377,11 +386,14 @@ extension ChallengeManager {
 
         try await challengeService.addChatMessage(message, to: challengeId)
 
-        if let challenge = challenges.first(where: { $0.id == challengeId }) {
-            await notificationService.sendGroupChatMessageNotification(challenge: challenge,
-                                                                       senderName: currentUser.name,
-                                                                       messageContent: trimmedContent)
+        guard let challenge = challengeRepresentable(for: challengeId) else {
+            print("⚠️ Group chat notification skipped: challenge introuvable pour id=\(challengeId)")
+            return
         }
+
+        await notificationService.sendGroupChatMessageNotification(challenge: challenge,
+                                                                   senderName: currentUser.name,
+                                                                   messageContent: trimmedContent)
     }
 
     func markChatAsRead(for challengeId: String) {
@@ -409,7 +421,7 @@ extension ChallengeManager {
         await awardSocialMedalIfNeeded(type: .firstReaction, challengeId: challengeId)
 
         guard message.senderId != userId,
-              let challenge = challenges.first(where: { $0.id == challengeId }),
+              let challenge = challengeRepresentable(for: challengeId),
               let reactorName = currentUser?.name
         else { return }
 
@@ -434,9 +446,23 @@ extension ChallengeManager {
 
 // MARK: - Posts
 extension ChallengeManager {
+    /// Conserve la signature historique exigée par `ChallengeManagerProtocol`.
+    /// Les appels qui ne demandent pas de scoring continuent ainsi à compiler.
     func sendPostAndNotify(media: ChallengeRawMedia,
                            challenge: any ChallengeRepresentable,
                            descriptionText: String?,
+                           progressHandler: ((Double) -> Void)?) async throws {
+        try await sendPostAndNotify(media: media,
+                                    challenge: challenge,
+                                    descriptionText: descriptionText,
+                                    aiScore: nil,
+                                    progressHandler: progressHandler)
+    }
+
+    func sendPostAndNotify(media: ChallengeRawMedia,
+                           challenge: any ChallengeRepresentable,
+                           descriptionText: String?,
+                           aiScore: MultimodalScore?,
                            progressHandler: ((Double) -> Void)?) async throws {
         let allParticipants = challenge.participantUids
 
@@ -449,6 +475,7 @@ extension ChallengeManager {
                                                           challengeId: challenge.id,
                                                           author: currentUser,
                                                           description: descriptionText,
+                                                          aiScore: aiScore,
                                                           progressHandler: progressHandler)
 
         var newProgress = progress
@@ -563,11 +590,13 @@ extension ChallengeManager {
                                       challengeId: String,
                                       author: User,
                                       description: String? = "",
+                                      aiScore: MultimodalScore? = nil,
                                       progressHandler: ((Double) -> Void)?) async throws -> ChallengePost {
         let post = try await challengeService.uploadPost(rawMedia: media,
                                                          challengeId: challengeId,
                                                          author: author,
                                                          description: description,
+                                                         aiScore: aiScore,
                                                          progressHandler: progressHandler)
 
         await MainActor.run {

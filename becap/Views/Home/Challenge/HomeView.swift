@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // TODO: Faire un bouton réutilisable pour les challenges de partage et création
 struct HomeView: View {
@@ -15,12 +16,15 @@ struct HomeView: View {
     @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
     @State private var showCreationToast = false
-    @State private var deepLinkedChallenge: Challenge?
+    @State private var showRestartHint = true
+    @State private var deepLinkedChallenge: (any ChallengeRepresentable)?
     @State private var navigateToDeepLinkedChallenge = false
     @State private var isResolvingDeepLink = false
     @State private var hasLoadedChallengesForPendingDeepLink = false
     @State private var deepLinkedPostId: String?
     @State private var deepLinkJoinError: String?
+    @State private var showDeepLinkJoinCelebration = false
+    @State private var joinedChallengeTitle: String?
 
     var body: some View {
         NavigationStack {
@@ -53,6 +57,7 @@ struct HomeView: View {
                         shareCreateChallengeSection
                         becapChallengeListSection
                         challengeListSection
+                        finishedChallengeListSection
                     }
                     .padding(.horizontal)
                 }
@@ -69,6 +74,13 @@ struct HomeView: View {
 
                 if viewModel.showRestartSuccessToast {
                     restartSuccessToast
+                }
+            }
+            .overlay {
+                if showDeepLinkJoinCelebration {
+                    challengeJoinedCelebration
+                        .transition(.scale(scale: 0.86).combined(with: .opacity))
+                        .zIndex(20)
                 }
             }
             .background(
@@ -192,7 +204,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(viewModel.challenges) { challenge in
+                    ForEach(viewModel.challenges.filter { $0.status == .active }) { challenge in
                         NavigationLink(destination: {
                             CalendarDetailView(challenge: challenge)
                                 .onDisappear { viewModel.refreshChallenges() }
@@ -226,7 +238,7 @@ struct HomeView: View {
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
-                    ForEach(viewModel.becapChallenges) { becapChallenge in
+                    ForEach(viewModel.becapChallenges.filter { $0.base.status == .active }) { becapChallenge in
                         NavigationLink {
                             CalendarDetailView(challenge: becapChallenge)
                                 .onDisappear { viewModel.refreshChallenges() }
@@ -243,7 +255,7 @@ struct HomeView: View {
 
                     ForEach(viewModel.becapTemplates.filter { template in
                         !viewModel.becapChallenges.contains(where: {
-                            $0.type == template.type
+                            $0.type == template.type && $0.base.status == .active
                         })
                     }) { template in
                         NavigationLink {
@@ -258,7 +270,61 @@ struct HomeView: View {
                 .padding(.horizontal, 4)
             }
 
-            if viewModel.becapChallenges.count >= viewModel.becapTemplates.count {
+        }
+    }
+
+    @ViewBuilder
+    private var finishedChallengeListSection: some View {
+        let finishedChallenges = viewModel.challenges.filter { $0.status == .finished }
+        let finishedBecapChallenges = viewModel.becapChallenges.filter { $0.base.status == .finished }
+
+        if !finishedChallenges.isEmpty || !finishedBecapChallenges.isEmpty {
+            HStack(spacing: 10) {
+                Image("list_white")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(height: 30)
+                Text("DÉFIS TERMINÉS")
+                    .font(.system(.title, design: .rounded).weight(.heavy))
+                    .textCase(.uppercase)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 34)
+            .padding(.bottom, 14)
+            .foregroundColor(.white)
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 16) {
+                    ForEach(finishedChallenges) { challenge in
+                        NavigationLink {
+                            CalendarDetailView(challenge: challenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            DefiCell(challenge: challenge,
+                                     onReport: { viewModel.presentReport(for: challenge) })
+                            .frame(width: 190)
+                        }
+                    }
+
+                    ForEach(finishedBecapChallenges) { becapChallenge in
+                        NavigationLink {
+                            CalendarDetailView(challenge: becapChallenge)
+                                .onDisappear { viewModel.refreshChallenges() }
+                        } label: {
+                            DefiCell(challenge: becapChallenge.base,
+                                     onReport: {},
+                                     onRestart: viewModel.canRestart(becapChallenge) ? {
+                                         viewModel.restartBecapChallenge(becapChallenge)
+                                     } : nil,
+                                     isRestarting: viewModel.isRestarting(becapChallenge))
+                            .frame(width: 190)
+                        }
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+
+            if !finishedBecapChallenges.isEmpty, showRestartHint {
                 Text("Tu peux relancer un défi Becap terminé avec Restart ✅")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
@@ -266,6 +332,12 @@ struct HomeView: View {
                     .padding(.vertical, 10)
                     .background(.ultraThinMaterial, in: Capsule())
                     .padding(.top, 8)
+                    .transition(.opacity)
+                    .onAppear {
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 5) {
+                            withAnimation { showRestartHint = false }
+                        }
+                    }
             }
         }
     }
@@ -315,6 +387,64 @@ struct HomeView: View {
         .onAppear { viewModel.onAppearQuitChallengeError() }
         .transition(.move(edge: .bottom).combined(with: .opacity))
         .zIndex(10)
+    }
+
+    private var challengeJoinedCelebration: some View {
+        ZStack {
+            Color.black.opacity(0.32)
+                .ignoresSafeArea()
+
+            VStack(spacing: 18) {
+                ZStack {
+                    ForEach(0..<10, id: \.self) { index in
+                        Circle()
+                            .fill(index.isMultiple(of: 2) ? Color.yellow.opacity(0.78) : Color.white.opacity(0.82))
+                            .frame(width: index.isMultiple(of: 2) ? 10 : 7, height: index.isMultiple(of: 2) ? 10 : 7)
+                            .offset(y: -56)
+                            .rotationEffect(.degrees(Double(index) * 36))
+                    }
+
+                    Image(systemName: "party.popper.fill")
+                        .font(.system(size: 52, weight: .heavy, design: .rounded))
+                        .foregroundStyle(
+                            LinearGradient(colors: [.yellow, .orange, .pink],
+                                           startPoint: .topLeading,
+                                           endPoint: .bottomTrailing)
+                        )
+                        .shadow(color: .black.opacity(0.25), radius: 10, x: 0, y: 6)
+                }
+                .frame(width: 140, height: 110)
+
+                VStack(spacing: 8) {
+                    Text("Félicitations !")
+                        .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                        .foregroundColor(.white)
+
+                    Text("Tu as rejoint le défi" + formattedJoinedChallengeTitle)
+                        .font(.system(.headline, design: .rounded).weight(.semibold))
+                        .multilineTextAlignment(.center)
+                        .foregroundColor(.white.opacity(0.86))
+                }
+            }
+            .padding(.vertical, 34)
+            .padding(.horizontal, 28)
+            .background(.ultraThinMaterial)
+            .clipShape(RoundedRectangle(cornerRadius: 30, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 30, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+            )
+            .shadow(color: .black.opacity(0.28), radius: 22, x: 0, y: 14)
+            .padding(.horizontal, 26)
+        }
+    }
+
+    private var formattedJoinedChallengeTitle: String {
+        guard let joinedChallengeTitle, !joinedChallengeTitle.isEmpty else {
+            return " !"
+        }
+
+        return " « \(joinedChallengeTitle) » !"
     }
 
     private var reportSuccessToast: some View {
@@ -372,7 +502,7 @@ extension HomeView {
         }
     }
 
-    private func calendarDetailIdentity(for challenge: Challenge, postId: String?) -> String {
+    private func calendarDetailIdentity(for challenge: any ChallengeRepresentable, postId: String?) -> String {
         let base = challenge.id
         if let postId, !postId.isEmpty {
             return "\(base)|photo:\(postId)"
@@ -382,12 +512,19 @@ extension HomeView {
 
     private func beginResolvingDeepLink(for challengeId: String) {
         isResolvingDeepLink = true
-        hasLoadedChallengesForPendingDeepLink = viewModel.challenges.contains(where: { $0.id == challengeId })
+        hasLoadedChallengesForPendingDeepLink = challengeForDeepLink(withId: challengeId) != nil
         attemptNavigationToChallenge(withId: challengeId)
 
         Task { [challengeId] in
             do {
-                try await viewModel.ensureMembershipIfNeeded(for: challengeId)
+                let didJoinChallenge = try await viewModel.ensureMembershipIfNeeded(for: challengeId)
+
+                if didJoinChallenge {
+                    await MainActor.run {
+                        let title = viewModel.challenges.first(where: { $0.id == challengeId })?.title
+                        presentChallengeJoinedCelebration(challengeTitle: title)
+                    }
+                }
             } catch {
                 await MainActor.run {
                     deepLinkJoinError = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
@@ -403,8 +540,27 @@ extension HomeView {
         }
     }
 
+    private func presentChallengeJoinedCelebration(challengeTitle: String?) {
+        joinedChallengeTitle = challengeTitle
+
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.68)) {
+            showDeepLinkJoinCelebration = true
+        }
+
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                showDeepLinkJoinCelebration = false
+            }
+        }
+    }
+
     private func attemptNavigationToChallenge(withId challengeId: String) {
-        if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
+        let challenge = challengeForDeepLink(withId: challengeId)
+
+        if let challenge {
             deepLinkedChallenge = challenge
             if let link = deepLinkRouter.pendingPostLink,
                link.challengeId == challengeId {
@@ -418,6 +574,14 @@ extension HomeView {
             deepLinkRouter.clearChallengeNavigation()
             deepLinkRouter.clearPostNavigation()
         }
+    }
+
+    private func challengeForDeepLink(withId challengeId: String) -> (any ChallengeRepresentable)? {
+        if let challenge = viewModel.challenges.first(where: { $0.id == challengeId }) {
+            return challenge
+        }
+
+        return viewModel.becapChallenges.first(where: { $0.id == challengeId })
     }
 }
 
