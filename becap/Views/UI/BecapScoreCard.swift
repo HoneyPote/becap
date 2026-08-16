@@ -4,6 +4,7 @@ import SwiftUI
 struct BecapScoreCard: View {
     let score: MultimodalScore
     var compact = false
+    @State private var isExpanded = false
 
     private var progress: Double {
         Double(score.score) / 10
@@ -18,7 +19,7 @@ struct BecapScoreCard: View {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: compact ? 14 : 18) {
+        HStack(alignment: isExpanded ? .top : .center, spacing: compact ? 14 : 18) {
             scoreGauge
 
             VStack(alignment: .leading, spacing: compact ? 7 : 10) {
@@ -29,6 +30,14 @@ struct BecapScoreCard: View {
                         .font(.system(.caption, design: .rounded).weight(.heavy))
                         .tracking(1.1)
                         .foregroundStyle(.white.opacity(0.72))
+
+                    if compact {
+                        Spacer()
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .rotationEffect(.degrees(isExpanded ? 180 : 0))
+                    }
                 }
 
                 if !score.feedback.isEmpty {
@@ -36,11 +45,17 @@ struct BecapScoreCard: View {
                         .font(.system(compact ? .subheadline : .body, design: .rounded).weight(.semibold))
                         .foregroundStyle(.white)
                         .fixedSize(horizontal: false, vertical: true)
-                        .lineLimit(compact ? 2 : 3)
+                        .lineLimit(compact && !isExpanded ? 2 : nil)
                 }
 
-                if !compact, !score.detectedElements.isEmpty {
+                if (!compact || isExpanded), !score.detectedElements.isEmpty {
                     detectedElements
+                }
+
+                if compact && !isExpanded {
+                    Text("Voir l’analyse")
+                        .font(.system(.caption2, design: .rounded).weight(.bold))
+                        .foregroundStyle(accent.opacity(0.9))
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -53,8 +68,17 @@ struct BecapScoreCard: View {
         }
         .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
         .shadow(color: Color.black.opacity(0.18), radius: 14, x: 0, y: 8)
+        .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .onTapGesture {
+            guard compact else { return }
+            withAnimation(.spring(response: 0.35, dampingFraction: 0.82)) {
+                isExpanded.toggle()
+            }
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Becap Score : \(score.score) sur 10. \(score.feedback)")
+        .accessibilityHint(compact ? "Touchez deux fois pour afficher ou masquer l’analyse complète." : "")
+        .accessibilityAddTraits(compact ? .isButton : [])
     }
 
     private var scoreGauge: some View {
@@ -86,7 +110,7 @@ struct BecapScoreCard: View {
         Text(score.detectedElements.prefix(4).joined(separator: "  •  "))
             .font(.system(.caption2, design: .rounded).weight(.bold))
             .foregroundStyle(.white.opacity(0.58))
-            .lineLimit(1)
+            .lineLimit(isExpanded ? nil : 1)
     }
 
     private var cardBackground: some View {
