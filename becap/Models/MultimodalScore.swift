@@ -13,7 +13,7 @@ struct MultimodalScore: Codable, Hashable {
     }
 
     init(score: Int, detectedElements: [String], feedback: String) {
-        self.score = min(max(score, 0), 100)
+        self.score = min(max(score, 0), 10)
         self.detectedElements = detectedElements
         self.feedback = feedback
     }

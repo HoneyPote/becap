@@ -38,7 +38,7 @@ struct NewPostView: View {
                 .padding(.top, -15)
 
                 if let score = viewModel.multimodalScore {
-                    scoreSection(score)
+                    BecapScoreCard(score: score)
                         .padding(.top, -15)
                 }
 
@@ -217,33 +217,6 @@ struct NewPostView: View {
             .opacity((viewModel.isUploadingPost || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
         }
         .padding(4)
-    }
-
-    private func scoreSection(_ score: MultimodalScore) -> some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack {
-                    Label("Score ChatGPT", systemImage: "sparkles")
-                        .font(.headline.weight(.bold))
-                    Spacer()
-                    Text("\(score.score)/100")
-                        .font(.title2.monospacedDigit().weight(.heavy))
-                }
-                .foregroundStyle(.white)
-
-                if !score.detectedElements.isEmpty {
-                    Text(score.detectedElements.joined(separator: " • "))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.75))
-                }
-                if !score.feedback.isEmpty {
-                    Text(score.feedback)
-                        .font(.subheadline)
-                        .foregroundStyle(.white.opacity(0.9))
-                }
-            }
-            .padding(4)
-        }
     }
 
     private var mediaSection: some View {

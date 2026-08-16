@@ -54,9 +54,9 @@ final class MultimodalScoringService: MultimodalScoring {
         }
 
         let prompt = """
-        Note de 0 à 100 à quel point la photo correspond au défi « \(challengeTitle) » \
+        Attribue un Becap Score entier de 0 à 10 selon la correspondance entre la photo et le défi « \(challengeTitle) » \
         (catégorie : \(category?.displayName ?? "Autre")). Identifie uniquement les éléments réellement visibles. \
-        Réponds en français avec un feedback bref et bienveillant.
+        Réponds en français avec un commentaire bref, précis, professionnel et bienveillant.
         """
         let payload = ResponsesRequest(prompt: prompt,
                                        imageURL: "data:image/jpeg;base64,\(imageData.base64EncodedString())")
@@ -158,9 +158,13 @@ final class MultimodalScoringService: MultimodalScoring {
                     case .value(let type, let items):
                         try container.encode(type, forKey: .type)
                         try container.encodeIfPresent(items, forKey: .items)
+                        if type == "integer" {
+                            try container.encode(0, forKey: .minimum)
+                            try container.encode(10, forKey: .maximum)
+                        }
                     }
                 }
-                enum CodingKeys: String, CodingKey { case type, items }
+                enum CodingKeys: String, CodingKey { case type, items, minimum, maximum }
             }
         }
     }
