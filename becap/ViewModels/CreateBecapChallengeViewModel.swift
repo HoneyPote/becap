@@ -63,12 +63,12 @@ class CreateBecapChallengeViewModel: ObservableObject {
         self.notificationManager = notificationManager
     }
 
-    func createBecapChallenge(completion: @escaping (Bool) -> Void) {
+    func createBecapChallenge(completion: @escaping (Challenge?) -> Void) {
         isLoading = true
 
         guard let currentUser, let currentUserId = currentUser.id else {
             isLoading = false
-            completion(false)
+            completion(nil)
             return
         }
 
@@ -76,13 +76,23 @@ class CreateBecapChallengeViewModel: ObservableObject {
 
         Task {
             do {
-                guard let newChallenge = try await challengeManager.createChallenge(newChallenge)
-                else { return }
+                guard let newChallenge = try await challengeManager.createChallenge(newChallenge) else {
+                    await MainActor.run {
+                        self.isLoading = false
+                        completion(nil)
+                    }
+                    return
+                }
 
                 let newBecapData = buildNewBecapData(challengeId: newChallenge.id)
 
-                guard let newBecapChallengeData = try await challengeManager.createBecapChallengeData(newBecapData)
-                else { return }
+                guard try await challengeManager.createBecapChallengeData(newBecapData) != nil else {
+                    await MainActor.run {
+                        self.isLoading = false
+                        completion(nil)
+                    }
+                    return
+                }
 
                 try await challengeManager.createNewParticipantProgress(userId: currentUserId,
                                                                         challenge: newChallenge)
@@ -94,12 +104,12 @@ class CreateBecapChallengeViewModel: ObservableObject {
                 await MainActor.run {
                     self.notificationManager.scheduleDailyNotifications(for: newChallenge, config: newChallenge.defaultNotificationsConfig)
                     self.isLoading = false
-                    completion(true)
+                    completion(newChallenge)
                 }
             } catch {
                 await MainActor.run {
                     self.isLoading = false
-                    completion(false)
+                    completion(nil)
                 }
             }
         }

@@ -7,12 +7,18 @@
 
 import SwiftUI
 
+private struct ChallengeShareSheetPayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
 struct CreateBecapChallengeView: View {
     @Environment(\.dismiss) var dismiss
 
     @StateObject private var viewModel: CreateBecapChallengeViewModel
 
-    @State private var challengeCreated: Bool = false
+    @State private var shareSheetPayload: ChallengeShareSheetPayload?
+    @State private var shouldDismissAfterShare: Bool = false
     @State private var editedNotifTime: Date = Date()
     @State private var editedNotifIndex: Int?
     @State private var isEditTimeSheetOpen: Bool = false
@@ -62,6 +68,13 @@ struct CreateBecapChallengeView: View {
             }
         }
         .navigationBarBackButtonHidden()
+        .sheet(item: $shareSheetPayload, onDismiss: {
+            if shouldDismissAfterShare {
+                dismiss()
+            }
+        }) { payload in
+            ShareSheet(activityItems: payload.items)
+        }
     }
 
     private var header: some View {
@@ -222,11 +235,16 @@ struct CreateBecapChallengeView: View {
                 .padding(.vertical, 16)
             } else {
                 Button(action: {
-                    viewModel.createBecapChallenge() { success in
-                        if success {
-                            challengeCreated = true
+                    viewModel.createBecapChallenge { createdChallenge in
+                        guard let createdChallenge else { return }
+
+                        guard let items = ChallengeShareBuilder.makeShareItems(for: createdChallenge) else {
                             dismiss()
+                            return
                         }
+
+                        shouldDismissAfterShare = true
+                        shareSheetPayload = ChallengeShareSheetPayload(items: items)
                     }
                 }) {
                     HStack(spacing: 12) {
@@ -235,7 +253,7 @@ struct CreateBecapChallengeView: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Créer le défi")
                                 .font(.system(.headline, design: .rounded).weight(.bold))
-                            Text("Lancez le défi et partagez-le avec le monde !")
+                            Text("Lancez le défi : le partage s’ouvrira automatiquement.")
                                 .font(.system(.caption, design: .rounded))
                                 .foregroundColor(.white.opacity(0.85))
                                 .multilineTextAlignment(.leading)
@@ -277,7 +295,9 @@ extension CreateBecapChallengeView {
                 .font(.system(.headline, design: .rounded).weight(.bold))
                 .foregroundColor(.white)
 
-            VStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) {
+                notificationExplanation
+
                 LazyVGrid(columns: notifSettingColumns, spacing: 12) {
                     ForEach(Array(viewModel.notificationTimes.enumerated()), id: \.element.id) { index, item in
                         notificationTimeCell(item.fullDate, index: index)
@@ -312,6 +332,50 @@ extension CreateBecapChallengeView {
             }
             .presentationDetents([.height(150)])
             .presentationDragIndicator(.hidden)
+        }
+    }
+
+
+    private var notificationExplanation: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            notificationExplanationRow(title: "Pour tout le monde",
+                                       message: "Les heures ajoutées à la création deviennent les rappels par défaut du défi. Elles seront visibles et proposées à tous les participants.",
+                                       icon: "person.3.fill")
+
+            Divider()
+                .overlay(Color.white.opacity(0.18))
+
+            notificationExplanationRow(title: "Pour moi",
+                                       message: "Après la création, chacun peut aller dans l’onglet Notifications pour copier ces heures, les modifier ou ajouter ses propres rappels sans impacter le groupe.",
+                                       icon: "person.fill")
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.white.opacity(0.10))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.18), lineWidth: 1)
+        )
+    }
+
+    private func notificationExplanationRow(title: String, message: String, icon: String) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(.white.opacity(0.9))
+                .padding(.top, 2)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title)
+                    .font(.system(.footnote, design: .rounded).weight(.bold))
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundColor(.white.opacity(0.78))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
