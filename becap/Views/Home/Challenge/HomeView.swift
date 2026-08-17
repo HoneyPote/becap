@@ -83,6 +83,13 @@ struct HomeView: View {
                         .zIndex(20)
                 }
             }
+            .overlay {
+                if showDeepLinkJoinCelebration {
+                    challengeJoinedCelebration
+                        .transition(.scale(scale: 0.86).combined(with: .opacity))
+                        .zIndex(20)
+                }
+            }
             .background(
                 Image(homeBackgroundImageName)
                     .resizable()
