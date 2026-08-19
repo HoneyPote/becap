@@ -27,6 +27,19 @@ struct DefiCell: View {
 
     private var participantsCount: Int { challenge.participantUids.count }
 
+    private var currentDay: Int {
+        let elapsedDays = Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: challenge.startDate),
+            to: Calendar.current.startOfDay(for: Date())
+        ).day ?? 0
+        return min(max(elapsedDays + 1, 1), max(challenge.duration, 1))
+    }
+
+    private var progress: Double {
+        Double(currentDay) / Double(max(challenge.duration, 1))
+    }
+
     private var challengeTypeImageName: String {
         switch challenge.category {
         case .sport: return "sportDefiCell"
@@ -69,6 +82,17 @@ struct DefiCell: View {
                 }
 
                 Spacer(minLength: 0)
+
+                if challenge.status == .active {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Jour \(currentDay) sur \(challenge.duration)")
+                            .font(BecapTypography.caption)
+                            .foregroundStyle(.white)
+
+                        ProgressView(value: progress)
+                            .tint(BecapColors.mint)
+                    }
+                }
 
                 HStack(spacing: 8) {
                     Image(systemName: "person.2.fill")
