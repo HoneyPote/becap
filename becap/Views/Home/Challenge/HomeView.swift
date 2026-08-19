@@ -45,8 +45,8 @@ struct HomeView: View {
                 }
                 .padding(.horizontal, 24)
 
-                Text("⛿ BE CAP ⛿")
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
+                Text("BE CAP")
+                    .font(BecapTypography.display)
                     .textCase(.uppercase)
                     .foregroundColor(.white)
                     .padding(.bottom, 12)
@@ -83,14 +83,7 @@ struct HomeView: View {
                         .zIndex(20)
                 }
             }
-            .background(
-                Image(homeBackgroundImageName)
-                    .resizable()
-                    .scaledToFill()
-                    .offset(x: -60)
-                    .overlay(Color.black.opacity(0.15))
-                    .ignoresSafeArea()
-            )
+            .background(BecapBrandBackground())
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // hidden deep link
         }
@@ -325,7 +318,7 @@ struct HomeView: View {
             }
 
             if !finishedBecapChallenges.isEmpty, showRestartHint {
-                Text("Tu peux relancer un défi Becap terminé avec Restart ✅")
+                Text("Tu peux recommencer un défi BeCap terminé ici.")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
                     .padding(.horizontal, 30)
@@ -582,11 +575,5 @@ extension HomeView {
         }
 
         return viewModel.becapChallenges.first(where: { $0.id == challengeId })
-    }
-}
-
-private extension HomeView {
-    var homeBackgroundImageName: String {
-        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "homeWallPaper"
     }
 }

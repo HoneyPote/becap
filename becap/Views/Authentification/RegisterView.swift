@@ -18,8 +18,7 @@ struct RegisterView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient.authBackground
-                .ignoresSafeArea()
+            BecapBrandBackground()
 
             VStack(spacing: 0) {
                 WaterHeaderView(title: "Créer un compte")
@@ -66,15 +65,8 @@ struct RegisterView: View {
                     Text("Créer un compte")
                         .font(.system(.headline, design: .rounded).weight(.semibold))
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(Color.black.opacity(0.72))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(LinearGradient.authButton, lineWidth: 2)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             })
+            .buttonStyle(BecapPrimaryButtonStyle())
 
             HStack(spacing: 6) {
                 Image(systemName: "arrow.left.circle")
@@ -101,18 +93,10 @@ private extension RegisterView {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(.footnote, design: .rounded).weight(.semibold))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(BecapColors.textSecondary)
 
             content()
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
-                .foregroundColor(.white)
-                .overlay {
-                    Capsule()
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                }
+                .becapFieldStyle()
         }
     }
 }

@@ -16,19 +16,23 @@ struct ToastView: View {
             Image(systemName: type == .success ? "checkmark.circle.fill" : "xmark.octagon.fill")
                 .foregroundColor(.white)
                 .imageScale(.large)
-                .background(Circle().fill(type == .success ? Color.green : Color.red).frame(width: 36, height: 36))
+                .background(Circle().fill(type == .success ? BecapColors.mint : BecapColors.coral).frame(width: 36, height: 36))
 
             Text(message)
                 .foregroundColor(.white)
-                .font(.headline)
+                .font(BecapTypography.headline)
                 .multilineTextAlignment(.leading)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
         .background(.ultraThinMaterial)
-        .background(type == .success ? Color.green.opacity(0.92) : Color.red.opacity(0.92))
-        .cornerRadius(16)
-        .shadow(radius: 10)
+        .background(type == .success ? BecapColors.mint.opacity(0.94) : BecapColors.coral.opacity(0.94))
+        .clipShape(RoundedRectangle(cornerRadius: BecapMetrics.controlRadius, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: BecapMetrics.controlRadius, style: .continuous)
+                .stroke(BecapColors.border, lineWidth: 1)
+        }
+        .shadow(color: .black.opacity(0.20), radius: 12, y: 6)
         .padding(.horizontal, 28)
         .transition(.move(edge: .top).combined(with: .opacity))
         .animation(.spring(), value: message)
