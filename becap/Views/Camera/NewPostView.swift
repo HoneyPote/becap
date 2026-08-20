@@ -12,9 +12,11 @@ import AVFoundation
 
 struct NewPostView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @StateObject private var viewModel: NewPostViewModel
 
     @State private var showMediaPreview = false
+    @State private var showSuccessCelebration = false
 
     let onCameraButtonClick: () -> Void
 
@@ -48,27 +50,7 @@ struct NewPostView: View {
             .padding(.horizontal, 20)
             .padding(.top, 22)
         }
-        .background(
-            ZStack {
-                // Filler: covers edges at any ratio
-                Image("iphone_wallpaper_cliff")
-                    .resizable()
-                    .scaledToFill()
-                    .blur(radius: 12)
-                    .ignoresSafeArea()
-
-                // Sharp layer, slightly zoomed out
-                Image("iphone_wallpaper_cliff")
-                    .resizable()
-                    .scaledToFill()
-                    .offset(x: -25) // 0.85–0.95 depending on taste
-                    .ignoresSafeArea()
-
-                // Global dark veil
-                Color.black.opacity(0.15).ignoresSafeArea()
-            }
-                .allowsHitTesting(false)
-        )
+        .background(BecapBrandBackground())
         .overlay(alignment: .top) {
             VStack(spacing: 10) {
                 if viewModel.toast.isShown {
@@ -83,20 +65,22 @@ struct NewPostView: View {
             }
             .padding(.top, 6)
         }
+        .overlay {
+            if showSuccessCelebration {
+                publicationCelebration
+                    .transition(reduceMotion ? .opacity : .scale(scale: 0.88).combined(with: .opacity))
+            }
+        }
+        .animation(reduceMotion ? nil : .spring(response: 0.45, dampingFraction: 0.78),
+                   value: showSuccessCelebration)
     }
 
     private var headerSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Nouveau Post")
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                    .foregroundStyle(
-                        LinearGradient(
-                            colors: [Color.white, Color.white.opacity(0.7)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
+                Text("Ta preuve du jour")
+                    .font(BecapTypography.display)
+                    .foregroundStyle(BecapColors.textPrimary)
 
                 Text("Partage ton énergie et inspire ton équipe en quelques secondes.")
                     .font(.system(.subheadline, design: .rounded).weight(.medium))
@@ -112,9 +96,8 @@ struct NewPostView: View {
     private var challengePickerSection: some View {
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 6) {
-                Text("Défi selectionné")
-                    .font(.system(.headline, design: .rounded).weight(.heavy))
-                    .textCase(.uppercase)
+                Text("Défi sélectionné")
+                    .font(BecapTypography.headline)
                     .foregroundColor(.white)
             }
             VStack(alignment: .leading, spacing: 10) {
@@ -150,7 +133,10 @@ struct NewPostView: View {
             Button {
                 viewModel.uploadMedia() { hasUploaded in
                     if hasUploaded {
-                        dismiss()
+                        withAnimation { showSuccessCelebration = true }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.35) {
+                            dismiss()
+                        }
                     }
                 }
             } label: {
@@ -164,30 +150,12 @@ struct NewPostView: View {
                     }
 
                     Text(viewModel.uploadButtonLabel)
-                        .font(.system(.headline, design: .rounded).weight(.heavy))
-                        .textCase(.uppercase)
-                        .foregroundColor(.white)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(
-                            LinearGradient(
-                                colors: [
-                                    Color(red: 0.92, green: 0.86, blue: 0.72),  // beige clair foncé
-                                    Color(red: 0.88, green: 0.78, blue: 0.60)   // beige chaud plus profond
-                                ],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-                )
             }
-            .buttonStyle(PressableButtonStyle())
+            .buttonStyle(BecapPrimaryButtonStyle())
             .disabled(viewModel.isUploadingPost || viewModel.selectedMedia == nil)
-            .opacity((viewModel.isUploadingPost || viewModel.selectedMedia == nil) ? 0.85 : 1.0)
+            .opacity((viewModel.isUploadingPost || viewModel.selectedMedia == nil) ? 0.55 : 1.0)
+            .accessibilityHint("Publie la photo ou la vidéo dans le défi sélectionné")
 
             Button {
                 dismiss()
@@ -324,20 +292,47 @@ struct NewPostView: View {
             }
 
             TextField("Description (optionnelle)", text: $viewModel.descriptionText)
-                .padding(.vertical, 14)
-                .padding(.horizontal, 18)
-                .background(
-                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.08))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-                        )
-                )
-                .foregroundColor(.white)
-                .font(.system(.body, design: .rounded))
+                .font(BecapTypography.body)
+                .becapFieldStyle()
         }
         .padding(4)
+    }
+
+    private var publicationCelebration: some View {
+        ZStack {
+            Color.black.opacity(0.48)
+                .ignoresSafeArea()
+
+            VStack(spacing: BecapMetrics.spacingM) {
+                ZStack {
+                    Circle()
+                        .fill(BecapColors.mint.opacity(0.18))
+                        .frame(width: 104, height: 104)
+                    Image(systemName: "checkmark.seal.fill")
+                        .font(.system(size: 64, weight: .bold))
+                        .foregroundStyle(BecapColors.mint)
+                }
+
+                Text("Défi relevé !")
+                    .font(BecapTypography.display)
+                    .foregroundStyle(BecapColors.textPrimary)
+
+                Text("Ta preuve est publiée. Ton groupe peut maintenant la découvrir.")
+                    .font(BecapTypography.body)
+                    .foregroundStyle(BecapColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+            .padding(32)
+            .background(.regularMaterial,
+                        in: RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous)
+                    .stroke(BecapColors.border, lineWidth: 1)
+            }
+            .padding(.horizontal, BecapMetrics.spacingL)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Défi relevé. Ta preuve est publiée.")
     }
 
     private func uploadProgressAlert(durationLabel: String) -> some View {

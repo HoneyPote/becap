@@ -9,8 +9,10 @@ import SwiftUI
 
 struct SplashScreenView: View {
     @EnvironmentObject private var appState: AppState
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @StateObject private var viewModel = SplashScreenViewModel()
+    @AppStorage("becap.hasSeenWelcome") private var hasSeenWelcome = false
 
     @State private var animHasFinished: Bool = false
     @State private var scale: CGFloat = 0.8
@@ -23,6 +25,10 @@ struct SplashScreenView: View {
                     if appState.isLoggedIn {
                         MainView()
                             .id(appState.sessionID) // Reloading root view after every login
+                    } else if !hasSeenWelcome {
+                        WelcomeView {
+                            hasSeenWelcome = true
+                        }
                     } else {
                         LoginView()
                     }
@@ -36,27 +42,26 @@ struct SplashScreenView: View {
         .onAppear {
             viewModel.onAppear()
         }
-        .animation(.easeInOut, value: appState.isLoggedIn)
+        .animation(reduceMotion ? nil : .easeInOut, value: appState.isLoggedIn)
     }
 
     var splashScreen: some View {
         ZStack {
-            LinearGradient.petrolToSky.ignoresSafeArea()
+            BecapBrandBackground()
             VStack {
                 Image(systemName: "flag.fill")
                     .font(.system(size: 60))
                     .foregroundColor(.white)
                     .padding(.bottom, 16)
 
-                Text("Becap")
-                    .font(.largeTitle)
-                    .fontWeight(.bold)
+                Text("BE CAP")
+                    .font(BecapTypography.display)
                     .foregroundColor(.white)
             }
             .scaleEffect(scale)
             .opacity(opacity)
             .onAppear {
-                withAnimation(.easeIn(duration: 1.2)) {
+                withAnimation(reduceMotion ? nil : .easeIn(duration: 0.7)) {
                     self.scale = 1.0
                     self.opacity = 1.0
                 }
