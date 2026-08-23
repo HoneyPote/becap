@@ -40,14 +40,14 @@ struct DefiCell: View {
         Double(currentDay) / Double(max(challenge.duration, 1))
     }
 
-    private var challengeTypeImageName: String {
+    private var challengeArtworkName: String {
         switch challenge.category {
         case .sport: return "sportDefiCell"
         case .drawing: return "drawDefiCell"
         case .food: return "foodDefiCell"
         case .reading: return "BookDefiCell"
         case .running: return "iphone_wallpaper_duo_run"
-        case .other, .none: return "foodDefiCell"
+        case .other, .none: return "sunset"
         }
     }
 
@@ -55,17 +55,21 @@ struct DefiCell: View {
         let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
 
         ZStack(alignment: .bottomLeading) {
-            // ✅ Background image + gradient
-            Image(challengeTypeImageName)
+            Image(challengeArtworkName)
                 .resizable()
                 .scaledToFill()
-                .overlay(
-                    LinearGradient(
-                        colors: [.black.opacity(0.05), .black.opacity(0.15)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
+                .accessibilityHidden(true)
+
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0.16), location: 0),
+                    .init(color: .black.opacity(0.42), location: 0.48),
+                    .init(color: .black.opacity(0.78), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .accessibilityHidden(true)
 
             // ✅ Content
             VStack(alignment: .leading, spacing: 8) {

@@ -77,9 +77,24 @@ struct TodayChallengeCard: View {
         }
         .padding(BecapMetrics.spacingL)
         .background {
-            RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous)
-                .fill(BecapColors.navyElevated.opacity(0.92))
+            ZStack {
+                Image("sunset")
+                    .resizable()
+                    .scaledToFill()
+                    .accessibilityHidden(true)
+
+                LinearGradient(
+                    colors: [
+                        BecapColors.navy.opacity(0.82),
+                        BecapColors.navyElevated.opacity(0.94)
+                    ],
+                    startPoint: .topTrailing,
+                    endPoint: .bottomLeading
+                )
+                .accessibilityHidden(true)
+            }
         }
+        .clipShape(RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous)
                 .stroke(BecapColors.border, lineWidth: 1)
