@@ -21,13 +21,17 @@ struct ChallengeLibraryView: View {
                 ScrollView {
                     LazyVStack(spacing: BecapMetrics.spacingM) {
                         if allChallenges.isEmpty {
-                            ContentUnavailableView(
-                                "Aucun défi",
-                                systemImage: "flag.checkered",
-                                description: Text("Tes défis actifs et terminés apparaîtront ici.")
-                            )
-                            .foregroundStyle(BecapColors.textPrimary)
-                            .padding(.top, 80)
+                            if #available(iOS 17.0, *) {
+                                ContentUnavailableView(
+                                    "Aucun défi",
+                                    systemImage: "flag.checkered",
+                                    description: Text("Tes défis actifs et terminés apparaîtront ici.")
+                                )
+                                .foregroundStyle(BecapColors.textPrimary)
+                                .padding(.top, 80)
+                            } else {
+                                // Fallback on earlier versions
+                            }
                         } else {
                             ForEach(allChallenges) { challenge in
                                 NavigationLink {
