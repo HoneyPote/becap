@@ -47,7 +47,7 @@ struct DefiCell: View {
         case .food: return "foodDefiCell"
         case .reading: return "BookDefiCell"
         case .running: return "iphone_wallpaper_duo_run"
-        case .other, .none: return "foodDefiCell"
+        case .other, .none: return "sunset"
         }
     }
 
@@ -59,9 +59,10 @@ struct DefiCell: View {
             Image(challengeTypeImageName)
                 .resizable()
                 .scaledToFill()
+                .accessibilityHidden(true)
                 .overlay(
                     LinearGradient(
-                        colors: [.black.opacity(0.05), .black.opacity(0.15)],
+                        colors: [.black.opacity(0.22), .black.opacity(0.72)],
                         startPoint: .top,
                         endPoint: .bottom
                     )
