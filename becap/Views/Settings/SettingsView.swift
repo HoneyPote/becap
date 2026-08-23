@@ -100,14 +100,7 @@ struct SettingsView: View {
                     }
                 }
             }
-            .background(
-                Image("iphone_wallpaper_lake")
-                    .resizable()
-                    .scaledToFill()
-                    .overlay(Color.black.opacity(0.25))
-                    .offset(x: -23)
-                    .ignoresSafeArea()
-            )
+            .background(BecapBrandBackground())
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .principal) {

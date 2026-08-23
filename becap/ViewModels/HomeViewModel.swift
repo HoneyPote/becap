@@ -53,6 +53,19 @@ class HomeViewModel: ObservableObject {
 
     var becapTemplates: [BecapChallengeTemplate] = []
 
+    var primaryActiveChallenge: Challenge? {
+        let activeChallenges = challenges.filter {
+            $0.status == .active && $0.startDate <= Date()
+        }
+        let activeBecapChallenges = becapChallenges
+            .map(\.base)
+            .filter { $0.status == .active && $0.startDate <= Date() }
+
+        return (activeChallenges + activeBecapChallenges)
+            .sorted { $0.startDate < $1.startDate }
+            .first
+    }
+
     // Mocked becap challenge templates
     private func loadBecapChallenges() {
         becapTemplates = [

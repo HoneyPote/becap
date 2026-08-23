@@ -23,9 +23,22 @@ struct DefiCell: View {
         self.isRestarting = isRestarting
     }
 
-    private let corner: CGFloat = 18
+    private let corner: CGFloat = BecapMetrics.cardRadius
 
     private var participantsCount: Int { challenge.participantUids.count }
+
+    private var currentDay: Int {
+        let elapsedDays = Calendar.current.dateComponents(
+            [.day],
+            from: Calendar.current.startOfDay(for: challenge.startDate),
+            to: Calendar.current.startOfDay(for: Date())
+        ).day ?? 0
+        return min(max(elapsedDays + 1, 1), max(challenge.duration, 1))
+    }
+
+    private var progress: Double {
+        Double(currentDay) / Double(max(challenge.duration, 1))
+    }
 
     private var challengeTypeImageName: String {
         switch challenge.category {
@@ -69,6 +82,17 @@ struct DefiCell: View {
                 }
 
                 Spacer(minLength: 0)
+
+                if challenge.status == .active {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Jour \(currentDay) sur \(challenge.duration)")
+                            .font(BecapTypography.caption)
+                            .foregroundStyle(.white)
+
+                        ProgressView(value: progress)
+                            .tint(BecapColors.mint)
+                    }
+                }
 
                 HStack(spacing: 8) {
                     Image(systemName: "person.2.fill")
@@ -121,7 +145,7 @@ struct DefiCell: View {
                         .font(.system(size: 14, weight: .heavy, design: .rounded))
                 }
 
-                Text("Restart")
+                Text("Recommencer")
                     .font(.system(.subheadline, design: .rounded).weight(.heavy))
             }
             .foregroundColor(.white)
@@ -146,8 +170,8 @@ struct DefiCell: View {
             .padding(.vertical, 6)
             .background(
                 challenge.status == .active
-                ? Color(red: 0.25, green: 0.77, blue: 0.48)
-                : Color(red: 0.61, green: 0.65, blue: 0.75)
+                ? BecapColors.mint
+                : BecapColors.textSecondary
             )
             .clipShape(Capsule())
     }

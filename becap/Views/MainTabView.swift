@@ -10,6 +10,7 @@ import Combine
 
 struct MainView: View {
     @StateObject private var viewModel: MainTabViewModel = MainTabViewModel()
+    @ObservedObject private var connectivity = ConnectivityMonitor.shared
 
     @Environment(\.scenePhase) private var scenePhase
 
@@ -18,7 +19,26 @@ struct MainView: View {
     @State private var selectedIndex: Int = 0
 
     var body: some View {
-        HomeView()
+        TabView(selection: $selectedIndex) {
+            HomeView()
+                .tag(0)
+                .tabItem {
+                    Label("Aujourd’hui", systemImage: "sun.max.fill")
+                }
+
+            ChallengeLibraryView()
+                .tag(1)
+                .tabItem {
+                    Label("Défis", systemImage: "flag.checkered")
+                }
+
+            SettingsView()
+                .tag(2)
+                .tabItem {
+                    Label("Profil", systemImage: "person.crop.circle.fill")
+                }
+        }
+            .tint(BecapColors.mint)
             .onAppear {
                 NotificationManager.shared.requestAuthorization()
             }
@@ -39,6 +59,14 @@ struct MainView: View {
                         .transition(.scale)
                 }
             }
+            .overlay(alignment: .top) {
+                if !connectivity.isConnected {
+                    ConnectivityBanner()
+                        .padding(.top, BecapMetrics.spacingS)
+                        .transition(.move(edge: .top).combined(with: .opacity))
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: connectivity.isConnected)
             .navigationBarBackButtonHidden(true)
             .onChange(of: deepLinkRouter.pendingCalendarChallengeId) { id in
                 guard id != nil else { return }

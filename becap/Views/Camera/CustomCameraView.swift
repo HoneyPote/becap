@@ -11,6 +11,7 @@ import AVFoundation
 struct CustomCameraView: View {
     @StateObject private var viewModel: CustomCameraViewModel
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     @State private var isCaptureButtonPressed: Bool = false
     @State private var isTimelapseRingAnimating = false
@@ -55,15 +56,17 @@ struct CustomCameraView: View {
         }
         .overlay(alignment: .topLeading) {
             if !viewModel.isRecordingVideo {
-                HStack {
+                Button {
+                    dismiss()
+                } label: {
                     Text("Annuler")
                         .font(.headline)
                         .foregroundColor(.white)
-                        .padding(10)
+                        .frame(minWidth: 84, minHeight: BecapMetrics.minimumTapTarget)
                         .background(Color.black.opacity(0.4))
                         .clipShape(Capsule())
-                        .onTapGesture { dismiss() }
                 }
+                .accessibilityHint("Ferme l’appareil photo")
                 .padding()
             }
         }
@@ -82,49 +85,36 @@ struct CustomCameraView: View {
                     .ignoresSafeArea()
             }
 
-            HStack {
-                Text("Reprendre")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .padding()
-                    .background(Color.gray.opacity(0.7))
-                    .cornerRadius(14)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-                    .onTapGesture {
-                        withAnimation(.easeInOut(duration: 0.25)) {
-                            viewModel.resetCamera()
-                        }
+            HStack(spacing: BecapMetrics.spacingM) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        viewModel.resetCamera()
                     }
+                } label: {
+                    Label("Reprendre", systemImage: "arrow.counterclockwise")
+                        .font(BecapTypography.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(Color.black.opacity(0.62))
+                        .clipShape(RoundedRectangle(cornerRadius: BecapMetrics.controlRadius, style: .continuous))
+                }
+                .accessibilityHint("Supprime cette capture et rouvre l’appareil photo")
 
-                Text("Enregistrer")
-                    .font(.headline)
-                    .padding()
-                    .background(
-                        LinearGradient(
-                            colors: [
-                                Color(red: 0.92, green: 0.86, blue: 0.72),
-                                Color(red: 0.88, green: 0.78, blue: 0.60)
-                            ],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .cornerRadius(14)
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 20)
-                    .shadow(color: .black.opacity(0.2), radius: 4, y: 2)
-                    .onTapGesture {
-                        // This view used to remain merely offset behind NewPostView,
-                        // so the capture session kept allocating video buffers while
-                        // the photo was encoded, scored and uploaded. Stop it before
-                        // handing the media off to keep the app below the iOS memory
-                        // limit (jetsam terminations do not produce a Swift crash).
-                        viewModel.stopCaptureSession()
-                        onCapture(media)
-                    }
+                Button {
+                    viewModel.stopCaptureSession()
+                    onCapture(media)
+                } label: {
+                    Label("Continuer", systemImage: "arrow.right")
+                        .font(BecapTypography.headline)
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity, minHeight: 52)
+                        .background(BecapColors.actionGradient)
+                        .clipShape(RoundedRectangle(cornerRadius: BecapMetrics.controlRadius, style: .continuous))
+                }
+                .accessibilityHint("Utilise cette capture comme preuve")
             }
+            .padding(.horizontal, BecapMetrics.spacingM)
+            .padding(.bottom, BecapMetrics.spacingL)
         }
     }
 
@@ -188,7 +178,7 @@ struct CustomCameraView: View {
                             .stroke(Color.white.opacity(0.7), style: StrokeStyle(lineWidth: 6, dash: [10, 6]))
                             .frame(width: 112, height: 112)
                             .rotationEffect(.degrees(isTimelapseRingAnimating ? 360 : 0))
-                            .animation(.linear(duration: 1.6).repeatForever(autoreverses: false),
+                            .animation(reduceMotion ? nil : .linear(duration: 1.6).repeatForever(autoreverses: false),
                                        value: isTimelapseRingAnimating)
                             .onAppear { isTimelapseRingAnimating = true }
                             .onDisappear { isTimelapseRingAnimating = false }
@@ -213,6 +203,9 @@ struct CustomCameraView: View {
                             viewModel.onCaptureButtonTap()
                         }
                         .gesture(longPressGesture)
+                        .accessibilityLabel(viewModel.isRecordingVideo ? "Arrêter l’enregistrement" : "Prendre une photo")
+                        .accessibilityHint("Touchez pour une photo, maintenez pour une vidéo")
+                        .accessibilityAddTraits(.isButton)
 
                     if viewModel.isRecordingVideo {
                         Image(systemName: viewModel.lockIconName)
@@ -312,6 +305,7 @@ struct CustomCameraView: View {
 
 struct PulsatingEffect: ViewModifier {
     @State private var animate = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var isActive: Bool
 
@@ -319,7 +313,10 @@ struct PulsatingEffect: ViewModifier {
         content
             .scaleEffect(animate ? 1.15 : 0.9)
             .opacity(animate ? 0.9 : 0.5)
-            .animation(isActive ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true) : .default, value: animate)
+            .animation(isActive && !reduceMotion
+                       ? .easeInOut(duration: 0.8).repeatForever(autoreverses: true)
+                       : nil,
+                       value: animate)
             .onAppear { animate = true }
             .onDisappear { animate = false }
     }

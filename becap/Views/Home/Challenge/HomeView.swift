@@ -12,6 +12,7 @@ import UIKit
 struct HomeView: View {
     @EnvironmentObject private var deepLinkRouter: DeepLinkRouter
     @StateObject var viewModel = HomeViewModel()
+    @ObservedObject private var userManager = UserManager.shared
 
     @State private var showShareChallengeView = false
     @State private var showNewChallengeView = false
@@ -29,8 +30,19 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .center, spacing: .zero) {
-                HStack {
-                    Spacer()
+                HStack(spacing: BecapMetrics.spacingM) {
+                    VStack(alignment: .leading, spacing: BecapMetrics.spacingXS) {
+                        Text("BE CAP")
+                            .font(BecapTypography.caption.weight(.bold))
+                            .foregroundStyle(BecapColors.mint)
+
+                        Text(greeting)
+                            .font(BecapTypography.title)
+                            .foregroundStyle(BecapColors.textPrimary)
+                            .lineLimit(1)
+                    }
+
+                    Spacer(minLength: BecapMetrics.spacingS)
 
                     NavigationLink {
                         SettingsView()
@@ -40,23 +52,20 @@ struct HomeView: View {
                             .scaledToFit()
                             .frame(width: 32, height: 32)
                             .foregroundColor(.white)
-                            .padding(10)
+                            .frame(width: BecapMetrics.minimumTapTarget,
+                                   height: BecapMetrics.minimumTapTarget)
                     }
+                    .accessibilityLabel("Ouvrir le profil et les paramètres")
                 }
                 .padding(.horizontal, 24)
-
-                Text("⛿ BE CAP ⛿")
-                    .font(.system(.largeTitle, design: .rounded).weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundColor(.white)
-                    .padding(.bottom, 12)
-                    .padding(.horizontal, 24)
+                .padding(.bottom, BecapMetrics.spacingM)
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: .zero) {
-                        shareCreateChallengeSection
-                        becapChallengeListSection
+                        todaySection
                         challengeListSection
+                        becapChallengeListSection
+                        shareCreateChallengeSection
                         finishedChallengeListSection
                     }
                     .padding(.horizontal)
@@ -83,14 +92,7 @@ struct HomeView: View {
                         .zIndex(20)
                 }
             }
-            .background(
-                Image(homeBackgroundImageName)
-                    .resizable()
-                    .scaledToFill()
-                    .offset(x: -60)
-                    .overlay(Color.black.opacity(0.15))
-                    .ignoresSafeArea()
-            )
+            .background(BecapBrandBackground())
             .navigationBarHidden(true)
             .background(deepLinkNavigationLink) // hidden deep link
         }
@@ -172,69 +174,104 @@ struct HomeView: View {
         }
     }
 
-    private var shareCreateChallengeSection: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: 18) {
-            ShareButtonCell {
-                showShareChallengeView = true
-            }
+    private var greeting: String {
+        let firstName = userManager.currentUser?.name
+            .split(separator: " ")
+            .first
+            .map(String.init)
 
-            NewChallengeCell {
+        guard let firstName, !firstName.isEmpty else {
+            return "Prêt à te dépasser ?"
+        }
+
+        return "Bonjour, \(firstName)"
+    }
+
+    @ViewBuilder
+    private var todaySection: some View {
+        if let challenge = viewModel.primaryActiveChallenge {
+            NavigationLink {
+                CalendarDetailView(challenge: challenge)
+                    .onDisappear { viewModel.refreshChallenges() }
+            } label: {
+                TodayChallengeCard(challenge: challenge)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, BecapMetrics.spacingS)
+            .padding(.bottom, BecapMetrics.spacingL)
+        } else {
+            NoActiveChallengeCard {
                 showNewChallengeView = true
             }
+            .padding(.top, BecapMetrics.spacingS)
+            .padding(.bottom, BecapMetrics.spacingL)
         }
+    }
+
+    private var shareCreateChallengeSection: some View {
+        VStack(spacing: BecapMetrics.spacingM) {
+            sectionHeader(title: "Lancer un défi", systemImage: "plus.circle.fill")
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150))], spacing: BecapMetrics.spacingM) {
+                ShareButtonCell {
+                    showShareChallengeView = true
+                }
+
+                NewChallengeCell {
+                    showNewChallengeView = true
+                }
+            }
+        }
+        .padding(.top, BecapMetrics.spacingL)
+    }
+
+    private func sectionHeader(title: String, systemImage: String) -> some View {
+        HStack(spacing: BecapMetrics.spacingS) {
+            Image(systemName: systemImage)
+                .foregroundStyle(BecapColors.mint)
+            Text(title)
+                .font(BecapTypography.title)
+                .foregroundStyle(BecapColors.textPrimary)
+            Spacer()
+        }
+        .accessibilityAddTraits(.isHeader)
     }
 
     private var challengeListSection: some View {
         Group {
-            HStack(spacing: 10) {
-                Image("list_white")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 30)
-                Text("DÉFIS LIBRES")
-                    .font(.system(.title, design: .rounded).weight(.heavy))
-                    .textCase(.uppercase)
-                    .foregroundColor(.white)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 34)
-            .padding(.bottom, 14)
-            .padding(.horizontal, 24)
-            .multilineTextAlignment(.center)
+            sectionHeader(title: "Tes défis", systemImage: "bolt.fill")
+                .padding(.bottom, BecapMetrics.spacingS)
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 16) {
-                    ForEach(viewModel.challenges.filter { $0.status == .active }) { challenge in
-                        NavigationLink(destination: {
-                            CalendarDetailView(challenge: challenge)
-                                .onDisappear { viewModel.refreshChallenges() }
-                        }) {
-                            DefiCell(challenge: challenge,
-                                     onReport: { viewModel.presentReport(for: challenge) })
-                            .frame(width: 190)
+            if viewModel.challenges.contains(where: { $0.status == .active }) {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: BecapMetrics.spacingM) {
+                        ForEach(viewModel.challenges.filter { $0.status == .active }) { challenge in
+                            NavigationLink(destination: {
+                                CalendarDetailView(challenge: challenge)
+                                    .onDisappear { viewModel.refreshChallenges() }
+                            }) {
+                                DefiCell(challenge: challenge,
+                                         onReport: { viewModel.presentReport(for: challenge) })
+                                .frame(width: 220)
+                            }
                         }
                     }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
+            } else {
+                Text("Tes défis personnels apparaîtront ici.")
+                    .font(BecapTypography.body)
+                    .foregroundStyle(BecapColors.textSecondary)
+                    .padding(.vertical, BecapMetrics.spacingM)
             }
         }
     }
 
     private var becapChallengeListSection: some View {
         Group {
-            HStack(spacing: 10) {
-                Image("list_white")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(height: 30)
-                Text("DÉFIS BECAP")
-                    .font(.system(.title, design: .rounded).weight(.heavy))
-                    .textCase(.uppercase)
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.top, 24)
-            .padding(.bottom, 14)
-            .foregroundColor(.white)
+            sectionHeader(title: "À découvrir", systemImage: "safari.fill")
+                .padding(.top, BecapMetrics.spacingL)
+                .padding(.bottom, BecapMetrics.spacingS)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 16) {
@@ -325,7 +362,7 @@ struct HomeView: View {
             }
 
             if !finishedBecapChallenges.isEmpty, showRestartHint {
-                Text("Tu peux relancer un défi Becap terminé avec Restart ✅")
+                Text("Tu peux recommencer un défi BeCap terminé ici.")
                     .font(.system(.footnote, design: .rounded).weight(.semibold))
                     .foregroundColor(.white.opacity(0.9))
                     .padding(.horizontal, 30)
@@ -582,11 +619,5 @@ extension HomeView {
         }
 
         return viewModel.becapChallenges.first(where: { $0.id == challengeId })
-    }
-}
-
-private extension HomeView {
-    var homeBackgroundImageName: String {
-        viewModel.challenges.contains(where: { $0.isLastDayToday }) ? "sunset" : "homeWallPaper"
     }
 }

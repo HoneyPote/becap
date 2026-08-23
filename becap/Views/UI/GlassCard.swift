@@ -16,11 +16,15 @@ struct GlassCard<Content: View>: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
+            RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous)
                 .fill(.thinMaterial)
-                .shadow(color: Color.black.opacity(0.10), radius: 10, x: 0, y: 5)
+                .overlay {
+                    RoundedRectangle(cornerRadius: BecapMetrics.cardRadius, style: .continuous)
+                        .stroke(BecapColors.border, lineWidth: 1)
+                }
+                .shadow(color: Color.black.opacity(0.16), radius: 16, x: 0, y: 8)
             content
-                .padding(20)
+                .padding(BecapMetrics.spacingL)
         }
     }
 }

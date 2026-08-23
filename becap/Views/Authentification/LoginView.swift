@@ -16,8 +16,7 @@ struct LoginView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient.authBackground
-                    .ignoresSafeArea()
+                BecapBrandBackground()
 
                 VStack(spacing: .zero) {
                     WaterHeaderView(title: "Connexion")
@@ -58,15 +57,8 @@ struct LoginView: View {
                     Text("Se connecter")
                         .font(.system(.headline, design: .rounded).weight(.semibold))
                 }
-                .foregroundColor(.white)
-                .frame(maxWidth: .infinity, minHeight: 54)
-                .background(Color.black.opacity(0.72))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 26, style: .continuous)
-                        .stroke(LinearGradient.authButton, lineWidth: 2)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             })
+            .buttonStyle(BecapPrimaryButtonStyle())
 
             // TODO: Voir si on rend ça fonctionnel ou pas
 //            VStack(spacing: 14) {
@@ -109,18 +101,10 @@ private extension LoginView {
         VStack(alignment: .leading, spacing: 8) {
             Text(title)
                 .font(.system(.footnote, design: .rounded).weight(.semibold))
-                .foregroundColor(.white.opacity(0.6))
+                .foregroundColor(BecapColors.textSecondary)
 
             content()
-                .padding(.horizontal, 18)
-                .padding(.vertical, 12)
-                .background(Color.white.opacity(0.08))
-                .clipShape(Capsule())
-                .foregroundColor(.white)
-                .overlay {
-                    Capsule()
-                        .stroke(Color.white.opacity(0.16), lineWidth: 1)
-                }
+                .becapFieldStyle()
         }
     }
 
@@ -134,20 +118,4 @@ private extension LoginView {
                 .clipShape(Circle())
         }
     }
-}
-
-extension LinearGradient {
-    static let authBackground = LinearGradient(
-        colors: [Color(red: 11 / 255, green: 44 / 255, blue: 87 / 255),
-                 Color(red: 45 / 255, green: 110 / 255, blue: 166 / 255)],
-        startPoint: .topLeading,
-        endPoint: .bottomTrailing
-    )
-
-    static let authButton = LinearGradient(
-        colors: [Color(red: 0.96, green: 0.48, blue: 0.83),
-                 Color(red: 0.95, green: 0.62, blue: 0.38)],
-        startPoint: .leading,
-        endPoint: .trailing
-    )
 }
